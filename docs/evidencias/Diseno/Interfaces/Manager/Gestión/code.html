@@ -1,0 +1,355 @@
+<!DOCTYPE html><html class="h-full" lang="es" style=""><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><title>Terra Ops - Manager</title><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400..700&amp;family=Nunito+Sans:ital,opsz,wght@0,6..12,300..800;1,6..12,300..800&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "secondary-container": "#f0e8db", "secondary-fixed": "#f0e8db", "on-secondary": "#ffffff", "outline-variant": "#c4c8bc", "on-surface": "#2e3230", "tertiary": "#705c30", "on-secondary-fixed-variant": "#4a4538", "secondary": "#6b6358", "on-surface-variant": "#4a4e4a", "surface-container-lowest": "#ffffff", "on-primary-container": "#d8f0de", "inverse-surface": "#2e3230", "surface-dim": "#dbd7cf", "tertiary-container": "#c4a66a", "on-secondary-container": "#5e5548", "error": "#b83230", "on-tertiary-fixed-variant": "#554020", "surface-container-highest": "#e4e0d8", "on-tertiary-container": "#554020", "surface-tint": "#4a7c59", "primary-fixed-dim": "#8ecf9e", "surface-container": "#f0ece4", "on-secondary-fixed": "#1e1a13", "on-primary": "#ffffff", "on-primary-fixed-variant": "#2a6038", "surface-bright": "#faf6f0", "on-error": "#ffffff", "surface": "#faf6f0", "surface-variant": "#e4e0d8", "on-tertiary": "#ffffff", "inverse-on-surface": "#f5f0e8", "surface-container-high": "#eae6de", "primary-container": "#78a886", "secondary-fixed-dim": "#d4ccbf", "primary-fixed": "#c8e8d0", "inverse-primary": "#8ecf9e", "tertiary-fixed-dim": "#dcc48e", "tertiary-fixed": "#f8e0a8", "background": "#faf6f0", "error-container": "#ffdad8", "on-background": "#2e3230", "surface-container-low": "#f5f1ea", "outline": "#74796e", "on-error-container": "#690005", "on-primary-fixed": "#002110", "on-tertiary-fixed": "#221a05", "primary": "#4a7c59" }, borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" }, spacing: {}, fontFamily: { "headline": ["Literata"], "display": ["Literata"], "body": ["Nunito Sans"], "label": ["Nunito Sans"] }, fontSize: {} } } }</script><style>@layer base { html, body { width: 100vw; margin: 0; padding: 0; } body { overscroll-behavior: none; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style></head><body class="bg-surface font-body text-on-surface min-h-full flex flex-col antialiased selection:bg-primary-fixed selection:text-on-primary-fixed"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="h-20 px-4 flex items-center justify-between gap-3"><div class="flex items-center gap-2.5 min-w-0 flex-1"><img alt="Brand logo. - Primary color: #4a7c59
+- Font: nunitoSans
+- Mode: light
+- Roundness: rounded-lg
+" class="h-8 w-auto object-contain shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1VLUcdZ9kdE3JUrnk9ZHvmt9kc8uTfhl7Hq8LeznoLd6nXCRNNYnQqt3bh9CCyZlsEDBsJvLFfxcwYA40gXYk5e9ku10dnmZ2mjp5U3kFwxe1oeRVWYsdb4vaMrXldAwaxexG43QDpijgLMd_Gpu9nkJXsUekI5IqThLCsXkT2EJNdX13t4-f0svFCl-UyAnvMoJg53G-Zb6q688ItZYJyy1qvQR1jla_YpLZSwLv_q_T-kjqxPnB8Uazc"><div class="flex flex-col min-w-0"><div class="flex items-center gap-1.5"><span class="text-[11px] font-bold tracking-wider uppercase text-primary font-label truncate">Terra Ops</span><span class="text-[10px] text-outline">•</span><span class="text-[11px] text-on-surface-variant font-medium truncate">Manager</span></div><button class="flex items-center gap-1 text-left group -ml-0.5 mt-0.5 min-h-[22px]" type="button"><span class="material-symbols-outlined text-[15px] text-primary shrink-0">location_on</span><span class="text-xs font-semibold text-on-surface truncate group-hover:text-primary transition-colors">Punta Arenas</span><span class="material-symbols-outlined text-[15px] text-on-surface-variant shrink-0 group-hover:text-primary transition-colors">expand_more</span></button></div></div><div class="flex items-center gap-2 shrink-0"><div class="hidden sm:flex flex-col items-end"><span class="text-xs font-bold text-on-surface leading-tight">Matías Larraín</span><span class="text-[10px] text-primary font-semibold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>En turno</span></div><div class="relative flex items-center justify-center p-0.5"><img alt="Profile" class="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20" src="https://lh3.googleusercontent.com/aida/AEtjO1XbW0kKpepaWcyOgMnpFSbkrPa1ktBvIx7NPErOtLi0Q2aYelP8vT8SKqXAtFrlwe5sCMeSMZFk8a9RwGdun0GOXb1Dlf5FUXE0oSg1spGkFMiSVBDy51pKuHENdZcyIkDil19RJrl070nKytT3mhiNQotWLuiS0Sukg1CZGgNESFxuI_gTmH-hFKHHsMgVpukQV2PFZeJe1dIHXAoMcjglggx0LY10CPo8UoXBMKtwCmH-Mz8DrIta0w"><span class="absolute bottom-0 right-0 w-3 h-3 bg-primary rounded-full ring-2 ring-surface" title="En turno"></span></div></div></div><div class="hidden"><span class="font-headline">Gestión</span></div></header><main class="flex flex-col relative w-full pt-20 pb-28 bg-surface"><div class="flex flex-col w-full px-4 pt-2 pb-6 space-y-6">
+<!-- Header Context & Quick Stat Pill -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold">
+<span class="material-symbols-outlined text-[15px] text-tertiary">shield_person</span>
+<span class="">Facultad Operativa Activa</span>
+</div>
+<span class="text-xs font-semibold text-on-surface-variant flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-error animate-ping"></span>
+        1 Caso Urgente
+      </span>
+</div>
+<h1 class="font-headline text-2xl font-bold text-on-surface tracking-tight leading-snug">
+      Gestión de Dotación &amp; Permisos
+    </h1>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+      Resolución de incidencias operativas, cobertura en ruta austral y autorizaciones directas.
+    </p>
+</div>
+<!-- SECCIÓN DESTACADA: Imprevistos y Bajas Urgentes -->
+<section class="flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-[20px]">warning</span>
+<h2 class="text-xs uppercase tracking-wider font-bold text-on-surface font-label">
+          Imprevistos y Bajas Urgentes (Atención Inmediata)
+        </h2>
+</div>
+<span class="text-[11px] font-bold text-error bg-error-container text-on-error-container px-2 py-0.5 rounded-full">
+        Hoy 15:30
+      </span>
+</div>
+<!-- Alert Card -->
+<div class="bg-surface-container rounded-xl p-5 shadow-sm space-y-4 transition-all duration-300" id="urgent-case-card">
+<div class="flex items-start gap-3.5">
+<div class="relative shrink-0">
+<img class="w-13 h-13 w-12 h-12 rounded-full object-cover" data-alt="Portrait of a young Chilean woman guide with warm natural light outdoors wearing trekking fleece jacket against Patagonian steppe tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrOKGYzLTGGj-EBLtc_pUsE08bVtAAkv-XenrLvpRYFafT_SG2EEbVOYwbyMGJQJHCoyf-XK8PyPT8KlVGW38Z2x4SgftixgzeQxSiV52oZ6pDs7W6g9i-Ua8QEYpfPW3cmmcbbusjBU13P92GU88lllMxXohgRjjmylVcyjOcNlncj5nvGoXQwxQrBys9KYSJQ22UCpQX4D-vyzdYvxZI798GCRyIZtCbky91H5FZQ9NvsJd5dV3L">
+<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-error flex items-center justify-center text-on-error">
+<span class="material-symbols-outlined text-[13px]">medical_services</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<h3 class="font-bold text-base text-on-surface truncate">Camila Valenzuela</h3>
+<span class="text-[11px] px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold shrink-0">
+              Guía Titular
+            </span>
+</div>
+<p class="text-xs text-error font-medium flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px]">history_toggle_off</span>
+            Baja reportada hace 18 min · Tour Fuerte Bulnes
+          </p>
+<div class="mt-2 text-xs text-on-surface bg-surface-container-lowest rounded-lg p-2.5 leading-relaxed">
+<span class="font-semibold text-tertiary">Motivo médico:</span> Cuadro leve de intoxicación alimentaria. Reposo prescrito por 24 hrs. No puede iniciar servicio de las 15:30 hrs.
+          </div>
+</div>
+</div>
+<!-- Suggested Replacement Highlight -->
+<div class="bg-secondary-container/70 rounded-lg p-3 flex items-center gap-3">
+<img class="w-9 h-9 rounded-full object-cover shrink-0" data-alt="Portrait of a friendly outdoor guide man in his 30s with knitted beanie and mountain gear in Chilean Patagonia natural daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfqljw5cig9mL_84pBaY75EfCWwRk80sHt0ZM7Z2T_2iiQs0ofBvqTpCEQVJ4NpaLhEwd1RzvbIO-VEvjJnqppp5-F4keF5GRlLk4jx-MgsTkxm-2YOPJ0yQX74rHBOu38Et0wctcIx_SyLcQHW1lkCdIf_G7AMbOtDOm3HEoMh3i5yPTHND90ER89aWTeQsq9-fr5QUP_fhSm7B7ES_2LhhaURGXftmO70JMEGK9jNrncHktMD1SY">
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="text-xs font-bold text-on-secondary-container truncate">Nicolás Barrientos</span>
+<span class="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-primary text-on-primary">En Base</span>
+</div>
+<p class="text-[11px] text-on-secondary-variant truncate">Disponible · Certificación WFR al día · Check-in listo</p>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-col sm:flex-row gap-2 pt-1">
+<button class="flex-1 min-h-[46px] px-3.5 py-2.5 rounded-lg bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.99] transition-all shadow-sm" id="reassign-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">person_check</span>
+<span class="">Reasignar a Guía de Reemplazo (Nicolás Barrientos)</span>
+</button>
+<a class="min-h-[46px] px-4 py-2.5 rounded-lg bg-surface-container-lowest text-on-surface font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all hover:text-primary" href="tel:+56987654321">
+<span class="material-symbols-outlined text-[18px] text-primary">call</span>
+<span class="">Llamar a Camila</span>
+</a>
+</div>
+</div>
+</section>
+<!-- SECCIÓN: Solicitudes de Bloqueo de Fechas (Regla de 7 días) -->
+<section class="flex flex-col gap-3">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<h2 class="text-xs uppercase tracking-wider font-bold text-on-surface font-label flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">event_busy</span>
+          Solicitudes de Bloqueo de Fechas
+        </h2>
+<span class="text-[11px] font-semibold text-tertiary">2 Pendientes</span>
+</div>
+<!-- Explicación de la Regla de 7 días -->
+<div class="bg-secondary-container/60 rounded-lg p-3 flex items-start gap-2.5">
+<span class="material-symbols-outlined text-tertiary text-[18px] shrink-0 mt-0.5">verified</span>
+<p class="text-xs text-on-secondary-container leading-relaxed">
+<span class="font-bold">Política de dotación:</span> Solicitudes con <span class="font-semibold underline decoration-tertiary/40">7+ días de anticipación</span> entran al flujo regular. Las solicitudes imprevistas quedan sujetas a tu <span class="font-bold">Autorización Excepcional</span> directa.
+        </p>
+</div>
+</div>
+<!-- Lista de Solicitudes -->
+<div class="space-y-3">
+<!-- Solicitud 1: En Plazo -->
+<div class="bg-surface-container rounded-xl p-4 shadow-sm space-y-3 transition-all duration-300" id="request-regular">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-3">
+<img class="w-11 h-11 rounded-full object-cover shrink-0" data-alt="Portrait of a mature experienced Chilean driver smiling warmly in casual jacket with Patagonia background soft warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIlBhEtCUEz3fqglC7BF-XH91NPXrG5RDRnitPHfSABmHxN3ybON07pH2VDhsN2V941b5kOlNqD3x-hENxp42eDXrGJa_m1Eld3i3I5KT9dOojhP6X8Urtc14EO4QpxDhzrBU4fN7GARb4wMAh8Aj_YK5LOA7c6U_YbuAQERPjeiUBY1CMQOMcA2MToItZukin7Zb-vvvanLoh4fhVGw_kFu4m8CPReFUCVLlF1tUeGAeOoHgyhCPY">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-on-surface">Rodrigo Fuentes</span>
+<span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">Driver</span>
+</div>
+<p class="text-xs text-on-surface-variant">Solicitud: <strong class="text-on-surface font-semibold">Domingo 3 de Noviembre</strong></p>
+</div>
+</div>
+<span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[13px]">check_circle</span>
+            En plazo (10 días)
+          </span>
+</div>
+<div class="bg-surface-container-lowest rounded-lg p-2.5 text-xs text-on-surface">
+<p class=""><span class="font-semibold text-secondary">Motivo:</span> Trámite Familiar impostergable en Notaría de Punta Arenas.</p>
+</div>
+<div class="flex items-center justify-end gap-2 pt-1">
+<button class="min-h-[40px] px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-error text-xs font-semibold flex items-center gap-1 transition-colors" onclick="handleAction('request-regular', 'rechazada')" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+<span class="">Rechazar</span>
+</button>
+<button class="min-h-[40px] px-4 py-2 rounded-lg bg-primary text-on-primary text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all" onclick="handleAction('request-regular', 'aprobada')" type="button">
+<span class="material-symbols-outlined text-[16px]">done</span>
+<span class="">Aprobar ✓</span>
+</button>
+</div>
+</div>
+<!-- Solicitud 2: Excepcional / Fuera de Plazo -->
+<div class="bg-surface-container rounded-xl p-4 shadow-sm space-y-3 relative transition-all duration-300" id="request-urgent">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-3">
+<img class="w-11 h-11 rounded-full object-cover shrink-0" data-alt="Portrait of a young male professional tour transport driver inside van smiling warm atmosphere natural tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyXcyBXk6lx0c_1uSzzgACuqF1-O7ovEPBwQlo40DncOFByyPXH--47-9kVOPP5bCFGOpm3ggFHtKCDxyH8HVGI_mYKuw9HL4PoxEJKdY8Agcp3oY4epHBVd7qf9s4ius3YVeAcsIE-Ue0SgGY00Qys1VZkYcCvTYsQErZ3v1AfzJDougYhuw3uG_Mh1N13ocmTkGEohWNfHMGzfYJozrtJ-a2fiCOMRiRwzhVWCd9fS5ud3fe-z32">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-on-surface">Matías Soto</span>
+<span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">Driver</span>
+</div>
+<p class="text-xs text-on-surface-variant">Solicitud: <strong class="text-on-surface font-semibold">Mañana (24 hrs)</strong></p>
+</div>
+</div>
+<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[13px]">alarm_on</span>
+            Excepción de Plazo
+          </span>
+</div>
+<div class="bg-surface-container-lowest rounded-lg p-2.5 text-xs text-on-surface">
+<p class=""><span class="font-semibold text-tertiary">Motivo:</span> Descanso no programado tras jornada doble en Parque Torres del Paine.</p>
+<p class="text-[11px] text-tertiary mt-1 font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">info</span>
+            Solo restan 2 días de aviso (Regla standard: 7 días). Requiere autorización excepcional.
+          </p>
+</div>
+<div class="flex items-center justify-between gap-2 pt-1">
+<button class="text-xs font-semibold text-on-surface-variant hover:text-error px-2 py-1.5 transition-colors" onclick="handleAction('request-urgent', 'rechazada')" type="button">
+            Declinar
+          </button>
+<button class="min-h-[42px] px-4 py-2 rounded-lg bg-tertiary text-on-tertiary text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all" onclick="handleAction('request-urgent', 'autorizada excepcionalmente')" type="button">
+<span class="material-symbols-outlined text-[17px]">verified_user</span>
+<span class="">Autorizar Excepción (Manager)</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECCIÓN: Calendario Mensual de Cobertura y Dotación -->
+<section class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<h2 class="text-xs uppercase tracking-wider font-bold text-on-surface font-label flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">calendar_month</span>
+        Cobertura y Dotación Operativa
+      </h2>
+<span class="text-xs text-on-surface-variant font-medium">Fin de Semana</span>
+</div>
+<!-- Coverage Status Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<!-- Sábado 26 -->
+<div class="bg-surface-container rounded-xl p-4 flex flex-col justify-between shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<div>
+<span class="text-[11px] font-bold uppercase text-on-surface-variant font-label">Fin de Semana</span>
+<h3 class="font-headline font-bold text-base text-on-surface">Sábado 26 Oct</h3>
+</div>
+<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">task_alt</span>
+            100% Cubierto
+          </span>
+</div>
+<!-- Metric visual bar -->
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] text-on-surface-variant">
+<span class="">Dotación: 8 Drivers / 6 Guías</span>
+<span class="font-bold text-primary">14/14 activos</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+<div class="h-full bg-primary rounded-full w-full"></div>
+</div>
+</div>
+<p class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+          Flota completa para transfer aeropuerto y city tour.
+        </p>
+</div>
+<!-- Domingo 27 -->
+<div class="bg-surface-container rounded-xl p-4 flex flex-col justify-between shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<div>
+<span class="text-[11px] font-bold uppercase text-on-surface-variant font-label">Alta Demanda</span>
+<h3 class="font-headline font-bold text-base text-on-surface">Domingo 27 Oct</h3>
+</div>
+<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">notification_important</span>
+            Refuerzo Sugerido
+          </span>
+</div>
+<!-- Metric visual bar -->
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] text-on-surface-variant">
+<span class="">Dotación: 7 Drivers / 5 Guías</span>
+<span class="font-bold text-tertiary">92% Cobertura</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+<div class="h-full bg-tertiary-container rounded-full w-[92%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between bg-surface-container-lowest rounded-lg p-2 text-xs">
+<span class="text-on-surface-variant font-medium">1 cupo de chofer disponible</span>
+<button class="text-xs font-bold text-primary hover:underline flex items-center gap-0.5" type="button">
+            Abrir turno
+            <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECCIÓN REPORTE & DESCARGA -->
+<section class="pt-1">
+<div class="bg-surface-container rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3 w-full sm:w-auto">
+<div class="w-11 h-11 rounded-lg bg-secondary-container flex items-center justify-center text-on-secondary-container shrink-0">
+<span class="material-symbols-outlined text-[22px]">description</span>
+</div>
+<div class="min-w-0">
+<h3 class="font-bold text-sm text-on-surface leading-tight">Informe de Asistencia y Puntualidad</h3>
+<p class="text-xs text-on-surface-variant">Cierre mensual de kilometraje, turnos y guardias pasivas</p>
+</div>
+</div>
+<button class="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg bg-surface-container-lowest text-on-surface hover:text-primary font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm" id="download-report-btn" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">download</span>
+<span class="">Generar Informe (PDF/Excel)</span>
+</button>
+</div>
+</section>
+<!-- Toast Notification Container -->
+<div class="fixed bottom-20 left-4 right-4 max-w-sm mx-auto z-50 bg-inverse-surface text-inverse-on-surface px-4 py-3 rounded-lg shadow-xl flex items-center justify-between text-xs font-medium opacity-0 pointer-events-none transition-all duration-300" id="action-toast">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed text-[18px]" id="toast-icon">check_circle</span>
+<span id="toast-message" class="">Operación realizada con éxito</span>
+</div>
+</div>
+</div>
+<script>
+  function showToast(msg, icon = 'check_circle') {
+    const toast = document.getElementById('action-toast');
+    const toastMsg = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+    if (!toast || !toastMsg) return;
+    
+    toastMsg.textContent = msg;
+    toastIcon.textContent = icon;
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    toast.classList.add('opacity-100');
+
+    setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+    }, 2800);
+  }
+
+  function handleAction(cardId, actionName) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    card.classList.add('opacity-40', 'scale-[0.98]');
+    setTimeout(() => {
+      card.innerHTML = `
+        <div class="p-3 bg-surface-container-lowest rounded-lg flex items-center justify-between">
+          <span class="text-xs font-semibold text-on-surface flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-primary text-[17px]">task_alt</span>
+            Solicitud ${actionName} por Manager
+          </span>
+          <span class="text-[10px] font-bold text-outline">Registrado</span>
+        </div>
+      `;
+      card.classList.remove('opacity-40', 'scale-[0.98]');
+      showToast(`Solicitud ${actionName} correctamente.`);
+    }, 250);
+  }
+
+  const reassignBtn = document.getElementById('reassign-btn');
+  if (reassignBtn) {
+    reassignBtn.addEventListener('click', () => {
+      const urgentCard = document.getElementById('urgent-case-card');
+      urgentCard.classList.add('opacity-50');
+      setTimeout(() => {
+        urgentCard.innerHTML = `
+          <div class="bg-primary-fixed/30 text-on-primary-fixed p-3.5 rounded-lg flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary text-[24px]">verified</span>
+            <div>
+              <p class="text-xs font-bold text-on-surface">Servicio Reasignado con Éxito</p>
+              <p class="text-[11px] text-on-surface-variant">Nicolás Barrientos ha sido notificado al móvil y asumió el servicio de las 15:30 hrs.</p>
+            </div>
+          </div>
+        `;
+        urgentCard.classList.remove('opacity-50');
+        showToast('Nicolás Barrientos reasignado con éxito', 'person_check');
+      }, 350);
+    });
+  }
+
+  const downloadBtn = document.getElementById('download-report-btn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      downloadBtn.innerHTML = `
+        <span class="material-symbols-outlined text-[18px] text-primary animate-spin">progress_activity</span>
+        <span>Generando archivo...</span>
+      `;
+      setTimeout(() => {
+        downloadBtn.innerHTML = `
+          <span class="material-symbols-outlined text-[18px] text-primary">download_done</span>
+          <span>Descarga iniciada</span>
+        `;
+        showToast('Informe descargado en PDF y Excel', 'download_done');
+        setTimeout(() => {
+          downloadBtn.innerHTML = `
+            <span class="material-symbols-outlined text-[18px] text-primary">download</span>
+            <span>Generar Informe (PDF/Excel)</span>
+          `;
+        }, 2200);
+      }, 900);
+    });
+  }
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(46,50,48,0.04)]" data-active-classes="text-primary font-bold"><div class="flex justify-around items-center h-16 px-2"><a class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 text-on-surface-variant hover:text-on-surface transition-colors min-h-[44px] min-w-[44px]" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[22px]">dashboard</span><span class="text-[10px] tracking-tight font-label">Dashboard</span></a><a class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 text-on-surface-variant hover:text-on-surface transition-colors min-h-[44px] min-w-[44px]" data-path="servicios" href="#"><span class="material-symbols-outlined text-[22px]">commute</span><span class="text-[10px] tracking-tight font-label">Servicios</span></a><a class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 hover:text-on-surface transition-colors min-h-[44px] min-w-[44px] text-primary font-bold" data-path="gestion" href="#"><span class="material-symbols-outlined text-[22px]">rule_folder</span><span class="text-[10px] tracking-tight font-label">Gestión</span></a></div></nav>
+
+</body></html>

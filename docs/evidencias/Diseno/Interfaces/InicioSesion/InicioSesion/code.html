@@ -1,0 +1,141 @@
+<!DOCTYPE html><html lang="en" style=""><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400..700&amp;family=Nunito+Sans:ital,opsz,wght@0,6..12,300..800;1,6..12,300..800&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100vw;margin:0;padding:0;min-height:100%;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "primary-container": "#78a886", "on-tertiary-fixed-variant": "#554020", "surface-container-high": "#eae6de", "on-primary": "#ffffff", "on-secondary-fixed": "#1e1a13", "outline-variant": "#c4c8bc", "outline": "#74796e", "secondary": "#6b6358", "surface-container-lowest": "#ffffff", "surface": "#faf6f0", "tertiary": "#705c30", "on-primary-container": "#d8f0de", "inverse-primary": "#8ecf9e", "surface-container-highest": "#e4e0d8", "on-primary-fixed-variant": "#2a6038", "on-tertiary-fixed": "#221a05", "on-tertiary-container": "#554020", "inverse-surface": "#2e3230", "on-primary-fixed": "#002110", "primary": "#4a7c59", "on-background": "#2e3230", "on-error-container": "#690005", "surface-tint": "#4a7c59", "error-container": "#ffdad8", "error": "#b83230", "on-secondary-container": "#5e5548", "on-tertiary": "#ffffff", "tertiary-fixed": "#f8e0a8", "tertiary-fixed-dim": "#dcc48e", "secondary-fixed-dim": "#d4ccbf", "primary-fixed": "#c8e8d0", "on-surface": "#2e3230", "on-secondary": "#ffffff", "surface-bright": "#faf6f0", "background": "#faf6f0", "surface-container": "#f0ece4", "inverse-on-surface": "#f5f0e8", "on-secondary-fixed-variant": "#4a4538", "secondary-container": "#f0e8db", "tertiary-container": "#c4a66a", "on-surface-variant": "#4a4e4a", "surface-variant": "#e4e0d8", "secondary-fixed": "#f0e8db", "surface-container-low": "#f5f1ea", "surface-dim": "#dbd7cf", "on-error": "#ffffff", "primary-fixed-dim": "#8ecf9e" }, borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" }, spacing: {}, fontFamily: { "headline": ["Literata"], "display": ["Literata"], "body": ["Nunito Sans"], "label": ["Nunito Sans"] }, fontSize: {} } } };</script></head><body class="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col pt-safe pb-safe"><main class="flex-1 flex flex-col relative w-full bg-surface px-6 py-6"><div class="flex flex-col w-full space-y-6"><!-- Encabezado / Logo LinceOPS -->
+<div class="flex flex-col items-center text-center pt-4 pb-2 space-y-3">
+<div class="w-16 h-16 rounded-2xl bg-primary-container text-on-primary-fixed flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1;">landscape</span>
+</div>
+<div>
+<h1 class="font-headline text-3xl font-bold tracking-tight text-on-surface">LINCE OPS</h1>
+<p class="text-xs font-semibold text-secondary mt-0.5 tracking-wide uppercase">Operaciones en Terreno</p>
+</div>
+</div>
+<!-- Selector de Rol Ultra Simple (Pills / Grid Compacto) -->
+<!-- Formulario Minimalista -->
+<div class="space-y-1.5"></div><div class="space-y-4 pt-1">
+<div class="space-y-1.5">
+<label class="block text-xs font-bold uppercase tracking-wider text-secondary" for="input-rut">RUT o Usuario</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-secondary text-lg pointer-events-none">badge</span>
+<input class="w-full bg-surface-container pl-10 pr-4 py-3 rounded-xl text-sm font-medium text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-high transition-colors" id="input-rut" placeholder="16.482.990-4" type="text" value="16.482.990-4">
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<label class="block text-xs font-bold uppercase tracking-wider text-secondary" for="input-pin">Contraseña / PIN</label>
+<button class="text-xs font-semibold text-primary hover:underline" type="button">¿Olvidaste tu PIN?</button>
+</div>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-secondary text-lg pointer-events-none">lock</span>
+<input class="w-full bg-surface-container pl-10 pr-11 py-3 rounded-xl text-sm font-medium text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-high transition-colors" id="input-pin" placeholder="••••••••" type="password" value="Patagonia2025">
+<button class="absolute right-3 text-secondary hover:text-on-surface focus:outline-none p-1 flex items-center justify-center" onclick="togglePasswordVisibility()" type="button">
+<span class="material-symbols-outlined text-lg" id="pw-toggle-icon">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Botones de Acción Limpios -->
+<div class="space-y-3 pt-2">
+<button class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-primary text-on-primary flex items-center justify-center space-x-2 shadow-sm hover:opacity-95 active:scale-[0.99] transition-all" onclick="handleLoginSubmit()" type="button">
+<span class="material-symbols-outlined text-lg">login</span>
+<span class="">Iniciar Sesión</span>
+</button>
+<button class="w-full py-3 px-4 rounded-xl font-semibold text-xs bg-surface-container text-on-surface flex items-center justify-center space-x-2 hover:bg-surface-container-high active:scale-[0.99] transition-all" onclick="triggerBiometrics()" type="button">
+<span class="material-symbols-outlined text-base text-primary">fingerprint</span>
+<span class="">Ingreso con Biometría (Face ID / Huella)</span>
+</button>
+</div>
+<!-- Footer Limpio y Sutil -->
+<div class="text-center pt-4 pb-2 space-y-2">
+<a class="text-xs font-medium text-secondary hover:text-primary hover:underline transition-colors block" href="#">
+    ¿Necesitas ayuda? Contactar Soporte
+  </a>
+<p class="text-[11px] text-outline tracking-wide">LINCE OPS Mobile</p>
+</div></div>
+<script>
+  let selectedRoleState = 'driver';
+
+  function selectRole(roleKey) {
+    selectedRoleState = roleKey;
+    const roles = ['driver', 'guide', 'manager'];
+    
+    roles.forEach((r) => {
+      const card = document.getElementById(`role-card-${r}`);
+      const badge = document.getElementById(`badge-${r}`);
+      const radioIcon = card.querySelector('.radio-icon');
+      const iconBox = card.querySelector('.role-icon-box');
+
+      if (r === roleKey) {
+        card.classList.remove('bg-surface-container');
+        card.classList.add('bg-surface-container-high', 'shadow');
+        badge.classList.remove('hidden');
+        radioIcon.textContent = 'radio_button_checked';
+        radioIcon.classList.add('text-primary');
+        radioIcon.classList.remove('text-outline');
+        iconBox.classList.add('bg-primary-container', 'text-on-primary-container');
+      } else {
+        card.classList.add('bg-surface-container');
+        card.classList.remove('bg-surface-container-high', 'shadow');
+        badge.classList.add('hidden');
+        radioIcon.textContent = 'radio_button_unchecked';
+        radioIcon.classList.remove('text-primary');
+        radioIcon.classList.add('text-outline');
+        iconBox.classList.remove('bg-primary-container', 'text-on-primary-container');
+      }
+    });
+  }
+
+  function togglePasswordVisibility() {
+    const pinInput = document.getElementById('input-pin');
+    const toggleIcon = document.getElementById('pw-toggle-icon');
+    if (pinInput.type === 'password') {
+      pinInput.type = 'text';
+      toggleIcon.textContent = 'visibility_off';
+    } else {
+      pinInput.type = 'password';
+      toggleIcon.textContent = 'visibility';
+    }
+  }
+
+  function handleLoginSubmit() {
+    const roleLabels = {
+      driver: 'Conductor (Driver)',
+      guide: 'Guía de Turismo',
+      manager: 'Manager de Operaciones'
+    };
+    const rutVal = document.getElementById('input-rut').value || '16.482.990-4';
+    const baseVal = document.getElementById('base-selector').selectedOptions[0].text;
+    
+    const btn = event.currentTarget;
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-lg">sync</span><span>Sincronizando Turno...</span>`;
+    btn.disabled = true;
+
+    setTimeout(() => {
+      btn.innerHTML = `<span class="material-symbols-outlined text-lg">check_circle</span><span>Acceso Concedido</span>`;
+      btn.classList.remove('bg-primary');
+      btn.classList.add('bg-primary-container', 'text-on-primary-fixed');
+      setTimeout(() => {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        btn.classList.add('bg-primary');
+        btn.classList.remove('bg-primary-container', 'text-on-primary-fixed');
+      }, 2000);
+    }, 1100);
+  }
+
+  function triggerBiometrics() {
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<span class="material-symbols-outlined text-base text-primary animate-pulse">fingerprint</span><span class="text-xs font-bold text-primary">Validando sensor biométrico...</span>`;
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      handleLoginSubmit();
+    }, 850);
+  }
+
+  // Set initial selected state on load
+  selectRole('driver');
+</script></main>
+
+
+</body></html>
