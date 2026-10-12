@@ -1,0 +1,34 @@
+# ==========================================
+# REGLAS REQUERIDAS POR LA GUÍA DEL PROYECTO
+# ==========================================
+.gradle/
+build/
+*/build/
+local.properties
+
+# Claves y credenciales de seguridad
+*.jks
+*.keystore
+secrets.properties
+
+# ==========================================
+# ANDROID STUDIO / INTELLIJ IDEA
+# ==========================================
+*.iml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+.idea/modules.xml
+/shelf/
+
+# ==========================================
+# SISTEMAS OPERATIVOS
+# ==========================================
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
