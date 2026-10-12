@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 sealed class Destino(val ruta: String, val icon: ImageVector? = null, val title: String? = null) {
     object Login : Destino("login")
 
-
     object Dashboard : Destino("dashboard/{rol}", Icons.Filled.Home, "Inicio") {
         fun createRoute(rol: String) = "dashboard/$rol"
     }
