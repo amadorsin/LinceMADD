@@ -1,5 +1,6 @@
 package com.example.linceops.ui.screens
 
+import android.R.attr.label
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -43,7 +44,7 @@ fun LoginScreen(
             onValueChange = {
                 usuario = it
                 mensajeError = ""
-
+            },
             label = { Text("Usuario (Ej: admin, driver, guia)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -78,8 +79,8 @@ fun LoginScreen(
             onClick = {
 
                 when (usuario.lowercase().trim()) {
-                    "admin", "manager" -> onLoginSuccess(RolUsuario.MANAGER)
-                    "driver", "conductor" -> onLoginSuccess(RolUsuario.DRIVER)
+                    "admin", "manager" -> onLoginSuccess(RolUsuario.ADMINISTRADOR)
+                    "driver", "conductor" -> onLoginSuccess(RolUsuario.CONDUCTOR)
                     "guia" -> onLoginSuccess(RolUsuario.GUIA)
                     else -> {
                         if (usuario.isEmpty() || password.isEmpty()) {
@@ -110,8 +111,8 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            TextButton(onClick = { onLoginSuccess(RolUsuario.MANAGER) }) { Text("Manager") }
-            TextButton(onClick = { onLoginSuccess(RolUsuario.DRIVER) }) { Text("Driver") }
+            TextButton(onClick = { onLoginSuccess(RolUsuario.ADMINISTRADOR) }) { Text("Manager") }
+            TextButton(onClick = { onLoginSuccess(RolUsuario.CONDUCTOR) }) { Text("Driver") }
             TextButton(onClick = { onLoginSuccess(RolUsuario.GUIA) }) { Text("Guía") }
         }
     }

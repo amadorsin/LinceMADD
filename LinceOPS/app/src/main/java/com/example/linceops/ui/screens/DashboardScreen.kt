@@ -14,9 +14,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.linceops.ui.theme.LinceOPSTheme
+import com.example.linceops.model.RolUsuario // 1. IMPORTANTE: Importamos el enum de David
 
 @Composable
-fun InicioScreen(
+fun DashboardScreen(
+    rolUsuario: RolUsuario, // 2. CAMINO A: Se abre la puerta para recibir el parámetro
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -39,7 +41,7 @@ fun InicioScreen(
                 )
                 AssistChip(
                     onClick = { },
-                    label = { Text("Conductor Activo") },
+                    label = { Text("Rol: ${rolUsuario.name}") }, // 3. Aprovechamos de usar la variable para mostrar el rol activo
                     leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp)) },
                     colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.secondary)
                 )
@@ -117,6 +119,7 @@ fun InicioScreen(
 @Composable
 fun InicioScreenPreview() {
     LinceOPSTheme {
-        InicioScreen()
+        // 4. Le pasamos un rol ficticio al Preview para que no tire error
+        DashboardScreen(rolUsuario = RolUsuario.CONDUCTOR)
     }
 }

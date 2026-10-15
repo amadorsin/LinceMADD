@@ -78,7 +78,7 @@ fun AppNavHost(
                 route = Destino.Dashboard.ruta,
                 arguments = listOf(navArgument("rol") { type = NavType.StringType })
             ) { backStackEntry ->
-                val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.DRIVER.name
+                val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
                 val rolUsuario = RolUsuario.valueOf(rolString)
 
                 DashboardScreen(rolUsuario = rolUsuario)
