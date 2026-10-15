@@ -32,3 +32,9 @@ secrets.properties
 .DS_Store
 # Windows
 Thumbs.db
+/.idea/migrations.xml
+/.idea/AndroidProjectSystem.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/misc.xml
+/.idea/vcs.xml
+/.idea/runConfigurations.xml
