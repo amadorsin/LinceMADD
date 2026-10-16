@@ -16,11 +16,24 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
 
     private val servicios = crearServiciosFicticios().toMutableList()
 
+    fun autenticar(credencial: String): Usuario? {
+        val entrada = credencial.trim().lowercase()
+        return usuariosSistema.find { it.correo.lowercase() == entrada }
+            ?: when (entrada) {
+                "admin", "manager", "administrador" -> usuariosSistema.find { it.rol == RolUsuario.ADMINISTRADOR }
+                "driver", "conductor" -> usuariosSistema.find { it.rol == RolUsuario.CONDUCTOR }
+                "guia", "guía" -> usuariosSistema.find { it.rol == RolUsuario.GUIA }
+                else -> null
+            }
+    }
 
-    fun autenticar(correo: String): Usuario? =
-        usuariosSistema.find { it.correo.equals(correo.trim(), ignoreCase = true) }
+    fun autenticarPorRol(rol: RolUsuario): Usuario? =
+        usuariosSistema.find { it.rol == rol }
 
     fun getServiciosIniciales(): List<Servicio> = servicios.toList()
+
+    fun obtenerServicioPorId(servicioId: String): Servicio? =
+        servicios.find { it.id == servicioId }
 
     fun obtenerServicios(usuarioId: String): List<Servicio> {
         val usuario = usuariosSistema.find { it.id == usuarioId } ?: return emptyList()
@@ -28,7 +41,6 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
             usuario.rol == RolUsuario.ADMINISTRADOR || it.estaAsignadoA(usuarioId)
         }
     }
-
 
     fun obtenerFinalUpdate(reservaId: String, usuarioId: String): List<Servicio> {
         val usuario = usuariosSistema.find { it.id == usuarioId } ?: return emptyList()
@@ -102,6 +114,21 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
         return Result.success(resultado)
     }
 
+    fun reasignarServicio(servicioId: String): Result<Servicio> {
+        val indice = servicios.indexOfFirst { it.id == servicioId }
+        if (indice == -1) return error("El servicio no existe.")
+        val servicio = servicios[indice]
+        val participantesReiniciados = servicio.participaciones.map {
+            it.copy(estado = EstadoServicio.CONFIRMADO, motivoRechazo = null)
+        }
+        val actualizado = servicio.copy(
+            estado = EstadoServicio.CONFIRMADO,
+            participaciones = participantesReiniciados
+        )
+        servicios[indice] = actualizado
+        return Result.success(actualizado)
+    }
+
     private fun error(mensaje: String): Result<Servicio> =
         Result.failure(IllegalArgumentException(mensaje))
 
@@ -118,7 +145,6 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
     }
 
     private fun crearServiciosFicticios(): List<Servicio> {
-
         val base = ahora()
         fun fecha(dias: Int): String {
             val calendario = Calendar.getInstance().apply {
