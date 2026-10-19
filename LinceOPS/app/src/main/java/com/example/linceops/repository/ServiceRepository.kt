@@ -14,9 +14,122 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
         Administrador("A301", "Ana Administradora", "admin@linceops.cl")
     )
 
+    private val servicios = crearServiciosFicticios().toMutableList()
+
+    fun autenticar(credencial: String): Usuario? {
+        val entrada = credencial.trim().lowercase()
+        return usuariosSistema.find { it.correo.lowercase() == entrada }
+            ?: when (entrada) {
+                "admin", "manager", "administrador" -> usuariosSistema.find { it.rol == RolUsuario.ADMINISTRADOR }
+                "driver", "conductor" -> usuariosSistema.find { it.rol == RolUsuario.CONDUCTOR }
+                "guia", "guía" -> usuariosSistema.find { it.rol == RolUsuario.GUIA }
+                else -> null
+            }
+    }
+
+    fun autenticarPorRol(rol: RolUsuario): Usuario? =
+        usuariosSistema.find { it.rol == rol }
+
+    fun getServiciosIniciales(): List<Servicio> = servicios.toList()
+
+    fun obtenerServicioPorId(servicioId: String): Servicio? =
+        servicios.find { it.id == servicioId }
+
+    fun obtenerServicios(usuarioId: String): List<Servicio> {
+        val usuario = usuariosSistema.find { it.id == usuarioId } ?: return emptyList()
+        return servicios.filter {
+            usuario.rol == RolUsuario.ADMINISTRADOR || it.estaAsignadoA(usuarioId)
+        }
+    }
+
+    fun obtenerFinalUpdate(reservaId: String, usuarioId: String): List<Servicio> {
+        val usuario = usuariosSistema.find { it.id == usuarioId } ?: return emptyList()
+        val itinerario = servicios.filter { it.reservaId == reservaId }
+        return if (usuario.rol == RolUsuario.ADMINISTRADOR ||
+            itinerario.any { it.estaAsignadoA(usuarioId) }) itinerario else emptyList()
+    }
+
+    fun cambiarEstadoServicio(
+        servicioId: String,
+        usuarioId: String,
+        nuevoEstado: EstadoServicio,
+        motivo: String = "",
+        latitud: Double? = null,
+        longitud: Double? = null
+    ): Result<Servicio> {
+        val indice = servicios.indexOfFirst { it.id == servicioId }
+        if (indice == -1) return error("El servicio no existe.")
+        val servicio = servicios[indice]
+        val participante = servicio.participaciones.find { it.usuarioId == usuarioId }
+            ?: return error("No estás asignado a este servicio.")
+
+        val permitido = when (participante.estado) {
+            EstadoServicio.PENDIENTE -> nuevoEstado == EstadoServicio.CONFIRMADO ||
+                    nuevoEstado == EstadoServicio.RECHAZADO
+            EstadoServicio.CONFIRMADO -> nuevoEstado == EstadoServicio.EN_CURSO
+            EstadoServicio.EN_CURSO -> nuevoEstado == EstadoServicio.FINALIZADO
+            EstadoServicio.RECHAZADO, EstadoServicio.FINALIZADO -> false
+        }
+        if (!permitido) return error("Cambio de estado no permitido.")
+        if (nuevoEstado == EstadoServicio.RECHAZADO && motivo.isBlank()) {
+            return error("Escribe un motivo para rechazar el servicio.")
+        }
+
+        val requiereMarcaje = nuevoEstado == EstadoServicio.EN_CURSO ||
+                nuevoEstado == EstadoServicio.FINALIZADO
+        val marcaje = if (requiereMarcaje) {
+            if (latitud == null || longitud == null ||
+                !latitud.isFinite() || !longitud.isFinite() ||
+                latitud !in -90.0..90.0 || longitud !in -180.0..180.0) {
+                return error("Se necesita una ubicación válida para registrar el marcaje.")
+            }
+            val instante = ahora()
+            if (nuevoEstado == EstadoServicio.FINALIZADO) {
+                val entrada = participante.checkIn
+                    ?: return error("Primero debes registrar el check-in.")
+                if (instante < entrada.fechaHoraMillis) {
+                    return error("La salida no puede ser anterior a la entrada.")
+                }
+            }
+            Marcaje(instante, latitud, longitud)
+        } else null
+
+        val actualizado = participante.copy(
+            estado = nuevoEstado,
+            motivoRechazo = if (nuevoEstado == EstadoServicio.RECHAZADO) motivo.trim()
+            else participante.motivoRechazo,
+            checkIn = if (nuevoEstado == EstadoServicio.EN_CURSO) marcaje
+            else participante.checkIn,
+            checkOut = if (nuevoEstado == EstadoServicio.FINALIZADO) marcaje
+            else participante.checkOut
+        )
+        val participantes = servicio.participaciones.map {
+            if (it.usuarioId == usuarioId) actualizado else it
+        }
+        val resultado = servicio.copy(
+            participaciones = participantes,
+            estado = calcularEstadoGeneral(participantes)
+        )
+        servicios[indice] = resultado
+        return Result.success(resultado)
     fun autenticar(correo: String): Usuario? {
         // Busca el usuario por correo (simula validación de credenciales).
         return usuariosSistema.find { it.correo.equals(correo.trim(), ignoreCase = true) }
+    }
+
+    fun reasignarServicio(servicioId: String): Result<Servicio> {
+        val indice = servicios.indexOfFirst { it.id == servicioId }
+        if (indice == -1) return error("El servicio no existe.")
+        val servicio = servicios[indice]
+        val participantesReiniciados = servicio.participaciones.map {
+            it.copy(estado = EstadoServicio.CONFIRMADO, motivoRechazo = null)
+        }
+        val actualizado = servicio.copy(
+            estado = EstadoServicio.CONFIRMADO,
+            participaciones = participantesReiniciados
+        )
+        servicios[indice] = actualizado
+        return Result.success(actualizado)
     }
 
     private fun error(mensaje: String): Result<Servicio> =
@@ -35,7 +148,6 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
     }
 
     private fun crearServiciosFicticios(): List<Servicio> {
-
         val base = ahora()
         fun fecha(dias: Int): String {
             val calendario = Calendar.getInstance().apply {
