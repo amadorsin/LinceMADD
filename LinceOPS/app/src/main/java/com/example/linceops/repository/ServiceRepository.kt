@@ -28,7 +28,7 @@ class ServiceRepository {
     )
 
     fun autenticar(correo: String): Usuario? {
-        // Busca el usuario por correo (simula validación de credenciales)
+        // Busca el usuario por correo (simula validación de credenciales).
         return usuariosSistema.find { it.correo.equals(correo.trim(), ignoreCase = true) }
     }
 
