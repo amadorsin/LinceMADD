@@ -112,6 +112,9 @@ class ServiceRepository(private val ahora: () -> Long = { System.currentTimeMill
         )
         servicios[indice] = resultado
         return Result.success(resultado)
+    fun autenticar(correo: String): Usuario? {
+        // Busca el usuario por correo (simula validación de credenciales).
+        return usuariosSistema.find { it.correo.equals(correo.trim(), ignoreCase = true) }
     }
 
     fun reasignarServicio(servicioId: String): Result<Servicio> {

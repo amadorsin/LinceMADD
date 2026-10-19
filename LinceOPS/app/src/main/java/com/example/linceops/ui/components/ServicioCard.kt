@@ -16,6 +16,7 @@ import com.example.linceops.model.Servicio
 @Composable
 fun ServicioCard(
     servicio: Servicio,
+    onVerDetalle: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -74,7 +75,7 @@ fun ServicioCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { },
+                onClick = { onVerDetalle(servicio.id) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
