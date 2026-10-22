@@ -18,7 +18,8 @@ import com.example.linceops.ui.theme.LinceOPSTheme
 
 @Composable
 fun PerfilScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCerrarSesion: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -82,6 +83,18 @@ fun PerfilScreen(
                         }
                     }
                 }
+            }
+        }
+
+        item {
+            Button(
+                onClick = onCerrarSesion,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Cerrar Sesión")
             }
         }
     }
