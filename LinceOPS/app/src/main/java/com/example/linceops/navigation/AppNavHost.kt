@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.compose.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -17,17 +18,31 @@ fun AppNavHost(
     navController: NavHostController = rememberNavController(),
     serviceViewModel: ServiceViewModel = remember { ServiceViewModel() }
 ) {
-
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
     val uiState by serviceViewModel.uiState.collectAsState()
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+
+    LaunchedEffect(uiState.mensaje, uiState.error) {
+        uiState.mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+    }
+
     val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
     val mostrarBottomBar = rutaActual != Destino.Login.ruta
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }, // 3. Conexión visual
         bottomBar = {
             if (mostrarBottomBar) {
                 NavigationBar {
@@ -62,7 +77,6 @@ fun AppNavHost(
             composable(Destino.Login.ruta) {
                 LoginScreen(
                     onLoginSuccess = { rolUsuario ->
-                        // 1. CORRECCIÓN: Usamos iniciarSesion() con correos válidos del mock
                         val correoPrueba = when (rolUsuario) {
                             RolUsuario.ADMINISTRADOR -> "admin@linceops.cl"
                             RolUsuario.GUIA -> "guia@linceops.cl"
@@ -71,7 +85,7 @@ fun AppNavHost(
                         serviceViewModel.iniciarSesion(correoPrueba)
 
                         navController.navigate(Destino.Dashboard.createRoute(rolUsuario.name)) {
-                            popUpTo(Destino.Login.ruta) { inclusive = true }
+                            popUpTo(Destino.Login.ruta) { NavOptionsBuilder.inclusive = true }
                         }
                     }
                 )
@@ -88,33 +102,22 @@ fun AppNavHost(
                     rolUsuario = rolUsuario,
                     uiState = uiState,
                     onIniciarMarcaje = { servicioId ->
-                        navController.navigate(
-                            Destino.Marcaje.createRoute(servicioId)
-                        )
+                        navController.navigate(Destino.Marcaje.createRoute(servicioId))
                     }
                 )
             }
 
             composable(Destino.Feed.ruta) {
-                // CORRECCIÓN: Le pasamos los datos del ViewModel a la pantalla
                 ServiciosScreen(
                     servicios = uiState.servicios,
                     onVerDetalle = { servicioId ->
-                        navController.navigate(
-                            Destino.Detalle.createRoute(servicioId)
-                        )
+                        navController.navigate(Destino.Detalle.createRoute(servicioId))
                     },
                     filtroEstado = uiState.filtroEstado,
                     filtroFecha = uiState.filtroFecha,
-                    onFiltrarPorEstado = { estado ->
-                        serviceViewModel.filtrarPorEstado(estado)
-                    },
-                    onFiltrarPorFecha = { fecha ->
-                        serviceViewModel.filtrarPorFecha(fecha)
-                    },
-                    onLimpiarFiltros = {
-                        serviceViewModel.limpiarFiltros()
-                    }
+                    onFiltrarPorEstado = { estado -> serviceViewModel.filtrarPorEstado(estado) },
+                    onFiltrarPorFecha = { fecha -> serviceViewModel.filtrarPorFecha(fecha) },
+                    onLimpiarFiltros = { serviceViewModel.limpiarFiltros() }
                 )
             }
 
@@ -123,7 +126,7 @@ fun AppNavHost(
             }
 
             composable(
-                route = Destino.Detalle.ruta, // Usando la variable del Destino.kt
+                route = Destino.Detalle.ruta,
                 arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
@@ -138,21 +141,19 @@ fun AppNavHost(
                             navController.popBackStack()
                         },
                         onRechazar = {
-                            // 2. CORRECCIÓN: Se pasa un motivo por defecto
                             serviceViewModel.rechazarServicio(servicio.id, "Motivo no especificado")
                             navController.popBackStack()
                         },
                         onReasignar = {
-                            // 3. CORRECCIÓN: Función vacía por ahora (No existe en MVP 1)
-                            // serviceViewModel.reasignarServicio(servicio.id)
                             navController.popBackStack()
                         }
+                        // NOTA: Ignoramos onIrAMarcaje aquí porque estamos aislando la versión de David.
                     )
                 }
             }
 
             composable(
-                route = Destino.Marcaje.ruta, // Usando la variable del Destino.kt
+                route = Destino.Marcaje.ruta,
                 arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
