@@ -84,7 +84,15 @@ fun AppNavHost(
                 val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
                 val rolUsuario = RolUsuario.valueOf(rolString)
 
-                DashboardScreen(rolUsuario = rolUsuario)
+                DashboardScreen(
+                    rolUsuario = rolUsuario,
+                    uiState = uiState,
+                    onIniciarMarcaje = { servicioId ->
+                        navController.navigate(
+                            Destino.Marcaje.createRoute(servicioId)
+                        )
+                    }
+                )
             }
 
             composable(Destino.Feed.ruta) {
@@ -92,7 +100,20 @@ fun AppNavHost(
                 ServiciosScreen(
                     servicios = uiState.servicios,
                     onVerDetalle = { servicioId ->
-                        navController.navigate(Destino.Detalle.createRoute(servicioId))
+                        navController.navigate(
+                            Destino.Detalle.createRoute(servicioId)
+                        )
+                    },
+                    filtroEstado = uiState.filtroEstado,
+                    filtroFecha = uiState.filtroFecha,
+                    onFiltrarPorEstado = { estado ->
+                        serviceViewModel.filtrarPorEstado(estado)
+                    },
+                    onFiltrarPorFecha = { fecha ->
+                        serviceViewModel.filtrarPorFecha(fecha)
+                    },
+                    onLimpiarFiltros = {
+                        serviceViewModel.limpiarFiltros()
                     }
                 )
             }
