@@ -10,7 +10,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.screens.*
-
+import com.example.linceops.viewmodel.ServiceViewModel
 
 @Composable
 fun AppNavHost(
@@ -27,19 +27,41 @@ fun AppNavHost(
     val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
     val mostrarBottomBar = rutaActual != Destino.Login.ruta
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.mensaje, uiState.error) {
+        uiState.mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (mostrarBottomBar) {
                 NavigationBar {
                     pantallasMenu.forEach { destino ->
-                        val seleccionado = rutaActual?.substringBefore("/") == destino.ruta.substringBefore("/")
+                        val rutaBase = rutaActual?.substringBefore("/") ?: ""
+                        val destinoBase = destino.ruta.substringBefore("/")
+                        val seleccionado = rutaBase == destinoBase
 
                         NavigationBarItem(
                             icon = { Icon(destino.icon!!, contentDescription = destino.title) },
                             label = { Text(destino.title!!) },
                             selected = seleccionado,
                             onClick = {
-                                navController.navigate(destino.ruta.substringBefore("/")) {
+                                val rutaNavegacion = if (destino == Destino.Dashboard) {
+                                    Destino.Dashboard.createRoute(rolActual.name)
+                                } else {
+                                    destino.ruta.substringBefore("/")
+                                }
+
+                                navController.navigate(rutaNavegacion) {
                                     popUpTo(navController.graph.startDestinationId) {
                                         saveState = true
                                     }
@@ -59,12 +81,16 @@ fun AppNavHost(
             modifier = Modifier.padding(paddingValues)
         ) {
 
-
             composable(Destino.Login.ruta) {
                 LoginScreen(
                     onLoginSuccess = { rolUsuario ->
+                        val correoPrueba = when (rolUsuario) {
+                            RolUsuario.ADMINISTRADOR -> "admin@linceops.cl"
+                            RolUsuario.GUIA -> "guia@linceops.cl"
+                            RolUsuario.CONDUCTOR -> "driver@linceops.cl"
+                        }
+                        serviceViewModel.iniciarSesion(correoPrueba)
 
-                        serviceViewModel.iniciarSesionPorRol(rolUsuario)
                         navController.navigate(Destino.Dashboard.createRoute(rolUsuario.name)) {
                             popUpTo(Destino.Login.ruta) { inclusive = true }
                         }
@@ -77,26 +103,36 @@ fun AppNavHost(
                 arguments = listOf(navArgument("rol") { type = NavType.StringType })
             ) { backStackEntry ->
                 val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
-                val rolUsuario = RolUsuario.valueOf(rolString)
+                val rolUsuario = try { RolUsuario.valueOf(rolString) } catch (e: Exception) { RolUsuario.CONDUCTOR }
 
                 DashboardScreen(rolUsuario = rolUsuario)
             }
 
             composable(Destino.Feed.ruta) {
-
-                ServiciosScreen()
+                ServiciosScreen(
+                    servicios = uiState.servicios,
+                    onVerDetalle = { servicioId ->
+                        navController.navigate(Destino.Detalle.createRoute(servicioId))
+                    }
+                )
             }
 
             composable(Destino.Perfil.ruta) {
-                PerfilScreen()
+                PerfilScreen(
+                    onCerrarSesion = {
+                        serviceViewModel.cerrarSesion()
+                        navController.navigate(Destino.Login.ruta) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
             }
 
             composable(
-                route = "detalle/{servicioId}",
+                route = Destino.Detalle.ruta,
                 arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
-
                 val servicio = serviceViewModel.obtenerServicio(servicioId)
 
                 if (servicio != null) {
@@ -108,20 +144,18 @@ fun AppNavHost(
                             navController.popBackStack()
                         },
                         onRechazar = {
-                            serviceViewModel.rechazarServicio(servicio.id)
+                            serviceViewModel.rechazarServicio(servicio.id, "Motivo no especificado")
                             navController.popBackStack()
                         },
                         onReasignar = {
-                            serviceViewModel.reasignarServicio(servicio.id)
                             navController.popBackStack()
                         }
                     )
                 }
             }
 
-
             composable(
-                route = "marcaje/{servicioId}",
+                route = Destino.Marcaje.ruta,
                 arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
