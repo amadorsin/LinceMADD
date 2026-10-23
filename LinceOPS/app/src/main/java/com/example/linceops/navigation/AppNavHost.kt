@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.compose.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -17,12 +18,25 @@ fun AppNavHost(
     navController: NavHostController = rememberNavController(),
     serviceViewModel: ServiceViewModel = remember { ServiceViewModel() }
 ) {
-
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
     val uiState by serviceViewModel.uiState.collectAsState()
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+
+    LaunchedEffect(uiState.mensaje, uiState.error) {
+        uiState.mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+    }
 
     val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
     val mostrarBottomBar = rutaActual != Destino.Login.ruta
@@ -92,7 +106,7 @@ fun AppNavHost(
                         serviceViewModel.iniciarSesion(correoPrueba)
 
                         navController.navigate(Destino.Dashboard.createRoute(rolUsuario.name)) {
-                            popUpTo(Destino.Login.ruta) { inclusive = true }
+                            popUpTo(Destino.Login.ruta) { NavOptionsBuilder.inclusive = true }
                         }
                     }
                 )
@@ -105,7 +119,13 @@ fun AppNavHost(
                 val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
                 val rolUsuario = try { RolUsuario.valueOf(rolString) } catch (e: Exception) { RolUsuario.CONDUCTOR }
 
-                DashboardScreen(rolUsuario = rolUsuario)
+                DashboardScreen(
+                    rolUsuario = rolUsuario,
+                    uiState = uiState,
+                    onIniciarMarcaje = { servicioId ->
+                        navController.navigate(Destino.Marcaje.createRoute(servicioId))
+                    }
+                )
             }
 
             composable(Destino.Feed.ruta) {
@@ -113,7 +133,12 @@ fun AppNavHost(
                     servicios = uiState.servicios,
                     onVerDetalle = { servicioId ->
                         navController.navigate(Destino.Detalle.createRoute(servicioId))
-                    }
+                    },
+                    filtroEstado = uiState.filtroEstado,
+                    filtroFecha = uiState.filtroFecha,
+                    onFiltrarPorEstado = { estado -> serviceViewModel.filtrarPorEstado(estado) },
+                    onFiltrarPorFecha = { fecha -> serviceViewModel.filtrarPorFecha(fecha) },
+                    onLimpiarFiltros = { serviceViewModel.limpiarFiltros() }
                 )
             }
 
@@ -150,6 +175,7 @@ fun AppNavHost(
                         onReasignar = {
                             navController.popBackStack()
                         }
+                        // NOTA: Ignoramos onIrAMarcaje aquí porque estamos aislando la versión de David.
                     )
                 }
             }
