@@ -41,20 +41,41 @@ fun AppNavHost(
     val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
     val mostrarBottomBar = rutaActual != Destino.Login.ruta
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.mensaje, uiState.error) {
+        uiState.mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            serviceViewModel.limpiarMensajes()
+        }
+    }
+
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }, // 3. Conexión visual
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (mostrarBottomBar) {
                 NavigationBar {
                     pantallasMenu.forEach { destino ->
-                        val seleccionado = rutaActual?.substringBefore("/") == destino.ruta.substringBefore("/")
+                        val rutaBase = rutaActual?.substringBefore("/") ?: ""
+                        val destinoBase = destino.ruta.substringBefore("/")
+                        val seleccionado = rutaBase == destinoBase
 
                         NavigationBarItem(
                             icon = { Icon(destino.icon!!, contentDescription = destino.title) },
                             label = { Text(destino.title!!) },
                             selected = seleccionado,
                             onClick = {
-                                navController.navigate(destino.ruta.substringBefore("/")) {
+                                val rutaNavegacion = if (destino == Destino.Dashboard) {
+                                    Destino.Dashboard.createRoute(rolActual.name)
+                                } else {
+                                    destino.ruta.substringBefore("/")
+                                }
+
+                                navController.navigate(rutaNavegacion) {
                                     popUpTo(navController.graph.startDestinationId) {
                                         saveState = true
                                     }
@@ -96,7 +117,7 @@ fun AppNavHost(
                 arguments = listOf(navArgument("rol") { type = NavType.StringType })
             ) { backStackEntry ->
                 val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
-                val rolUsuario = RolUsuario.valueOf(rolString)
+                val rolUsuario = try { RolUsuario.valueOf(rolString) } catch (e: Exception) { RolUsuario.CONDUCTOR }
 
                 DashboardScreen(
                     rolUsuario = rolUsuario,
@@ -122,7 +143,14 @@ fun AppNavHost(
             }
 
             composable(Destino.Perfil.ruta) {
-                PerfilScreen()
+                PerfilScreen(
+                    onCerrarSesion = {
+                        serviceViewModel.cerrarSesion()
+                        navController.navigate(Destino.Login.ruta) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
             }
 
             composable(

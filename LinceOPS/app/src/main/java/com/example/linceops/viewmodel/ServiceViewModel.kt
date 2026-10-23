@@ -66,7 +66,6 @@ class ServiceViewModel(
 
     fun obtenerServicio(servicioId: String): Servicio? {
         val usuario = _uiState.value.usuarioLogueado ?: return null
-
         return repository.obtenerServicios(usuario.id).find { it.id == servicioId }
     }
 
@@ -105,12 +104,26 @@ class ServiceViewModel(
     fun rechazarServicio(id: String, motivo: String) =
         cambiarEstadoServicio(id, EstadoServicio.RECHAZADO, motivo = motivo)
 
-
     fun registrarCheckIn(id: String, latitud: Double, longitud: Double) =
         cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud)
 
     fun registrarCheckOut(id: String, latitud: Double, longitud: Double) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud)
+
+    fun reasignarServicio(servicioId: String) {
+        val usuario = _uiState.value.usuarioLogueado
+        if (usuario == null) return
+
+        repository.reasignarServicio(servicioId).fold(
+            onSuccess = {
+                _uiState.value = _uiState.value.copy(mensaje = "Servicio reasignado a flota", error = null)
+                cargarServicios()
+            },
+            onFailure = {
+                _uiState.value = _uiState.value.copy(error = it.message, mensaje = null)
+            }
+        )
+    }
 
     fun limpiarMensajes() {
         _uiState.value = _uiState.value.copy(mensaje = null, error = null, errorLogin = null)
