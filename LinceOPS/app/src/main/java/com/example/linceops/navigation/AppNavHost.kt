@@ -5,7 +5,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
-import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.compose.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -26,7 +25,6 @@ fun AppNavHost(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-
     LaunchedEffect(uiState.mensaje, uiState.error) {
         uiState.mensaje?.let {
             snackbarHostState.showSnackbar(it)
@@ -40,19 +38,6 @@ fun AppNavHost(
 
     val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
     val mostrarBottomBar = rutaActual != Destino.Login.ruta
-
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(uiState.mensaje, uiState.error) {
-        uiState.mensaje?.let {
-            snackbarHostState.showSnackbar(it)
-            serviceViewModel.limpiarMensajes()
-        }
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
-            serviceViewModel.limpiarMensajes()
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -106,7 +91,7 @@ fun AppNavHost(
                         serviceViewModel.iniciarSesion(correoPrueba)
 
                         navController.navigate(Destino.Dashboard.createRoute(rolUsuario.name)) {
-                            popUpTo(Destino.Login.ruta) { NavOptionsBuilder.inclusive = true }
+                            popUpTo(Destino.Login.ruta) { inclusive = true }
                         }
                     }
                 )
@@ -174,8 +159,10 @@ fun AppNavHost(
                         },
                         onReasignar = {
                             navController.popBackStack()
+                        },
+                        onIrAMarcaje = {
+                            navController.navigate(Destino.Marcaje.createRoute(servicio.id))
                         }
-                        // NOTA: Ignoramos onIrAMarcaje aquí porque estamos aislando la versión de David.
                     )
                 }
             }
