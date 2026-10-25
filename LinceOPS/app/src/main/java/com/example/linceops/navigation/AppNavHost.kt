@@ -1,5 +1,6 @@
 package com.example.linceops.navigation
-
+import androidx.compose.ui.platform.LocalContext
+import com.example.linceops.data.local.LinceOpsDatabase
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,9 +15,18 @@ import com.example.linceops.viewmodel.ServiceViewModel
 
 @Composable
 fun AppNavHost(
-    navController: NavHostController = rememberNavController(),
-    serviceViewModel: ServiceViewModel = remember { ServiceViewModel() }
+    navController: NavHostController = rememberNavController()
 ) {
+    // 1. Obtenemos el contexto actual
+    val context = LocalContext.current
+
+    // 2. Instanciamos la base de datos
+    val database = remember { LinceOpsDatabase.getDatabase(context) }
+
+    // 3. Le pasamos el DAO al ViewModel
+    val serviceViewModel: ServiceViewModel = remember {
+        ServiceViewModel(database.servicioDao())
+    }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
