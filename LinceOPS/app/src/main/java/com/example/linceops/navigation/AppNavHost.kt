@@ -1,5 +1,6 @@
 package com.example.linceops.navigation
-
+import androidx.compose.ui.platform.LocalContext
+import com.example.linceops.data.local.LinceOpsDatabase
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,23 +12,32 @@ import androidx.navigation.navArgument
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.screens.*
 import com.example.linceops.viewmodel.ServiceViewModel
+import androidx.compose.ui.platform.LocalContext
+import com.example.linceops.model.EstadoServicio
+import com.example.linceops.utils.isInternetAvailable
 
 @Composable
 fun AppNavHost(
-    navController: NavHostController = rememberNavController(),
-    serviceViewModel: ServiceViewModel = remember { ServiceViewModel() }
+    navController: NavHostController = rememberNavController()
 ) {
+    // 1. Obtenemos el contexto actual
+    val context = LocalContext.current
 
+    // 2. Instanciamos la base de datos
+    val database = remember { LinceOpsDatabase.getDatabase(context) }
+
+    // 3. Le pasamos el DAO al ViewModel
+    val serviceViewModel: ServiceViewModel = remember {
+        ServiceViewModel(database.servicioDao())
+    }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
     val uiState by serviceViewModel.uiState.collectAsState()
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
-    val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
-    val mostrarBottomBar = rutaActual != Destino.Login.ruta
-
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.mensaje, uiState.error) {
         uiState.mensaje?.let {
@@ -39,6 +49,9 @@ fun AppNavHost(
             serviceViewModel.limpiarMensajes()
         }
     }
+
+    val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
+    val mostrarBottomBar = rutaActual != Destino.Login.ruta
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -105,7 +118,13 @@ fun AppNavHost(
                 val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
                 val rolUsuario = try { RolUsuario.valueOf(rolString) } catch (e: Exception) { RolUsuario.CONDUCTOR }
 
-                DashboardScreen(rolUsuario = rolUsuario)
+                DashboardScreen(
+                    rolUsuario = rolUsuario,
+                    uiState = uiState,
+                    onIniciarMarcaje = { servicioId ->
+                        navController.navigate(Destino.Marcaje.createRoute(servicioId))
+                    }
+                )
             }
 
             composable(Destino.Feed.ruta) {
@@ -113,7 +132,12 @@ fun AppNavHost(
                     servicios = uiState.servicios,
                     onVerDetalle = { servicioId ->
                         navController.navigate(Destino.Detalle.createRoute(servicioId))
-                    }
+                    },
+                    filtroEstado = uiState.filtroEstado,
+                    filtroFecha = uiState.filtroFecha,
+                    onFiltrarPorEstado = { estado -> serviceViewModel.filtrarPorEstado(estado) },
+                    onFiltrarPorFecha = { fecha -> serviceViewModel.filtrarPorFecha(fecha) },
+                    onLimpiarFiltros = { serviceViewModel.limpiarFiltros() }
                 )
             }
 
@@ -138,9 +162,15 @@ fun AppNavHost(
                 if (servicio != null) {
                     DetalleScreen(
                         servicio = servicio,
-                        rolUsuario = rolActual,
                         onAceptar = {
-                            serviceViewModel.confirmarServicio(servicio.id)
+                            val hayRed = isInternetAvailable(context)
+
+                            serviceViewModel.cambiarEstadoServicio(
+                                servicioId = servicio.id,
+                                nuevoEstado = EstadoServicio.CONFIRMADO,
+                                hayInternet = hayRed
+                            )
+
                             navController.popBackStack()
                         },
                         onRechazar = {
@@ -149,6 +179,9 @@ fun AppNavHost(
                         },
                         onReasignar = {
                             navController.popBackStack()
+                        },
+                        onIrAMarcaje = {
+                            navController.navigate(Destino.Marcaje.createRoute(servicio.id))
                         }
                     )
                 }

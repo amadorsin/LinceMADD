@@ -1,21 +1,33 @@
 package com.example.linceops.viewmodel
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
 import com.example.linceops.repository.ServiceRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 class ServiceViewModel(
-    private val repository: ServiceRepository = ServiceRepository()
+    private val dao: ServicioDao
 ) : ViewModel() {
+
+    private val repository = ServiceRepository(dao)
     private val _uiState = MutableStateFlow(ServiceUiState())
     val uiState: StateFlow<ServiceUiState> = _uiState.asStateFlow()
+
+    init {
+        // Inicializamos los datos ficticios en Room si la tabla está vacía
+        viewModelScope.launch {
+            repository.inicializarDatosSiVacio()
+        }
+    }
 
     fun iniciarSesion(correo: String) {
         val usuario = repository.autenticar(correo)
@@ -37,11 +49,13 @@ class ServiceViewModel(
             _uiState.value = _uiState.value.copy(servicios = emptyList())
             return
         }
-        val lista = repository.obtenerServicios(usuario.id)
-        _uiState.value = _uiState.value.copy(servicios = lista.filter { servicio ->
-            (_uiState.value.filtroEstado == null || servicio.estadoPara(usuario) == _uiState.value.filtroEstado) &&
-                    (_uiState.value.filtroFecha == null || servicio.fecha == _uiState.value.filtroFecha)
-        })
+        viewModelScope.launch {
+            val lista = repository.obtenerServicios(usuario.id)
+            _uiState.value = _uiState.value.copy(servicios = lista.filter { servicio ->
+                (_uiState.value.filtroEstado == null || servicio.estadoPara(usuario) == _uiState.value.filtroEstado) &&
+                        (_uiState.value.filtroFecha == null || servicio.fecha == _uiState.value.filtroFecha)
+            })
+        }
     }
 
     fun filtrarPorEstado(estado: EstadoServicio?) {
@@ -64,15 +78,10 @@ class ServiceViewModel(
         cargarServicios()
     }
 
+    // Nota: Como Compose no se lleva tan bien devolviendo datos directo desde un ViewModel en funciones normales,
+    // obtenerServicio ahora busca en el estado actual cargado.
     fun obtenerServicio(servicioId: String): Servicio? {
-        val usuario = _uiState.value.usuarioLogueado ?: return null
-
-        return repository.obtenerServicios(usuario.id).find { it.id == servicioId }
-    }
-
-    fun obtenerFinalUpdate(reservaId: String): List<Servicio> {
-        val usuario = _uiState.value.usuarioLogueado ?: return emptyList()
-        return repository.obtenerFinalUpdate(reservaId, usuario.id)
+        return _uiState.value.servicios.find { it.id == servicioId }
     }
 
     fun cambiarEstadoServicio(
@@ -80,24 +89,29 @@ class ServiceViewModel(
         nuevoEstado: EstadoServicio,
         motivo: String = "",
         latitud: Double? = null,
-        longitud: Double? = null
+        longitud: Double? = null,
+        hayInternet: Boolean = true // Esto lo usará David después
     ) {
         val usuario = _uiState.value.usuarioLogueado
         if (usuario == null) {
             _uiState.value = _uiState.value.copy(error = "Primero debes iniciar sesión.", mensaje = null)
             return
         }
-        repository.cambiarEstadoServicio(
-            servicioId, usuario.id, nuevoEstado, motivo, latitud, longitud
-        ).fold(
-            onSuccess = {
-                _uiState.value = _uiState.value.copy(mensaje = "Estado actualizado: ${nuevoEstado.estado}.", error = null)
-                cargarServicios()
-            },
-            onFailure = {
-                _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo guardar el cambio.", mensaje = null)
-            }
-        )
+
+        viewModelScope.launch {
+            repository.cambiarEstadoServicio(
+                servicioId, usuario.id, nuevoEstado, motivo, latitud, longitud
+            ).fold(
+                onSuccess = {
+                    val msjRed = if (hayInternet) "Sincronizado en la nube." else "Guardado localmente (Offline)."
+                    _uiState.value = _uiState.value.copy(mensaje = "Estado actualizado. $msjRed", error = null)
+                    cargarServicios()
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo guardar el cambio.", mensaje = null)
+                }
+            )
+        }
     }
 
     fun confirmarServicio(id: String) = cambiarEstadoServicio(id, EstadoServicio.CONFIRMADO)
@@ -105,12 +119,28 @@ class ServiceViewModel(
     fun rechazarServicio(id: String, motivo: String) =
         cambiarEstadoServicio(id, EstadoServicio.RECHAZADO, motivo = motivo)
 
-
     fun registrarCheckIn(id: String, latitud: Double, longitud: Double) =
         cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud)
 
     fun registrarCheckOut(id: String, latitud: Double, longitud: Double) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud)
+
+    fun reasignarServicio(servicioId: String) {
+        val usuario = _uiState.value.usuarioLogueado
+        if (usuario == null) return
+
+        viewModelScope.launch {
+            repository.reasignarServicio(servicioId).fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(mensaje = "Servicio reasignado a flota", error = null)
+                    cargarServicios()
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(error = it.message, mensaje = null)
+                }
+            )
+        }
+    }
 
     fun limpiarMensajes() {
         _uiState.value = _uiState.value.copy(mensaje = null, error = null, errorLogin = null)

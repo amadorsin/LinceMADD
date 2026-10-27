@@ -1,7 +1,11 @@
 package com.example.linceops.model
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "servicios")
 data class Servicio(
-    val id: String,
+    @PrimaryKey val id: String,
     val titulo: String,
     val origenDestino: String,
     val fecha: String,
