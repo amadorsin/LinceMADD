@@ -152,4 +152,9 @@ class ServiceViewModel(
         val posicion = ParsePosition(0)
         return formato.parse(fecha, posicion) != null && posicion.index == fecha.length
     }
+    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+        cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
+
+    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+        cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 }

@@ -12,7 +12,6 @@ import androidx.navigation.navArgument
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.screens.*
 import com.example.linceops.viewmodel.ServiceViewModel
-import androidx.compose.ui.platform.LocalContext
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.utils.isInternetAvailable
 
@@ -37,7 +36,6 @@ fun AppNavHost(
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
 
     LaunchedEffect(uiState.mensaje, uiState.error) {
         uiState.mensaje?.let {
@@ -115,8 +113,13 @@ fun AppNavHost(
                 route = Destino.Dashboard.ruta,
                 arguments = listOf(navArgument("rol") { type = NavType.StringType })
             ) { backStackEntry ->
-                val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
-                val rolUsuario = try { RolUsuario.valueOf(rolString) } catch (e: Exception) { RolUsuario.CONDUCTOR }
+                val rolString =
+                    backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
+                val rolUsuario = try {
+                    RolUsuario.valueOf(rolString)
+                } catch (e: Exception) {
+                    RolUsuario.CONDUCTOR
+                }
 
                 DashboardScreen(
                     rolUsuario = rolUsuario,
@@ -162,6 +165,7 @@ fun AppNavHost(
                 if (servicio != null) {
                     DetalleScreen(
                         servicio = servicio,
+                        rolUsuario = rolActual,
                         onAceptar = {
                             val hayRed = isInternetAvailable(context)
 
@@ -195,8 +199,14 @@ fun AppNavHost(
 
                 MarcajeScreen(
                     servicioId = servicioId,
-                    onCheckIn = { lat, lon -> serviceViewModel.registrarCheckIn(servicioId, lat, lon) },
-                    onCheckOut = { lat, lon -> serviceViewModel.registrarCheckOut(servicioId, lat, lon) }
+                    onCheckIn = { lat, lon ->
+                        val hayRed = isInternetAvailable(context)
+                        serviceViewModel.registrarCheckIn(servicioId, lat, lon, hayRed)
+                    },
+                    onCheckOut = { lat, lon ->
+                        val hayRed = isInternetAvailable(context)
+                        serviceViewModel.registrarCheckOut(servicioId, lat, lon, hayRed)
+                    }
                 )
             }
         }
