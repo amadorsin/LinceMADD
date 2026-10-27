@@ -11,6 +11,9 @@ import androidx.navigation.navArgument
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.screens.*
 import com.example.linceops.viewmodel.ServiceViewModel
+import androidx.compose.ui.platform.LocalContext
+import com.example.linceops.model.EstadoServicio
+import com.example.linceops.utils.isInternetAvailable
 
 @Composable
 fun AppNavHost(
@@ -24,6 +27,7 @@ fun AppNavHost(
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.mensaje, uiState.error) {
         uiState.mensaje?.let {
@@ -148,9 +152,15 @@ fun AppNavHost(
                 if (servicio != null) {
                     DetalleScreen(
                         servicio = servicio,
-                        rolUsuario = rolActual,
                         onAceptar = {
-                            serviceViewModel.confirmarServicio(servicio.id)
+                            val hayRed = isInternetAvailable(context)
+
+                            serviceViewModel.cambiarEstadoServicio(
+                                servicioId = servicio.id,
+                                nuevoEstado = EstadoServicio.CONFIRMADO,
+                                hayInternet = hayRed
+                            )
+
                             navController.popBackStack()
                         },
                         onRechazar = {
