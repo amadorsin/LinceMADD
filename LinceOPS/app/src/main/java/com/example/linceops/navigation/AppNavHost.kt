@@ -126,6 +126,9 @@ fun AppNavHost(
                     uiState = uiState,
                     onIniciarMarcaje = { servicioId ->
                         navController.navigate(Destino.Marcaje.createRoute(servicioId))
+                    },
+                    onCrearServicio = {
+                        navController.navigate("crear_servicio")
                     }
                 )
             }

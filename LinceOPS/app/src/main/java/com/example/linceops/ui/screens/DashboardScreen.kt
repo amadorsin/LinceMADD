@@ -25,6 +25,7 @@ fun DashboardScreen(
     rolUsuario: RolUsuario,
     uiState: ServiceUiState,
     onIniciarMarcaje: (String) -> Unit,
+    onCrearServicio: () -> Unit = {}, // <- Nuevo parámetro para la navegación
     modifier: Modifier = Modifier
 ) {
     val nombreUsuario = uiState.usuarioLogueado?.nombre ?: "Usuario"
@@ -76,7 +77,10 @@ fun DashboardScreen(
         item {
             when (rolUsuario) {
                 RolUsuario.ADMINISTRADOR ->
-                    DashboardManagerView(uiState)
+                    DashboardManagerView(
+                        uiState = uiState,
+                        onCrearServicio = onCrearServicio // <- Pasamos la acción al manager
+                    )
 
                 RolUsuario.CONDUCTOR ->
                     DashboardDriverView(
@@ -93,7 +97,8 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardManagerView(
-    uiState: ServiceUiState
+    uiState: ServiceUiState,
+    onCrearServicio: () -> Unit // <- Recibe la acción
 ) {
     val usuario = uiState.usuarioLogueado
 
@@ -126,6 +131,16 @@ private fun DashboardManagerView(
                 text = "Consulta el feed para revisar los servicios.",
                 style = MaterialTheme.typography.bodyMedium
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // <- NUEVO BOTÓN EXCLUSIVO DEL MANAGER
+            Button(
+                onClick = onCrearServicio,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Crear Nuevo Servicio")
+            }
         }
     }
 }
@@ -254,7 +269,8 @@ fun InicioScreenPreview() {
         DashboardScreen(
             rolUsuario = RolUsuario.CONDUCTOR,
             uiState = ServiceUiState(),
-            onIniciarMarcaje = {}
+            onIniciarMarcaje = {},
+            onCrearServicio = {}
         )
     }
 }

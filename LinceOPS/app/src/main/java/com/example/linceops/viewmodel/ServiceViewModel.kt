@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.UUID
 
 class ServiceViewModel(
     private val dao: ServicioDao
@@ -119,11 +120,11 @@ class ServiceViewModel(
     fun rechazarServicio(id: String, motivo: String) =
         cambiarEstadoServicio(id, EstadoServicio.RECHAZADO, motivo = motivo)
 
-    fun registrarCheckIn(id: String, latitud: Double, longitud: Double) =
-        cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud)
+    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+        cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
-    fun registrarCheckOut(id: String, latitud: Double, longitud: Double) =
-        cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud)
+    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+        cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
     fun reasignarServicio(servicioId: String) {
         val usuario = _uiState.value.usuarioLogueado
@@ -152,14 +153,9 @@ class ServiceViewModel(
         val posicion = ParsePosition(0)
         return formato.parse(fecha, posicion) != null && posicion.index == fecha.length
     }
-    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
-        cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
-    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
-        cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
     fun crearNuevoServicio(
-        titulo: String, origenDestino: String, fecha: String, hora:
-        String,
+        titulo: String, origenDestino: String, fecha: String, hora: String,
         tipo: String, pasajeros: Int
     ) {
         val nuevoServicio = Servicio(
@@ -168,17 +164,17 @@ class ServiceViewModel(
             origenDestino = origenDestino,
             fecha = fecha,
             hora = hora,
+            pickup = "Por definir",
             tipo = tipo,
             pasajeros = pasajeros,
             estado = EstadoServicio.PENDIENTE,
             participaciones = emptyList() // Sin asignar inicialmente
         )
         viewModelScope.launch {
+            repository // Usa el DAO de forma segura a través del repositorio, pero dado que en tu código anterior usaste dao directo, te dejé dao.guardarServicio si tu DAO es accesible desde aquí.
             dao.guardarServicio(nuevoServicio)
-            _uiState.value = _uiState.value.copy(mensaje = "Servicio
-                    creado exitosamente")
-                    cargarServicios() // Refresca la lista de servicios en la UI
+            _uiState.value = _uiState.value.copy(mensaje = "Servicio creado exitosamente")
+            cargarServicios() // Refresca la lista de servicios en la UI
         }
     }
-
 }
