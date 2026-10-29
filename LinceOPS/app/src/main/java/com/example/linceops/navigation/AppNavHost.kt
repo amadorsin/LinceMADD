@@ -209,17 +209,6 @@ fun AppNavHost(
                     }
                 )
             }
-
-            // La nueva ruta debe estar AQUÍ, dentro de las llaves del NavHost
-            composable("crear_servicio") {
-                CrearServicioScreen(
-                    onGuardar = { titulo, ruta, fecha, hora, tipo, pax ->
-                        serviceViewModel.crearNuevoServicio(titulo, ruta, fecha, hora, tipo, pax)
-                        navController.popBackStack()
-                    },
-                    onCancelar = { navController.popBackStack() }
-                )
-            }
         }
     }
 }
