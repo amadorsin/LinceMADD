@@ -157,4 +157,28 @@ class ServiceViewModel(
 
     fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
+    fun crearNuevoServicio(
+        titulo: String, origenDestino: String, fecha: String, hora:
+        String,
+        tipo: String, pasajeros: Int
+    ) {
+        val nuevoServicio = Servicio(
+            id = UUID.randomUUID().toString(), // Genera un ID único
+            titulo = titulo,
+            origenDestino = origenDestino,
+            fecha = fecha,
+            hora = hora,
+            tipo = tipo,
+            pasajeros = pasajeros,
+            estado = EstadoServicio.PENDIENTE,
+            participaciones = emptyList() // Sin asignar inicialmente
+        )
+        viewModelScope.launch {
+            dao.guardarServicio(nuevoServicio)
+            _uiState.value = _uiState.value.copy(mensaje = "Servicio
+                    creado exitosamente")
+                    cargarServicios() // Refresca la lista de servicios en la UI
+        }
+    }
+
 }

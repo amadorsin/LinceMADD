@@ -209,6 +209,16 @@ fun AppNavHost(
                     }
                 )
             }
+            composable("crear_servicio") {
+                CrearServicioScreen(
+                    onGuardar = { titulo, ruta, fecha, hora, tipo, pax ->
+                        serviceViewModel.crearNuevoServicio(titulo, ruta, fecha,
+                            hora, tipo, pax)
+                        navController.popBackStack()
+                    },
+                    onCancelar = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
