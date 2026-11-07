@@ -1,19 +1,34 @@
 package com.example.linceops.navigation
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.platform.LocalContext
 import com.example.linceops.data.local.LinceOpsDatabase
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.screens.*
+import com.example.linceops.ui.components.BarraInferiorGlass
+import com.example.linceops.ui.components.NotificacionFlotante
 import com.example.linceops.viewmodel.ServiceViewModel
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.utils.isInternetAvailable
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import kotlinx.coroutines.delay
 
 @Composable
 fun AppNavHost(
@@ -35,62 +50,53 @@ fun AppNavHost(
     val uiState by serviceViewModel.uiState.collectAsState()
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    // Aviso flotante propio: reemplaza el Snackbar oscuro y desaparece solo.
+    var avisoTexto by remember { mutableStateOf("") }
+    var avisoError by remember { mutableStateOf(false) }
+    var avisoVisible by remember { mutableStateOf(false) }
+    var avisoId by remember { mutableStateOf(0) }
 
     LaunchedEffect(uiState.mensaje, uiState.error) {
-        uiState.mensaje?.let {
-            snackbarHostState.showSnackbar(it)
-            serviceViewModel.limpiarMensajes()
-        }
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
+        val texto = uiState.mensaje ?: uiState.error
+        if (texto != null) {
+            avisoTexto = texto
+            avisoError = uiState.error != null
+            avisoVisible = true
+            avisoId += 1
             serviceViewModel.limpiarMensajes()
         }
     }
 
-    val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
-    val mostrarBottomBar = rutaActual != Destino.Login.ruta
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            if (mostrarBottomBar) {
-                NavigationBar {
-                    pantallasMenu.forEach { destino ->
-                        val rutaBase = rutaActual?.substringBefore("/") ?: ""
-                        val destinoBase = destino.ruta.substringBefore("/")
-                        val seleccionado = rutaBase == destinoBase
-
-                        NavigationBarItem(
-                            icon = { Icon(destino.icon!!, contentDescription = destino.title) },
-                            label = { Text(destino.title!!) },
-                            selected = seleccionado,
-                            onClick = {
-                                val rutaNavegacion = if (destino == Destino.Dashboard) {
-                                    Destino.Dashboard.createRoute(rolActual.name)
-                                } else {
-                                    destino.ruta.substringBefore("/")
-                                }
-
-                                navController.navigate(rutaNavegacion) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        )
-                    }
-                }
-            }
+    LaunchedEffect(avisoId) {
+        if (avisoId > 0) {
+            delay(1500)
+            avisoVisible = false
         }
-    ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = Destino.Login.ruta,
-            modifier = Modifier.padding(paddingValues)
+    }
+
+    val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
+    val rutaBase = rutaActual?.substringBefore("/")
+    val mostrarBottomBar = rutaBase != null &&
+        pantallasMenu.any { it.ruta.substringBefore("/") == rutaBase }
+
+    var barraVisible by rememberSaveable { mutableStateOf(true) }
+    LaunchedEffect(rutaActual) { barraVisible = true }
+
+    val hazeState = remember { HazeState() }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // El contenido se marca como fuente del desenfoque de la barra inferior.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .haze(state = hazeState)
         ) {
+            Scaffold { paddingValues ->
+                NavHost(
+                    navController = navController,
+                    startDestination = Destino.Login.ruta,
+                    modifier = Modifier.padding(paddingValues)
+                ) {
 
             composable(Destino.Login.ruta) {
                 LoginScreen(
@@ -129,7 +135,8 @@ fun AppNavHost(
                     },
                     onCrearServicio = {
                         navController.navigate("crear_servicio")
-                    }
+                    },
+                    onScrollBarra = { barraVisible = it }
                 )
             }
 
@@ -143,12 +150,14 @@ fun AppNavHost(
                     filtroFecha = uiState.filtroFecha,
                     onFiltrarPorEstado = { estado -> serviceViewModel.filtrarPorEstado(estado) },
                     onFiltrarPorFecha = { fecha -> serviceViewModel.filtrarPorFecha(fecha) },
-                    onLimpiarFiltros = { serviceViewModel.limpiarFiltros() }
+                    onLimpiarFiltros = { serviceViewModel.limpiarFiltros() },
+                    onScrollBarra = { barraVisible = it }
                 )
             }
 
             composable(Destino.Perfil.ruta) {
                 PerfilScreen(
+                    onScrollBarra = { barraVisible = it },
                     onCerrarSesion = {
                         serviceViewModel.cerrarSesion()
                         navController.navigate(Destino.Login.ruta) {
@@ -222,6 +231,44 @@ fun AppNavHost(
                     onCancelar = { navController.popBackStack() }
                 )
             }
+            }
+            }
+        }
+
+        if (mostrarBottomBar) {
+            BarraInferiorGlass(
+                rutaActual = rutaActual,
+                onNavegar = { id ->
+                    barraVisible = true
+                    val rutaNavegacion = when (id) {
+                        "inicio" -> Destino.Dashboard.createRoute(rolActual.name)
+                        "servicios" -> Destino.Feed.ruta
+                        else -> Destino.Perfil.ruta
+                    }
+                    navController.navigate(rutaNavegacion) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                visible = barraVisible,
+                onVisibleChange = { barraVisible = it },
+                hazeState = hazeState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = avisoVisible,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 2 }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        ) {
+            NotificacionFlotante(texto = avisoTexto, esError = avisoError)
         }
     }
 }

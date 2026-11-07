@@ -42,3 +42,15 @@ val StatusCompletedText = Color(0xFF37473D)
 val StatusRejectedBg = Color(0xFFFADBD8)        // Terracota pálido (Rechazado / Cerrar Sesión)
 val StatusRejectedText = Color(0xFF78281F)
 val LinceDangerRed = Color(0xFFA93226)          // Rojo sobrio para botones de alerta/rechazo
+
+// Mapa esquemático del selector de ubicación (tonos cálidos de la marca)
+val LinceMapLand = Color(0xFFEDE9DF)            // Suelo urbano crema
+val LinceMapBlock = Color(0xFFE0DBCC)           // Manzanas y edificaciones
+val LinceMapPark = Color(0xFFD6E5D3)            // Áreas verdes
+val LinceMapRoad = Color(0xFFFFFDF8)            // Calzadas
+val LinceMapRoadEdge = Color(0xFFD9D2C2)        // Borde de calzada
+val LinceMapWater = Color(0xFFC6D9D8)           // Costa / agua
+
+// Barra inferior translúcida (efecto vidrio)
+val LinceGlassSurface = Color(0xFFFFFFFF)
+val LinceGlassBorder = Color(0xCCFFFFFF)

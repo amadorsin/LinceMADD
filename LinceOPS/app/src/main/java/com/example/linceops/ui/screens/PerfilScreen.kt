@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,18 +20,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.linceops.ui.components.EfectoScrollBarraInferior
 import com.example.linceops.ui.theme.*
 
 @Composable
 fun PerfilScreen(
     modifier: Modifier = Modifier,
-    onCerrarSesion: () -> Unit = {}
+    onCerrarSesion: () -> Unit = {},
+    onScrollBarra: (Boolean) -> Unit = {}
 ) {
+    val listState = rememberLazyListState()
+    EfectoScrollBarraInferior(listState = listState, onVisibleChange = onScrollBarra)
+
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
-            .background(LinceCreamBackground)
-            .padding(16.dp),
+            .background(LinceCreamBackground),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 124.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Encabezado de la pantalla

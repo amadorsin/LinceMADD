@@ -3,19 +3,26 @@ package com.example.linceops.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
+import com.example.linceops.ui.components.EfectoScrollBarraInferior
 import com.example.linceops.ui.theme.*
 import com.example.linceops.viewmodel.ServiceUiState
 
@@ -37,8 +45,27 @@ fun DashboardScreen(
     uiState: ServiceUiState,
     onIniciarMarcaje: (String) -> Unit,
     onCrearServicio: () -> Unit = {},
+    onScrollBarra: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
+    EfectoScrollBarraInferior(listState = listState, onVisibleChange = onScrollBarra)
+
+    // El filtro de Inicio es local y arranca siempre en "Todos": no hereda el
+    // estado que el usuario haya elegido en la pantalla de Servicios.
+    var filtroInicio by remember { mutableStateOf<EstadoServicio?>(null) }
+    val usuario = uiState.usuarioLogueado
+    val serviciosVisibles = if (filtroInicio == null) {
+        uiState.serviciosTotales
+    } else {
+        uiState.serviciosTotales.filter { servicio ->
+            val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
+            estado == filtroInicio
+        }
+    }
+    // Inicio nunca debe heredar la lista filtrada de la pantalla de Servicios.
+    val uiStateCompleto = uiState.copy(servicios = uiState.serviciosTotales)
+
     val nombreUsuario = uiState.usuarioLogueado?.nombre ?: "Usuario"
     val iniciales = nombreUsuario
         .split(" ")
@@ -48,10 +75,11 @@ fun DashboardScreen(
         .joinToString("")
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(LinceCreamBackground),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 124.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -149,26 +177,90 @@ fun DashboardScreen(
             when (rolUsuario) {
                 RolUsuario.ADMINISTRADOR ->
                     DashboardManagerView(
-                        uiState = uiState,
+                        uiState = uiStateCompleto,
                         onCrearServicio = onCrearServicio
                     )
 
                 RolUsuario.CONDUCTOR ->
                     DashboardDriverView(
-                        uiState = uiState,
+                        uiState = uiStateCompleto,
                         onIniciarMarcaje = onIniciarMarcaje
                     )
 
                 RolUsuario.GUIA ->
-                    DashboardGuiaView(uiState)
+                    DashboardGuiaView(uiStateCompleto)
             }
         }
 
-        if (uiState.servicios.isNotEmpty()) {
+        // Filtros propios de Inicio, dentro del scroll y aplicados solo al resumen.
+        item {
+            FiltrosInicio(
+                seleccionado = filtroInicio,
+                onSeleccionar = { filtroInicio = it }
+            )
+        }
+
+        if (serviciosVisibles.isNotEmpty()) {
             item {
                 ResumenServicios(
-                    servicios = uiState.servicios,
-                    uiState = uiState
+                    servicios = serviciosVisibles,
+                    uiState = uiStateCompleto
+                )
+            }
+        } else {
+            item {
+                Surface(
+                    color = LinceSurfaceContainerLow,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = filtroInicio?.let {
+                            "No hay servicios en estado ${nombreEstado(it)}."
+                        } ?: "No hay servicios disponibles.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LinceTextSecondary,
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FiltrosInicio(
+    seleccionado: EstadoServicio?,
+    onSeleccionar: (EstadoServicio?) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "FILTRAR POR ESTADO",
+            style = MaterialTheme.typography.labelSmall,
+            color = LinceTextSecondary,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.8.sp
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                FilterChip(
+                    selected = seleccionado == null,
+                    onClick = { onSeleccionar(null) },
+                    label = { Text("Todos") },
+                    shape = RoundedCornerShape(50),
+                    colors = filterChipColors()
+                )
+            }
+            items(estadosOrdenados) { estado ->
+                FilterChip(
+                    selected = seleccionado == estado,
+                    onClick = { onSeleccionar(estado) },
+                    label = { Text(nombreEstado(estado)) },
+                    shape = RoundedCornerShape(50),
+                    colors = filterChipColors()
                 )
             }
         }
@@ -238,7 +330,7 @@ private fun DashboardManagerView(
                     colorValor = LinceGreenDark,
                     colorFondo = LinceGreenSageLight.copy(alpha = 0.55f),
                     colorIcono = LinceGreenPrimary,
-                    icono = Icons.Default.List
+                    icono = Icons.AutoMirrored.Filled.List
                 )
 
                 KpiCard(

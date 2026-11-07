@@ -1,13 +1,15 @@
 package com.example.linceops.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -22,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
+import com.example.linceops.ui.components.CampoFecha
+import com.example.linceops.ui.components.EfectoScrollBarraInferior
+import com.example.linceops.ui.components.esFechaCompleta
 import com.example.linceops.ui.theme.*
 
 @Composable
@@ -32,120 +37,95 @@ fun ServiciosScreen(
     filtroFecha: String?,
     onFiltrarPorEstado: (EstadoServicio?) -> Unit,
     onFiltrarPorFecha: (String) -> Unit,
-    onLimpiarFiltros: () -> Unit
+    onLimpiarFiltros: () -> Unit,
+    onScrollBarra: (Boolean) -> Unit = {}
 ) {
+    val listState = rememberLazyListState()
+    EfectoScrollBarraInferior(listState = listState, onVisibleChange = onScrollBarra)
+
     var textoFecha by remember(filtroFecha) { mutableStateOf(filtroFecha ?: "") }
 
-    Column(
+    // Aplica el filtro automáticamente al completar la fecha o al borrarla.
+    LaunchedEffect(textoFecha) {
+        if (textoFecha.isBlank()) {
+            if (!filtroFecha.isNullOrBlank()) onFiltrarPorFecha("")
+        } else if (esFechaCompleta(textoFecha) && textoFecha != filtroFecha) {
+            onFiltrarPorFecha(textoFecha)
+        }
+    }
+
+    // Un único scroll vertical para toda la sección: encabezado, filtros y lista.
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
-            .background(LinceCreamBackground)
+            .background(LinceCreamBackground),
+        contentPadding = PaddingValues(bottom = 124.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Encabezado con marca, título y contador de resultados
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 18.dp, bottom = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "DESPACHO DE SERVICIOS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = LinceTextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Text(
-                    text = "Servicios Asignados",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = LinceGreenPrimary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        item {
+            EncabezadoServicios(cantidad = servicios.size)
+        }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Surface(
-                color = LinceSurfaceContainerHigh,
-                shape = RoundedCornerShape(50)
-            ) {
-                Text(
-                    text = "${servicios.size}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                FiltrosSection(
+                    filtroEstado = filtroEstado,
+                    textoFecha = textoFecha,
+                    onTextoFechaChange = { textoFecha = it },
+                    onFiltrarPorEstado = onFiltrarPorEstado,
+                    onLimpiarFiltros = {
+                        textoFecha = ""
+                        onLimpiarFiltros()
+                    }
                 )
             }
         }
-
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            FiltrosSection(
-                filtroEstado = filtroEstado,
-                textoFecha = textoFecha,
-                onTextoFechaChange = { textoFecha = it },
-                onFiltrarPorEstado = onFiltrarPorEstado,
-                onFiltrarPorFecha = { onFiltrarPorFecha(textoFecha) },
-                onLimpiarFiltros = {
-                    textoFecha = ""
-                    onLimpiarFiltros()
-                }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
 
         if (servicios.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 48.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Surface(
-                        modifier = Modifier.size(64.dp),
-                        shape = CircleShape,
-                        color = LinceSurfaceContainerHigh
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = LinceGreenPrimary,
-                                modifier = Modifier.size(28.dp)
-                            )
+                        Surface(
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape,
+                            color = LinceSurfaceContainerHigh
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = LinceGreenPrimary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
                         }
+                        Text(
+                            text = "Sin resultados",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = LinceTextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "No hay servicios que coincidan con los filtros.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LinceTextSecondary,
+                            textAlign = TextAlign.Center
+                        )
                     }
-                    Text(
-                        text = "Sin resultados",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = LinceTextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "No hay servicios que coincidan con los filtros.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = LinceTextSecondary,
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(servicios) { servicio ->
+            items(servicios) { servicio ->
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     ServicioItem(
                         servicio = servicio,
                         onClickDetalle = { onVerDetalle(servicio.id) }
@@ -156,124 +136,152 @@ fun ServiciosScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EncabezadoServicios(cantidad: Int) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 22.dp, bottom = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "DESPACHO DE SERVICIOS",
+            style = MaterialTheme.typography.labelSmall,
+            color = LinceTextSecondary,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.8.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Servicios Asignados",
+            style = MaterialTheme.typography.headlineSmall,
+            color = LinceGreenPrimary,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Surface(
+            color = LinceGreenSageLight,
+            shape = RoundedCornerShape(50)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(LinceGreenPrimary, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = "$cantidad ${if (cantidad == 1) "servicio" else "servicios"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LinceGreenDark,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.4.sp
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun FiltrosSection(
     filtroEstado: EstadoServicio?,
     textoFecha: String,
     onTextoFechaChange: (String) -> Unit,
     onFiltrarPorEstado: (EstadoServicio?) -> Unit,
-    onFiltrarPorFecha: () -> Unit,
     onLimpiarFiltros: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // Chips de estado en varias líneas: visibles todos sin recortes
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = LinceCardSurface,
+        shadowElevation = 1.dp,
+        border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.5f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
         ) {
-            FilterChip(
-                selected = filtroEstado == null,
-                onClick = { onFiltrarPorEstado(null) },
-                label = { Text("Todos") },
-                shape = RoundedCornerShape(50),
-                colors = filterChipColors()
-            )
-
-            EstadoServicio.entries
-                .sortedBy { estado ->
-                    when (estado) {
-                        EstadoServicio.PENDIENTE -> 0
-                        EstadoServicio.CONFIRMADO -> 1
-                        EstadoServicio.EN_CURSO -> 2
-                        EstadoServicio.FINALIZADO -> 3
-                        EstadoServicio.RECHAZADO -> 4
-                    }
-                }
-                .forEach { estado ->
-                FilterChip(
-                    selected = filtroEstado == estado,
-                    onClick = { onFiltrarPorEstado(estado) },
-                    label = { Text(nombreEstado(estado)) },
-                    shape = RoundedCornerShape(50),
-                    colors = filterChipColors()
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = textoFecha,
-                onValueChange = onTextoFechaChange,
-                label = { Text("Fecha (dd/MM/yyyy)") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = "Icono Calendario",
-                        tint = LinceGreenPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                textStyle = MaterialTheme.typography.bodyMedium,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = LinceGreenPrimary,
-                    unfocusedBorderColor = LinceOutlineVariant,
-                    focusedContainerColor = LinceCardSurface,
-                    unfocusedContainerColor = LinceCardSurface
-                )
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            FilledIconButton(
-                onClick = onFiltrarPorFecha,
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = LinceGreenPrimary,
-                    contentColor = LinceCardSurface
-                )
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Filtrar por fecha"
-                )
-            }
-        }
+                item {
+                    FilterChip(
+                        selected = filtroEstado == null,
+                        onClick = { onFiltrarPorEstado(null) },
+                        label = { Text("Todos") },
+                        shape = RoundedCornerShape(50),
+                        colors = filterChipColors()
+                    )
+                }
 
-        TextButton(
-            onClick = onLimpiarFiltros,
-            modifier = Modifier.align(Alignment.End),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-        ) {
-            Text(
-                text = "Limpiar filtros",
-                color = LinceGreenPrimary,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold
+                items(estadosOrdenados) { estado ->
+                    FilterChip(
+                        selected = filtroEstado == estado,
+                        onClick = { onFiltrarPorEstado(estado) },
+                        label = { Text(nombreEstado(estado)) },
+                        shape = RoundedCornerShape(50),
+                        colors = filterChipColors()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            CampoFecha(
+                valor = textoFecha,
+                onValorChange = onTextoFechaChange,
+                etiqueta = "Filtrar por fecha",
+                placeholder = "dd/MM/yyyy"
             )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = onLimpiarFiltros,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "Limpiar filtros",
+                        color = LinceGreenPrimary,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun filterChipColors() = FilterChipDefaults.filterChipColors(
+internal fun filterChipColors() = FilterChipDefaults.filterChipColors(
     containerColor = LinceSurfaceContainerHigh,
     labelColor = LinceTextSecondary,
     selectedContainerColor = LinceGreenPrimary,
     selectedLabelColor = LinceCardSurface
 )
 
-private fun nombreEstado(estado: EstadoServicio): String = when (estado) {
+internal val estadosOrdenados = listOf(
+    EstadoServicio.PENDIENTE,
+    EstadoServicio.CONFIRMADO,
+    EstadoServicio.EN_CURSO,
+    EstadoServicio.FINALIZADO,
+    EstadoServicio.RECHAZADO
+)
+
+internal fun nombreEstado(estado: EstadoServicio): String = when (estado) {
     EstadoServicio.PENDIENTE -> "Pendiente"
     EstadoServicio.CONFIRMADO -> "Confirmado"
     EstadoServicio.RECHAZADO -> "Rechazado"

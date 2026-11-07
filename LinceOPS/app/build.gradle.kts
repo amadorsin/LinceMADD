@@ -42,6 +42,8 @@ android {
 
 dependencies {
     implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
+    implementation("dev.chrisbanes.haze:haze:0.7.3")
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

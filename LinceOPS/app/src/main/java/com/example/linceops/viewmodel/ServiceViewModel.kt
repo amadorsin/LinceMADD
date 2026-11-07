@@ -52,10 +52,14 @@ class ServiceViewModel(
         }
         viewModelScope.launch {
             val lista = repository.obtenerServicios(usuario.id)
-            _uiState.value = _uiState.value.copy(servicios = lista.filter { servicio ->
+            val filtrados = lista.filter { servicio ->
                 (_uiState.value.filtroEstado == null || servicio.estadoPara(usuario) == _uiState.value.filtroEstado) &&
                         (_uiState.value.filtroFecha == null || servicio.fecha == _uiState.value.filtroFecha)
-            })
+            }
+            _uiState.value = _uiState.value.copy(
+                servicios = filtrados,
+                serviciosTotales = lista
+            )
         }
     }
 
@@ -82,7 +86,8 @@ class ServiceViewModel(
     // Nota: Como Compose no se lleva tan bien devolviendo datos directo desde un ViewModel en funciones normales,
     // obtenerServicio ahora busca en el estado actual cargado.
     fun obtenerServicio(servicioId: String): Servicio? {
-        return _uiState.value.servicios.find { it.id == servicioId }
+        return _uiState.value.serviciosTotales.find { it.id == servicioId }
+            ?: _uiState.value.servicios.find { it.id == servicioId }
     }
 
     fun cambiarEstadoServicio(

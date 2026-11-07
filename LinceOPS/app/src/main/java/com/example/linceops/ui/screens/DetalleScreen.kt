@@ -8,13 +8,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -121,14 +131,25 @@ fun DetalleScreen(
                         color = LinceGreenSageLight,
                         shape = RoundedCornerShape(50)
                     ) {
-                        Text(
-                            text = "${servicio.fecha}  •  ${servicio.hora}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = LinceGreenDark,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = LinceGreenDark,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "${servicio.fecha}  •  ${servicio.hora}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceGreenDark,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
 
@@ -154,12 +175,14 @@ fun DetalleScreen(
                             FichaDato(
                                 etiqueta = "FECHA",
                                 valor = servicio.fecha,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                icono = Icons.Default.DateRange
                             )
                             FichaDato(
                                 etiqueta = "HORA DE SALIDA",
                                 valor = servicio.hora,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                icono = Icons.Default.PlayArrow
                             )
                         }
 
@@ -171,7 +194,8 @@ fun DetalleScreen(
                         FichaDato(
                             etiqueta = "PUNTO DE ENCUENTRO",
                             valor = servicio.pickup,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            icono = Icons.Default.Place
                         )
                     }
                 }
@@ -198,12 +222,14 @@ fun DetalleScreen(
                             FichaDato(
                                 etiqueta = "AGENCIA",
                                 valor = servicio.agencia,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                icono = Icons.Default.AccountBox
                             )
                             FichaDato(
                                 etiqueta = "HOTEL",
                                 valor = servicio.hotel,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                icono = Icons.Default.Home
                             )
                         }
 
@@ -214,26 +240,30 @@ fun DetalleScreen(
                             FichaDato(
                                 etiqueta = "PASAJEROS",
                                 valor = "${servicio.pasajeros}",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                icono = Icons.Default.Person
                             )
                             FichaDato(
                                 etiqueta = "IDIOMA",
                                 valor = servicio.idioma,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                icono = Icons.Default.Face
                             )
                         }
 
                         FichaDato(
                             etiqueta = "TIPO Y VEHÍCULO",
                             valor = "${servicio.tipo} • ${servicio.vehiculo}",
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            icono = Icons.AutoMirrored.Filled.Send
                         )
 
                         if (servicio.inclusiones.isNotEmpty()) {
                             FichaDato(
                                 etiqueta = "INCLUSIONES",
                                 valor = servicio.inclusiones.joinToString(", "),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                icono = Icons.Default.CheckCircle
                             )
                         }
                     }
@@ -264,13 +294,15 @@ fun DetalleScreen(
                             etiqueta = "INSTRUCCIONES",
                             valor = servicio.instrucciones.ifBlank { "Sin instrucciones especiales" },
                             modifier = Modifier.fillMaxWidth(),
-                            colorFondo = LinceCardSurface.copy(alpha = 0.7f)
+                            colorFondo = LinceCardSurface.copy(alpha = 0.7f),
+                            icono = Icons.Default.Info
                         )
                         FichaDato(
                             etiqueta = "OBSERVACIONES",
                             valor = servicio.observaciones.ifBlank { "Sin observaciones" },
                             modifier = Modifier.fillMaxWidth(),
-                            colorFondo = LinceCardSurface.copy(alpha = 0.7f)
+                            colorFondo = LinceCardSurface.copy(alpha = 0.7f),
+                            icono = Icons.Default.Edit
                         )
                     }
                 }
@@ -411,7 +443,8 @@ private fun FichaDato(
     etiqueta: String,
     valor: String,
     modifier: Modifier = Modifier,
-    colorFondo: androidx.compose.ui.graphics.Color = LinceSurfaceContainerLow
+    colorFondo: Color = LinceSurfaceContainerLow,
+    icono: ImageVector? = null
 ) {
     Surface(
         modifier = modifier,
@@ -421,15 +454,26 @@ private fun FichaDato(
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Text(
-                text = etiqueta,
-                style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.6.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                icono?.let {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        tint = LinceGreenPrimary.copy(alpha = 0.85f),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                }
+                Text(
+                    text = etiqueta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LinceTextSecondary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = valor,
