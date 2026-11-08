@@ -813,7 +813,7 @@ fun SelectorUbicacionDialog(
                         color = LinceCardSurface.copy(alpha = 0.88f)
                     ) {
                         Text(
-                            text = "\u00A9 Esri \u2022 OpenStreetMap",
+                            text = "\u00A9 MapTiler \u2022 \u00A9 OpenStreetMap contributors",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)

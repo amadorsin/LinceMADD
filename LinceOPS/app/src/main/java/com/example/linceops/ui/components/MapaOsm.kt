@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.linceops.BuildConfig
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -31,6 +32,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private const val USER_AGENT_OSM = "Mozilla/5.0 (Linux; Android 14) LinceOPS/1.0"
+private const val USER_AGENT_MAPTILER = "LinceOPS-Android"
 
 private class EsriWorldStreetSource : OnlineTileSourceBase(
     "EsriWorldStreetLince",
@@ -50,6 +52,30 @@ private class EsriWorldStreetSource : OnlineTileSourceBase(
 }
 
 private val FUENTE_ESRI = EsriWorldStreetSource()
+
+private class MapTilerStreetsSource(apiKey: String) : OnlineTileSourceBase(
+    "MapTilerStreetsV4Lince",
+    1,
+    19,
+    512,
+    ".png",
+    arrayOf("https://api.maptiler.com/maps/streets-v4/"),
+    "\u00A9 MapTiler \u00A9 OpenStreetMap contributors"
+) {
+    private val clave = apiKey
+
+    override fun getTileURLString(pMapTileIndex: Long): String {
+        val zoom = MapTileIndex.getZoom(pMapTileIndex)
+        val x = MapTileIndex.getX(pMapTileIndex)
+        val y = MapTileIndex.getY(pMapTileIndex)
+        return baseUrl + zoom + "/" + x + "/" + y + ".png?key=" + clave
+    }
+}
+
+private fun fuenteCartografica(): OnlineTileSourceBase {
+    val clave = BuildConfig.MAPTILER_KEY.trim()
+    return if (clave.isEmpty()) FUENTE_ESRI else MapTilerStreetsSource(clave)
+}
 
 private class EstadoMapaOsm {
     var mapa: MapView? = null
@@ -85,10 +111,15 @@ fun MapaOsm(
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { contexto ->
+            val fuente = fuenteCartografica()
             Configuration.getInstance().apply {
-                userAgentValue = USER_AGENT_OSM
                 @Suppress("DEPRECATION")
                 load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
+                userAgentValue = if (fuente is MapTilerStreetsSource) {
+                    USER_AGENT_MAPTILER
+                } else {
+                    USER_AGENT_OSM
+                }
                 osmdroidBasePath = File(contexto.cacheDir, "osmdroid").apply { mkdirs() }
                 osmdroidTileCache = File(contexto.cacheDir, "osmdroid/tiles").apply { mkdirs() }
             }
@@ -97,7 +128,7 @@ fun MapaOsm(
             estado.handlerUi = handlerUi
 
             val mapa = MapView(contexto).apply {
-                setTileSource(FUENTE_ESRI)
+                setTileSource(fuente)
                 setMultiTouchControls(true)
                 setUseDataConnection(true)
                 setTilesScaledToDpi(true)

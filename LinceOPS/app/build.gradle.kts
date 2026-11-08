@@ -1,9 +1,24 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
+
+val secretos = Properties().apply {
+    listOf(
+        rootProject.file("secrets.properties"),
+        rootProject.file("local.properties")
+    ).filter { it.exists() }.forEach { archivo ->
+        archivo.inputStream().use { load(it) }
+    }
+}
+
+val maptilerKey = (secretos.getProperty("MAPTILER_KEY")
+    ?: System.getenv("MAPTILER_KEY")
+    ?: "").trim()
 
 android {
     namespace = "com.example.linceops"
@@ -17,6 +32,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "MAPTILER_KEY",
+            "\"${maptilerKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
     }
 
     buildTypes {
@@ -37,6 +58,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
