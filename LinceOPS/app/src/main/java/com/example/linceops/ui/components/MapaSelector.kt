@@ -7,11 +7,12 @@ import android.content.pm.PackageManager
 import android.location.Geocoder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -44,7 +46,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -60,6 +61,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -104,7 +107,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -114,10 +119,10 @@ import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** Coordenada simple para el selector de mapa. */
 data class PuntoMapa(val latitud: Double, val longitud: Double)
 
 data class LugarSugerido(val nombre: String, val punto: PuntoMapa)
@@ -129,7 +134,7 @@ val PUNTO_PUERTO_MONTT = PuntoMapa(-41.4717, -72.9397)
 val LUGARES_SUGERIDOS = listOf(
     LugarSugerido("Aeropuerto El Tepual", PuntoMapa(-41.4389, -73.0940)),
     LugarSugerido("Hotel Centro", PuntoMapa(-41.4717, -72.9397)),
-    LugarSugerido("Hotel Bahía", PuntoMapa(-41.4742, -72.9425)),
+    LugarSugerido("Hotel Bah\u00EDa", PuntoMapa(-41.4742, -72.9425)),
     LugarSugerido("Terminal de Buses", PuntoMapa(-41.4708, -72.9340)),
     LugarSugerido("Costanera", PuntoMapa(-41.4770, -72.9435)),
     LugarSugerido("Hotel Lago", PuntoMapa(-41.1400, -72.9800))
@@ -137,7 +142,6 @@ val LUGARES_SUGERIDOS = listOf(
 
 private const val METROS_POR_GRADO = 111_320.0
 
-/** Distancia aproximada entre dos puntos (fórmula de Haversine). */
 fun distanciaKm(origen: PuntoMapa, destino: PuntoMapa): Double {
     val radioTierra = 6371.0
     val dLat = Math.toRadians(destino.latitud - origen.latitud)
@@ -151,8 +155,19 @@ fun distanciaKm(origen: PuntoMapa, destino: PuntoMapa): Double {
 fun textoCoordenadas(punto: PuntoMapa): String =
     String.format(Locale.ROOT, "%.5f, %.5f", punto.latitud, punto.longitud)
 
-private suspend fun resolverDireccion(context: Context, punto: PuntoMapa): String? =
-    withContext(Dispatchers.IO) {
+fun textoDistancia(origen: PuntoMapa, destino: PuntoMapa): String {
+    val km = distanciaKm(origen, destino)
+    return if (km < 1.0) {
+        "${(km * 1000).roundToInt()} m"
+    } else {
+        String.format(Locale.ROOT, "%.1f km", km)
+    }
+}
+
+private suspend fun resolverDireccion(context: Context, punto: PuntoMapa): String? {
+    if (!isInternetAvailable(context)) return null
+
+    val desdeGeocoder = withContext(Dispatchers.IO) {
         runCatching {
             val geocoder = Geocoder(context, Locale("es", "CL"))
             @Suppress("DEPRECATION")
@@ -168,6 +183,63 @@ private suspend fun resolverDireccion(context: Context, punto: PuntoMapa): Strin
                         direccion.getAddressLine(0)
                     }
                 }
+        }.getOrNull()
+    }
+
+    if (!desdeGeocoder.isNullOrBlank()) return desdeGeocoder
+    return resolverDireccionNominatim(punto)
+}
+
+private suspend fun resolverDireccionNominatim(punto: PuntoMapa): String? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val parametros = String.format(
+                Locale.US,
+                "lat=%.6f&lon=%.6f&format=jsonv2&zoom=18&addressdetails=1&accept-language=es",
+                punto.latitud,
+                punto.longitud
+            )
+            val conexion = (
+                    URL("https://nominatim.openstreetmap.org/reverse?$parametros")
+                        .openConnection() as HttpURLConnection
+                    ).apply {
+                    requestMethod = "GET"
+                    setRequestProperty(
+                        "User-Agent",
+                        "LinceOPS/1.0 (Aplicacion Android de gestion turistica)"
+                    )
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = 5_000
+                    readTimeout = 5_000
+                }
+
+            try {
+                if (conexion.responseCode !in 200..299) return@runCatching null
+                val cuerpo = conexion.inputStream.bufferedReader().use { it.readText() }
+                val objeto = JSONObject(cuerpo)
+                val direccion = objeto.optJSONObject("address")
+
+                val via = direccion?.optString("road").orEmpty()
+                val numero = direccion?.optString("house_number").orEmpty()
+                val comuna = listOf(
+                    "city",
+                    "town",
+                    "village",
+                    "municipality",
+                    "suburb",
+                    "county"
+                ).firstNotNullOfOrNull { clave ->
+                    direccion?.optString(clave)?.takeIf { it.isNotBlank() }
+                }.orEmpty()
+
+                listOf(via, numero, comuna)
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
+                    .ifBlank { objeto.optString("display_name") }
+                    .ifBlank { null }
+            } finally {
+                conexion.disconnect()
+            }
         }.getOrNull()
     }
 
@@ -205,8 +277,6 @@ private suspend fun buscarDirecciones(
                         val longitud = objeto.optString("lon").toDoubleOrNull() ?: continue
                         val nombreCompleto =
                             objeto.optString("display_name").ifBlank { consulta }
-                        // display_name trae calle, comuna, provincia, región y país.
-                        // Guardamos solo los dos primeros tramos para que quepan en el formulario.
                         val nombre = nombreCompleto
                             .split(",")
                             .map { it.trim() }
@@ -227,16 +297,14 @@ private suspend fun buscarDirecciones(
         }.getOrDefault(emptyList())
     }
 
-/**
- * Convierte un texto libre en coordenadas. Intentar Nominatim primero y, si no
- * hay resultados o no hay red, usa el Geocoder del sistema acotado a Chile.
- */
 private suspend fun geocodificarDireccion(
     context: Context,
     texto: String
 ): PuntoMapa? = withContext(Dispatchers.IO) {
-    val desdeNominatim = buscarDirecciones(texto, limite = 1).firstOrNull()?.punto
-    desdeNominatim ?: runCatching {
+    if (isInternetAvailable(context)) {
+        buscarDirecciones(texto, limite = 1).firstOrNull()?.punto?.let { return@withContext it }
+    }
+    runCatching {
         val geocoder = Geocoder(context, Locale("es", "CL"))
         @Suppress("DEPRECATION")
         geocoder.getFromLocationName(
@@ -262,8 +330,9 @@ fun SelectorUbicacionDialog(
     val teclado = LocalSoftwareKeyboardController.current
     val foco = LocalFocusManager.current
     val scope = rememberCoroutineScope()
-    var hayRed by remember { mutableStateOf(isInternetAvailable(context)) }
+    val focusBuscador = remember { FocusRequester() }
 
+    var hayRed by remember { mutableStateOf(isInternetAvailable(context)) }
     var centro by remember { mutableStateOf(puntoInicial ?: PUNTO_PUERTO_MONTT) }
     var zoomOsm by remember { mutableStateOf(16) }
     var direccion by remember { mutableStateOf("") }
@@ -274,6 +343,10 @@ fun SelectorUbicacionDialog(
     var usandoGps by remember { mutableStateOf(false) }
     var saltarGeocodificacion by remember { mutableStateOf(false) }
     var disparadorGps by remember { mutableStateOf(0) }
+    var ubicacionGps by remember { mutableStateOf<PuntoMapa?>(null) }
+    var moviendoMapa by remember { mutableStateOf(false) }
+    var errorTeselas by remember { mutableStateOf(false) }
+    var editandoDireccion by remember { mutableStateOf(false) }
 
     var consulta by remember { mutableStateOf("") }
     var resultados by remember { mutableStateOf<List<ResultadoDireccion>>(emptyList()) }
@@ -281,6 +354,11 @@ fun SelectorUbicacionDialog(
     var busquedaRealizada by remember { mutableStateOf(false) }
 
     val clienteUbicacion = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val etiquetaPunto = if (titulo.equals("origen", ignoreCase = true)) {
+        "Punto de recogida"
+    } else {
+        "Punto de destino"
+    }
 
     val lanzadorPermiso = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -296,7 +374,15 @@ fun SelectorUbicacionDialog(
             Manifest.permission.ACCESS_FINE_LOCATION
         )
         if (permiso == PackageManager.PERMISSION_GRANTED) {
-            disparadorGps++
+            val token = CancellationTokenSource()
+            clienteUbicacion.getCurrentLocation(
+                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                token.token
+            ).addOnSuccessListener { ubicacion ->
+                if (ubicacion != null) {
+                    ubicacionGps = PuntoMapa(ubicacion.latitude, ubicacion.longitude)
+                }
+            }
         }
     }
 
@@ -316,10 +402,12 @@ fun SelectorUbicacionDialog(
         )
         tarea.addOnSuccessListener { ubicacion ->
             if (ubicacion != null) {
+                val punto = PuntoMapa(ubicacion.latitude, ubicacion.longitude)
+                ubicacionGps = punto
                 saltarGeocodificacion = false
                 direccionManual = false
                 errorDireccion = null
-                centro = PuntoMapa(ubicacion.latitude, ubicacion.longitude)
+                centro = punto
             }
             usandoGps = false
         }
@@ -332,23 +420,21 @@ fun SelectorUbicacionDialog(
             return@LaunchedEffect
         }
         buscandoDireccion = true
-        delay(600)
-        // Si el usuario escribió una dirección, no la pisamos con la geocodificación inversa.
-        if (direccionManual) {
+        try {
+            delay(if (hayRed) 700L else 0L)
+            if (!direccionManual) {
+                val resuelta = withTimeoutOrNull(6_000L) {
+                    resolverDireccion(context, centro)
+                }
+                if (!direccionManual) {
+                    direccion = resuelta ?: textoCoordenadas(centro)
+                }
+            }
+        } finally {
             buscandoDireccion = false
-            return@LaunchedEffect
         }
-        val resuelta = resolverDireccion(context, centro)
-        if (!direccionManual) {
-            direccion = resuelta ?: textoCoordenadas(centro)
-        }
-        buscandoDireccion = false
     }
 
-    /**
-     * Geocodifica un texto y mueve el pin a ese punto. Se usa al elegir una
-     * sugerencia del buscador o al confirmar una dirección escrita a mano.
-     */
     fun centrarEnDireccion(texto: String, confirmarAlEncontrar: Boolean = false) {
         val limpio = texto.trim()
         if (limpio.isBlank() || geocodificando) return
@@ -365,6 +451,7 @@ fun SelectorUbicacionDialog(
                 consulta = ""
                 resultados = emptyList()
                 busquedaRealizada = false
+                editandoDireccion = false
                 foco.clearFocus()
                 teclado?.hide()
                 if (confirmarAlEncontrar) onConfirmar(punto, limpio)
@@ -380,17 +467,53 @@ fun SelectorUbicacionDialog(
         val textoFinal = direccion.trim().ifBlank {
             consulta.trim().ifBlank { textoCoordenadas(centro) }
         }
-
-        // Si el usuario escribió una dirección distinta a la detectada, el pin
-        // debe moverse a esa dirección antes de guardar.
-        if (direccionManual && direccion.isNotBlank()) {
+        if (direccionManual && direccion.isNotBlank() && hayRed) {
             centrarEnDireccion(textoFinal, confirmarAlEncontrar = true)
         } else {
             onConfirmar(centro, textoFinal)
         }
     }
 
-    LaunchedEffect(consulta) {
+    fun solicitarUbicacion() {
+        val permiso = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+        if (permiso == PackageManager.PERMISSION_GRANTED) {
+            disparadorGps++
+        } else {
+            lanzadorPermiso.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            val conectado = isInternetAvailable(context)
+            if (conectado != hayRed) {
+                hayRed = conectado
+                if (conectado) errorTeselas = false
+            }
+            delay(4_000)
+        }
+    }
+
+    LaunchedEffect(hayRed, errorTeselas) {
+        if (!hayRed || errorTeselas) moviendoMapa = false
+    }
+
+    LaunchedEffect(editandoDireccion) {
+        if (editandoDireccion) {
+            focusBuscador.requestFocus()
+        }
+    }
+
+    LaunchedEffect(consulta, editandoDireccion) {
+        if (!editandoDireccion) return@LaunchedEffect
         val texto = consulta.trim()
         busquedaRealizada = false
         if (texto.length < 3) {
@@ -399,9 +522,15 @@ fun SelectorUbicacionDialog(
             return@LaunchedEffect
         }
 
-        delay(450)
+        delay(600)
         buscandoSugerencias = true
-        resultados = buscarDirecciones(texto)
+        if (hayRed) {
+            resultados = buscarDirecciones(texto)
+        } else {
+            resultados = LUGARES_SUGERIDOS
+                .filter { it.nombre.contains(texto, ignoreCase = true) }
+                .map { ResultadoDireccion(it.nombre, it.punto) }
+        }
         buscandoSugerencias = false
         busquedaRealizada = true
     }
@@ -415,6 +544,7 @@ fun SelectorUbicacionDialog(
         consulta = ""
         resultados = emptyList()
         busquedaRealizada = false
+        editandoDireccion = false
         foco.clearFocus()
         teclado?.hide()
     }
@@ -432,7 +562,6 @@ fun SelectorUbicacionDialog(
                     .fillMaxSize()
                     .imePadding()
             ) {
-                // Encabezado
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -441,7 +570,7 @@ fun SelectorUbicacionDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "UBICACIÓN DEL SERVICIO",
+                            text = "UBICACI\u00D3N DEL SERVICIO",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.Bold,
@@ -463,7 +592,6 @@ fun SelectorUbicacionDialog(
                     }
                 }
 
-                // Mapa
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -471,7 +599,23 @@ fun SelectorUbicacionDialog(
                         .padding(horizontal = 16.dp)
                         .clip(RoundedCornerShape(24.dp))
                 ) {
-                    if (hayRed) {
+                    MapaMovil(
+                        centro = centro,
+                        zoom = (16f / zoomOsm).coerceIn(0.22f, 2.2f),
+                        onCentroChange = {
+                            if (!hayRed || errorTeselas) {
+                                direccionManual = false
+                                errorDireccion = null
+                                centro = it
+                            }
+                        },
+                        onMapMovingChange = { moviendoMapa = it },
+                        puntoGps = ubicacionGps,
+                        interactivo = !hayRed || errorTeselas,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    if (hayRed && !errorTeselas) {
                         MapaOsm(
                             centro = centro,
                             zoom = zoomOsm,
@@ -481,226 +625,172 @@ fun SelectorUbicacionDialog(
                                 centro = nuevo
                             },
                             onZoomChange = { nuevoZoom ->
-                                zoomOsm = nuevoZoom.coerceIn(3, 19)
+                                zoomOsm = nuevoZoom.coerceIn(3, 20)
                             },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        MapaMovil(
-                            centro = centro,
-                            zoom = (16f / zoomOsm).coerceIn(0.22f, 2.2f),
-                            onCentroChange = { nuevo ->
-                                direccionManual = false
-                                errorDireccion = null
-                                centro = nuevo
-                            },
+                            puntoGps = ubicacionGps,
+                            onMapMovingChange = { moviendoMapa = it },
+                            onTileError = { errorTeselas = true },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
 
-                    // Si se abrió el diálogo sin red, permite reintentar sin cerrarlo.
-                    if (!hayRed) {
+                    if (!hayRed || errorTeselas) {
                         Surface(
                             modifier = Modifier
-                                .align(Alignment.BottomStart)
+                                .align(Alignment.BottomCenter)
                                 .padding(8.dp)
-                                .clickable {
-                                    if (isInternetAvailable(context)) hayRed = true
-                                },
-                            shape = RoundedCornerShape(8.dp),
+                                .clickable(enabled = errorTeselas) { errorTeselas = false },
+                            shape = RoundedCornerShape(50),
                             color = LinceCardSurface.copy(alpha = 0.94f),
                             shadowElevation = 3.dp
                         ) {
-                            Text(
-                                text = "Sin conexión · Reintentar",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(LinceTertiary, CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (errorTeselas) {
+                                        "Teselas no disponibles \u00B7 toca para reintentar"
+                                    } else {
+                                        "Sin conexi\u00F3n \u00B7 mapa vectorial"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceGreenDark,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
 
-                    // Pin fijo en el centro: la punta queda exactamente sobre el punto elegido.
-                    Box(
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(10.dp)
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = !usandoGps && !geocodificando) {
+                                solicitarUbicacion()
+                            },
+                        shape = CircleShape,
+                        color = LinceCardSurface.copy(alpha = 0.96f),
+                        shadowElevation = 5.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (usandoGps) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = LinceGreenPrimary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = "Centrar en mi ubicaci\u00F3n",
+                                    tint = LinceGreenPrimary,
+                                    modifier = Modifier.size(25.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    val elevacionPin by animateDpAsState(
+                        targetValue = if (moviendoMapa) (-10).dp else 0.dp,
+                        label = "elevacionPin"
+                    )
+
+                    Surface(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .offset(y = (-23).dp)
+                            .offset(y = (-112).dp + elevacionPin),
+                        shape = RoundedCornerShape(14.dp),
+                        color = LinceGreenDark,
+                        shadowElevation = 6.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (moviendoMapa || buscandoDireccion) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = LinceCardSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Buscando direcci\u00F3n...",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = LinceCardSurface,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = etiquetaPunto.uppercase(Locale.ROOT),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceGreenSageLight,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp
+                                )
+                                Text(
+                                    text = direccion.ifBlank { textoCoordenadas(centro) },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = LinceCardSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .offset(y = (-28).dp + elevacionPin),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Surface(
                             modifier = Modifier.size(46.dp),
                             shape = CircleShape,
-                            color = LinceCardSurface,
+                            color = LinceGreenPrimary,
+                            border = BorderStroke(3.dp, LinceCardSurface),
                             shadowElevation = 6.dp
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
                                     contentDescription = "Punto seleccionado",
-                                    tint = LinceGreenPrimary,
-                                    modifier = Modifier.size(30.dp)
+                                    tint = LinceCardSurface,
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
                         }
+                        Canvas(modifier = Modifier.size(width = 14.dp, height = 11.dp)) {
+                            val aguja = Path().apply {
+                                moveTo(size.width / 2f, size.height)
+                                lineTo(0f, 0f)
+                                lineTo(size.width, 0f)
+                                close()
+                            }
+                            drawPath(aguja, LinceGreenPrimary)
+                        }
                     }
+
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .size(6.dp)
-                            .background(LinceGreenDark.copy(alpha = 0.55f), CircleShape)
+                            .size(width = 14.dp, height = 5.dp)
+                            .background(LinceGreenDark.copy(alpha = 0.28f), CircleShape)
                     )
 
-                    // Buscador de direcciones sobre el mapa
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth()
-                            .padding(10.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = LinceCardSurface,
-                            shadowElevation = 4.dp
-                        ) {
-                            OutlinedTextField(
-                                value = consulta,
-                                onValueChange = { consulta = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                placeholder = {
-                                    Text(
-                                        text = "Buscar dirección en el mapa",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = LinceTextSecondary
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = LinceGreenPrimary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                },
-                                trailingIcon = {
-                                    when {
-                                        buscandoSugerencias || geocodificando -> CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp),
-                                            strokeWidth = 2.dp,
-                                            color = LinceGreenPrimary
-                                        )
-
-                                        consulta.isNotEmpty() -> IconButton(
-                                            onClick = {
-                                                consulta = ""
-                                                resultados = emptyList()
-                                                busquedaRealizada = false
-                                            }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Borrar búsqueda",
-                                                tint = LinceTextSecondary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                },
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(
-                                    onSearch = {
-                                        val texto = consulta.trim()
-                                        if (texto.isNotBlank()) {
-                                            val primero = resultados.firstOrNull()
-                                            if (primero != null) {
-                                                elegirResultado(primero)
-                                            } else {
-                                                centrarEnDireccion(texto)
-                                            }
-                                        }
-                                        foco.clearFocus()
-                                        teclado?.hide()
-                                    }
-                                ),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = LinceCardSurface,
-                                    unfocusedContainerColor = LinceCardSurface,
-                                    focusedBorderColor = LinceGreenPrimary,
-                                    unfocusedBorderColor = Color.Transparent,
-                                    cursorColor = LinceGreenPrimary
-                                )
-                            )
-                        }
-
-                        if (resultados.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = LinceCardSurface,
-                                shadowElevation = 6.dp
-                            ) {
-                                LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
-                                    items(resultados) { resultado ->
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { elegirResultado(resultado) }
-                                                .padding(horizontal = 14.dp, vertical = 11.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.LocationOn,
-                                                contentDescription = null,
-                                                tint = LinceGreenPrimary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Text(
-                                                text = resultado.nombre,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = LinceTextPrimary,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        } else if (busquedaRealizada && consulta.trim().length >= 3) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = LinceCardSurface.copy(alpha = 0.96f),
-                                shadowElevation = 3.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { centrarEnDireccion(consulta.trim()) }
-                                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = null,
-                                        tint = LinceGreenPrimary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Buscar y usar: \"${consulta.trim()}\"",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = LinceGreenDark,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Controles de Zoom
                     Column(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -708,23 +798,22 @@ fun SelectorUbicacionDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         BotonMapa(texto = "+") {
-                            zoomOsm = (zoomOsm + 1).coerceAtMost(19)
+                            zoomOsm = (zoomOsm + 1).coerceAtMost(20)
                         }
-                        BotonMapa(texto = "−") {
+                        BotonMapa(texto = "-") {
                             zoomOsm = (zoomOsm - 1).coerceAtLeast(3)
                         }
                     }
 
-                    // Atribución
                     Surface(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
+                            .align(Alignment.BottomStart)
                             .padding(8.dp),
                         shape = RoundedCornerShape(6.dp),
                         color = LinceCardSurface.copy(alpha = 0.88f)
                     ) {
                         Text(
-                            text = "© OpenStreetMap • CARTO",
+                            text = "\u00A9 Esri \u2022 OpenStreetMap",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -732,7 +821,6 @@ fun SelectorUbicacionDialog(
                     }
                 }
 
-                // Panel inferior con campo editable de dirección y sugerencias rápidas
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -753,90 +841,225 @@ fun SelectorUbicacionDialog(
                                 .background(LinceOutlineVariant, RoundedCornerShape(50))
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "PUNTO DE ${titulo.uppercase(Locale.ROOT)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceTextSecondary,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                            Text(
-                                text = textoCoordenadas(centro),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceTextSecondary
-                            )
-                        }
+                        Text(
+                            text = "Fija el punto de ${titulo.lowercase(Locale.ROOT)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = LinceTextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Arrastra el mapa para mover el marcador",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextSecondary
+                        )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Campo editable: si el usuario escribe una dirección distinta,
-                        // al confirmar se geocodifica y el pin se mueve a ese punto.
-                        OutlinedTextField(
-                            value = direccion,
-                            onValueChange = {
-                                direccion = it
-                                direccionManual = it.isNotBlank()
-                                errorDireccion = null
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(14.dp),
-                            placeholder = {
-                                Text(
-                                    text = if (buscandoDireccion) "Detectando dirección..." else "Escribe aquí la dirección exacta...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = LinceTextSecondary
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    tint = LinceGreenPrimary
-                                )
-                            },
-                            trailingIcon = {
-                                when {
-                                    buscandoDireccion || geocodificando -> CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = LinceGreenPrimary
+                        if (editandoDireccion) {
+                            OutlinedTextField(
+                                value = consulta,
+                                onValueChange = {
+                                    consulta = it
+                                    errorDireccion = null
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusBuscador),
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp),
+                                placeholder = {
+                                    Text(
+                                        text = "Busca calle, lugar o comuna",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = LinceTextSecondary
                                     )
-                                    direccion.isNotEmpty() -> IconButton(
-                                        onClick = {
-                                            direccion = ""
-                                            direccionManual = false
-                                            errorDireccion = null
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = LinceGreenPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    when {
+                                        buscandoSugerencias || geocodificando -> CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = LinceGreenPrimary
+                                        )
+
+                                        else -> IconButton(
+                                            onClick = {
+                                                editandoDireccion = false
+                                                consulta = ""
+                                                resultados = emptyList()
+                                                busquedaRealizada = false
+                                                foco.clearFocus()
+                                                teclado?.hide()
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Cerrar buscador",
+                                                tint = LinceTextSecondary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
                                         }
+                                    }
+                                },
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = {
+                                        val texto = consulta.trim()
+                                        if (texto.isNotBlank()) {
+                                            val primero = resultados.firstOrNull()
+                                            if (primero != null) {
+                                                elegirResultado(primero)
+                                            } else {
+                                                centrarEnDireccion(texto)
+                                            }
+                                        }
+                                    }
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = LinceCreamBackground.copy(alpha = 0.45f),
+                                    unfocusedContainerColor = LinceCreamBackground.copy(alpha = 0.45f),
+                                    focusedBorderColor = LinceGreenPrimary,
+                                    unfocusedBorderColor = LinceGreenBorder,
+                                    cursorColor = LinceGreenPrimary
+                                )
+                            )
+
+                            if (resultados.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = LinceCreamBackground.copy(alpha = 0.6f),
+                                    border = BorderStroke(1.dp, LinceGreenBorder)
+                                ) {
+                                    LazyColumn(modifier = Modifier.heightIn(max = 190.dp)) {
+                                        items(resultados) { resultado ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { elegirResultado(resultado) }
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.LocationOn,
+                                                    contentDescription = null,
+                                                    tint = LinceGreenPrimary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = resultado.nombre,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = LinceTextPrimary,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = textoDistancia(centro, resultado.punto),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = LinceGreenDark,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (busquedaRealizada && consulta.trim().length >= 3) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = LinceCreamBackground.copy(alpha = 0.6f),
+                                    border = BorderStroke(1.dp, LinceGreenBorder)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { centrarEnDireccion(consulta.trim()) }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Limpiar dirección",
-                                            tint = LinceTextSecondary,
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = null,
+                                            tint = LinceGreenPrimary,
                                             modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Buscar y usar: \"${consulta.trim()}\"",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = LinceGreenDark,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 }
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    foco.clearFocus()
-                                    teclado?.hide()
+                            }
+                        } else {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        consulta = if (direccion == textoCoordenadas(centro)) "" else direccion
+                                        editandoDireccion = true
+                                    },
+                                shape = RoundedCornerShape(14.dp),
+                                color = LinceCreamBackground.copy(alpha = 0.45f),
+                                border = BorderStroke(1.dp, LinceGreenBorder)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = LinceGreenPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "DIRECCI\u00D3N DEL MARCADOR",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = LinceTextSecondary,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.6.sp
+                                        )
+                                        Text(
+                                            text = if (buscandoDireccion) {
+                                                "Ubicaci\u00F3n del marcador..."
+                                            } else {
+                                                direccion.ifBlank { "Ubicaci\u00F3n del marcador..." }
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = LinceTextPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Editar direcci\u00F3n",
+                                        tint = LinceGreenPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
-                            ),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = LinceGreenPrimary,
-                                unfocusedBorderColor = LinceGreenBorder,
-                                focusedContainerColor = LinceCreamBackground.copy(alpha = 0.45f),
-                                unfocusedContainerColor = LinceCreamBackground.copy(alpha = 0.45f)
-                            )
-                        )
+                            }
+                        }
 
                         errorDireccion?.let { mensaje ->
                             Spacer(modifier = Modifier.height(6.dp))
@@ -849,108 +1072,30 @@ fun SelectorUbicacionDialog(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        Row(
+                        Button(
+                            onClick = { confirmarSeleccion() },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            enabled = !geocodificando,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = LinceGreenPrimary,
+                                disabledContainerColor = LinceGreenPrimary.copy(alpha = 0.45f)
+                            )
                         ) {
-                            LUGARES_SUGERIDOS.forEach { lugar ->
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color = LinceSurfaceVariant,
-                                    modifier = Modifier.clickable {
-                                        saltarGeocodificacion = true
-                                        direccionManual = false
-                                        errorDireccion = null
-                                        centro = lugar.punto
-                                        direccion = lugar.nombre
-                                    }
-                                ) {
-                                    Text(
-                                        text = lugar.nombre,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = LinceTextPrimary,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    val permiso = ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.ACCESS_FINE_LOCATION
-                                    )
-                                    if (permiso == PackageManager.PERMISSION_GRANTED) {
-                                        disparadorGps++
-                                    } else {
-                                        lanzadorPermiso.launch(
-                                            arrayOf(
-                                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                                Manifest.permission.ACCESS_COARSE_LOCATION
-                                            )
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.height(50.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                enabled = !usandoGps && !geocodificando
-                            ) {
-                                if (usandoGps) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = LinceGreenPrimary
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        tint = LinceGreenPrimary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
+                            if (geocodificando) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = LinceCardSurface
+                                )
+                            } else {
                                 Text(
-                                    text = if (usandoGps) "Ubicando..." else "Mi ubicación",
-                                    color = LinceGreenDark
+                                    text = "Confirmar punto de ${titulo.lowercase(Locale.ROOT)}",
+                                    color = LinceCardSurface,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                            }
-
-                            Button(
-                                onClick = { confirmarSeleccion() },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                enabled = !geocodificando,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = LinceGreenPrimary,
-                                    disabledContainerColor = LinceGreenPrimary.copy(alpha = 0.45f)
-                                )
-                            ) {
-                                if (geocodificando) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = LinceCardSurface
-                                    )
-                                } else {
-                                    Text(
-                                        text = if (direccionManual) "Buscar y usar" else "Usar este punto",
-                                        color = LinceCardSurface,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
                             }
                         }
                     }
@@ -987,34 +1132,43 @@ private fun MapaMovil(
     centro: PuntoMapa,
     zoom: Float,
     onCentroChange: (PuntoMapa) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onMapMovingChange: (Boolean) -> Unit = {},
+    puntoGps: PuntoMapa? = null,
+    interactivo: Boolean = true
 ) {
     val centroActual by rememberUpdatedState(centro)
     val metrosPorPixel = 9.0 * zoom
+    val gesto = if (interactivo) {
+        Modifier.pointerInput(zoom) {
+            detectDragGestures(
+                onDragStart = { onMapMovingChange(true) },
+                onDragEnd = { onMapMovingChange(false) },
+                onDragCancel = { onMapMovingChange(false) }
+            ) { cambio, arrastre ->
+                cambio.consume()
+                val actual = centroActual
+                val metrosPorGradoLongitud =
+                    METROS_POR_GRADO * cos(Math.toRadians(actual.latitud))
+                val nuevaLat = actual.latitud + arrastre.y * metrosPorPixel / METROS_POR_GRADO
+                val nuevaLon = actual.longitud -
+                        arrastre.x * metrosPorPixel / metrosPorGradoLongitud
+                onCentroChange(
+                    PuntoMapa(
+                        latitud = nuevaLat.coerceIn(-56.0, -17.0),
+                        longitud = normalizarLongitud(nuevaLon)
+                    )
+                )
+            }
+        }
+    } else {
+        Modifier
+    }
 
     Canvas(
         modifier = modifier
             .background(LinceMapLand)
-            .pointerInput(zoom) {
-                detectDragGestures(
-                    onDragEnd = { },
-                    onDragCancel = { }
-                ) { cambio, arrastre ->
-                    cambio.consume()
-                    val actual = centroActual
-                    val metrosPorGradoLongitud =
-                        METROS_POR_GRADO * cos(Math.toRadians(actual.latitud))
-                    val nuevaLat = actual.latitud + arrastre.y * metrosPorPixel / METROS_POR_GRADO
-                    val nuevaLon = actual.longitud -
-                            arrastre.x * metrosPorPixel / metrosPorGradoLongitud
-                    onCentroChange(
-                        PuntoMapa(
-                            latitud = nuevaLat.coerceIn(-56.0, -17.0),
-                            longitud = normalizarLongitud(nuevaLon)
-                        )
-                    )
-                }
-            }
+            .then(gesto)
     ) {
         val ancho = size.width
         val alto = size.height
@@ -1134,8 +1288,22 @@ private fun MapaMovil(
                 ancho, alto * 0.4f
             )
         }
-        drawPath(camino, LinceMapRoadEdge, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round))
-        drawPath(camino, LinceMapRoad, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(
+            camino,
+            LinceMapRoadEdge,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 11.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        )
+        drawPath(
+            camino,
+            LinceMapRoad,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 8.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        )
 
         val costaBase = -72.9560
         val xCosta = x(costaBase)
@@ -1166,6 +1334,23 @@ private fun MapaMovil(
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
             )
         }
+
+        puntoGps?.let { gps ->
+            val xg = x(gps.longitud)
+            val yg = y(gps.latitud)
+            if (xg in -24f..ancho + 24f && yg in -24f..alto + 24f) {
+                drawCircle(
+                    color = Color.White,
+                    radius = 12.dp.toPx(),
+                    center = Offset(xg, yg)
+                )
+                drawCircle(
+                    color = Color(0xFF1E88E5),
+                    radius = 8.dp.toPx(),
+                    center = Offset(xg, yg)
+                )
+            }
+        }
     }
 }
 
@@ -1174,67 +1359,4 @@ private fun normalizarLongitud(valor: Double): Double {
     while (resultado > 180.0) resultado -= 360.0
     while (resultado < -180.0) resultado += 360.0
     return resultado
-}
-
-/** Fila compacta para el formulario: muestra el punto elegido o la invitación a elegirlo. */
-@Composable
-fun FilaUbicacion(
-    etiqueta: String,
-    valor: String,
-    esDestino: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = LinceSurfaceContainerLow
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (esDestino) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(LinceTertiary, RoundedCornerShape(3.dp))
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(LinceGreenPrimary, CircleShape)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = etiqueta.uppercase(Locale.ROOT),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = LinceTextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp
-                )
-                Text(
-                    text = valor.ifBlank { "Elegir en el mapa o escribir" },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (valor.isBlank()) LinceTextSecondary else LinceTextPrimary,
-                    fontWeight = if (valor.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (valor.isBlank()) "Elegir" else "Cambiar",
-                style = MaterialTheme.typography.labelMedium,
-                color = LinceGreenPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
 }

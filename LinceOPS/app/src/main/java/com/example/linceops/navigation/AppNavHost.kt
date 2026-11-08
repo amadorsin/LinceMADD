@@ -34,13 +34,11 @@ import kotlinx.coroutines.delay
 fun AppNavHost(
     navController: NavHostController = rememberNavController()
 ) {
-    // 1. Obtenemos el contexto actual
+
     val context = LocalContext.current
 
-    // 2. Instanciamos la base de datos
     val database = remember { LinceOpsDatabase.getDatabase(context) }
 
-    // 3. Le pasamos el DAO al ViewModel
     val serviceViewModel: ServiceViewModel = remember {
         ServiceViewModel(database.servicioDao())
     }
@@ -50,7 +48,6 @@ fun AppNavHost(
     val uiState by serviceViewModel.uiState.collectAsState()
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
-    // Aviso flotante propio: reemplaza el Snackbar oscuro y desaparece solo.
     var avisoTexto by remember { mutableStateOf("") }
     var avisoError by remember { mutableStateOf(false) }
     var avisoVisible by remember { mutableStateOf(false) }
@@ -85,7 +82,7 @@ fun AppNavHost(
     val hazeState = remember { HazeState() }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // El contenido se marca como fuente del desenfoque de la barra inferior.
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -157,6 +154,8 @@ fun AppNavHost(
 
             composable(Destino.Perfil.ruta) {
                 PerfilScreen(
+                    usuario = uiState.usuarioLogueado,
+                    servicios = uiState.serviciosTotales,
                     onScrollBarra = { barraVisible = it },
                     onCerrarSesion = {
                         serviceViewModel.cerrarSesion()
@@ -178,6 +177,7 @@ fun AppNavHost(
                     DetalleScreen(
                         servicio = servicio,
                         rolUsuario = rolActual,
+                        usuarioId = uiState.usuarioLogueado?.id,
                         onAceptar = {
                             val hayRed = isInternetAvailable(context)
 

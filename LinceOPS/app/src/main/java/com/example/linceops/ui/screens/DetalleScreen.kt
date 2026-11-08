@@ -31,9 +31,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.linceops.model.EstadoServicio
+import com.example.linceops.model.Marcaje
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,17 +47,30 @@ fun DetalleScreen(
     onAceptar: () -> Unit,
     onRechazar: () -> Unit,
     onReasignar: () -> Unit,
-    onIrAMarcaje: () -> Unit
+    onIrAMarcaje: () -> Unit,
+    usuarioId: String? = null
 ) {
+
+    val idReferencia = usuarioId ?: when (rolUsuario) {
+        RolUsuario.CONDUCTOR -> servicio.conductorId
+        RolUsuario.GUIA -> servicio.guiaId
+        else -> null
+    }
+
     val estadoActual = if (rolUsuario == RolUsuario.ADMINISTRADOR) {
         servicio.estado
     } else {
-        servicio.participaciones.firstOrNull { it.usuarioId == servicio.conductorId || it.usuarioId == servicio.guiaId }?.estado ?: servicio.estado
+        servicio.participaciones
+            .firstOrNull { it.usuarioId == idReferencia }
+            ?.estado ?: servicio.estado
     }
+
+    val puedeMarcar = (rolUsuario == RolUsuario.CONDUCTOR || rolUsuario == RolUsuario.GUIA) &&
+            (estadoActual == EstadoServicio.CONFIRMADO || estadoActual == EstadoServicio.EN_CURSO)
 
     val tieneAcciones =
         (rolUsuario == RolUsuario.ADMINISTRADOR && estadoActual == EstadoServicio.RECHAZADO) ||
-                (rolUsuario == RolUsuario.CONDUCTOR && (estadoActual == EstadoServicio.CONFIRMADO || estadoActual == EstadoServicio.EN_CURSO)) ||
+                puedeMarcar ||
                 (estadoActual == EstadoServicio.PENDIENTE && rolUsuario != RolUsuario.ADMINISTRADOR)
 
     Scaffold(
@@ -64,11 +81,13 @@ fun DetalleScreen(
                     title = {
                         Column {
                             Text(
-                                text = "DETALLE DEL SERVICIO",
+                                text = "FINAL UPDATE • RESERVA #${servicio.reservaId}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceTextSecondary,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
+                                letterSpacing = 1.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = servicio.titulo,
@@ -104,10 +123,10 @@ fun DetalleScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 18.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Código del servicio y resumen rápido
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -131,183 +150,311 @@ fun DetalleScreen(
                         color = LinceGreenSageLight,
                         shape = RoundedCornerShape(50)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Text(
+                            text = servicio.tipo.uppercase(Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LinceGreenDark,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+
+                TarjetaFinal(
+                    icono = Icons.Default.LocationOn,
+                    titulo = "Ruta y Logística de Pickup"
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FichaDato(
+                            etiqueta = "FECHA",
+                            valor = servicio.fecha,
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.DateRange
+                        )
+                        FichaDato(
+                            etiqueta = "HORA DE SALIDA",
+                            valor = servicio.hora,
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.PlayArrow
+                        )
+                    }
+
+                    ParadasRuta(
+                        origenDestino = servicio.origenDestino,
+                        hora = servicio.hora
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FichaDato(
+                            etiqueta = "PUNTO DE RECOGIDA",
+                            valor = servicio.pickup,
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.Place
+                        )
+                        FichaDato(
+                            etiqueta = "HOTEL DE REFERENCIA",
+                            valor = servicio.hotel,
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.Home
+                        )
+                    }
+                }
+
+                TarjetaFinal(
+                    icono = Icons.Default.Person,
+                    titulo = "Equipo Operativo Asignado"
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FichaDato(
+                            etiqueta = "CONDUCTOR",
+                            valor = servicio.conductorId ?: "Sin conductor asignado",
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.Person
+                        )
+                        FichaDato(
+                            etiqueta = "VEHÍCULO / UNIDAD",
+                            valor = servicio.vehiculo,
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.AutoMirrored.Filled.Send
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FichaDato(
+                            etiqueta = "GUÍA",
+                            valor = servicio.guiaId ?: "Sin guía asignado",
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.Face
+                        )
+                        FichaDato(
+                            etiqueta = "AGENCIA ORIGEN",
+                            valor = servicio.agencia,
+                            modifier = Modifier.weight(1f),
+                            icono = Icons.Default.AccountBox
+                        )
+                    }
+
+                    FichaDato(
+                        etiqueta = "IDIOMA REQUERIDO",
+                        valor = servicio.idioma,
+                        modifier = Modifier.fillMaxWidth(),
+                        icono = Icons.Default.Face
+                    )
+                }
+
+                TarjetaFinal(
+                    icono = Icons.Default.Person,
+                    titulo = "Nómina de Pasajeros"
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Detalle nominal",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = LinceTextSecondary
+                        )
+                        Surface(
+                            color = LinceGreenSageLight,
+                            shape = RoundedCornerShape(50)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = null,
-                                tint = LinceGreenDark,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "${servicio.fecha}  •  ${servicio.hora}",
+                                text = "${servicio.pasajeros} PASAJEROS",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceGreenDark,
                                 fontWeight = FontWeight.Bold,
-                                maxLines = 1
+                                letterSpacing = 0.5.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }
-                }
 
-                // Bloque 1: ruta, fecha y punto de encuentro
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SeccionHeader(icono = Icons.Default.LocationOn, titulo = "Ruta y Horario")
-                        HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
-
-                        Row(
+                    if (servicio.detallePasajeros.isEmpty()) {
+                        Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            color = LinceCreamBackground,
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            FichaDato(
-                                etiqueta = "FECHA",
-                                valor = servicio.fecha,
-                                modifier = Modifier.weight(1f),
-                                icono = Icons.Default.DateRange
-                            )
-                            FichaDato(
-                                etiqueta = "HORA DE SALIDA",
-                                valor = servicio.hora,
-                                modifier = Modifier.weight(1f),
-                                icono = Icons.Default.PlayArrow
+                            Text(
+                                text = "Lista nominal pendiente de confirmación (${servicio.pasajeros} pax)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = LinceTextSecondary,
+                                modifier = Modifier.padding(12.dp)
                             )
                         }
-
-                        ParadasRuta(
-                            origenDestino = servicio.origenDestino,
-                            hora = servicio.hora
-                        )
-
-                        FichaDato(
-                            etiqueta = "PUNTO DE ENCUENTRO",
-                            valor = servicio.pickup,
-                            modifier = Modifier.fillMaxWidth(),
-                            icono = Icons.Default.Place
-                        )
-                    }
-                }
-
-                // Bloque 2: operación, pasajeros y unidad
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SeccionHeader(icono = Icons.Default.Person, titulo = "Operación y Pasajeros")
-                        HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FichaDato(
-                                etiqueta = "AGENCIA",
-                                valor = servicio.agencia,
-                                modifier = Modifier.weight(1f),
-                                icono = Icons.Default.AccountBox
-                            )
-                            FichaDato(
-                                etiqueta = "HOTEL",
-                                valor = servicio.hotel,
-                                modifier = Modifier.weight(1f),
-                                icono = Icons.Default.Home
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FichaDato(
-                                etiqueta = "PASAJEROS",
-                                valor = "${servicio.pasajeros}",
-                                modifier = Modifier.weight(1f),
-                                icono = Icons.Default.Person
-                            )
-                            FichaDato(
-                                etiqueta = "IDIOMA",
-                                valor = servicio.idioma,
-                                modifier = Modifier.weight(1f),
-                                icono = Icons.Default.Face
-                            )
-                        }
-
-                        FichaDato(
-                            etiqueta = "TIPO Y VEHÍCULO",
-                            valor = "${servicio.tipo} • ${servicio.vehiculo}",
-                            modifier = Modifier.fillMaxWidth(),
-                            icono = Icons.AutoMirrored.Filled.Send
-                        )
-
-                        if (servicio.inclusiones.isNotEmpty()) {
-                            FichaDato(
-                                etiqueta = "INCLUSIONES",
-                                valor = servicio.inclusiones.joinToString(", "),
+                    } else {
+                        servicio.detallePasajeros.forEach { pasajero ->
+                            Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                icono = Icons.Default.CheckCircle
-                            )
+                                color = LinceCreamBackground,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = pasajero.nombre,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = LinceTextPrimary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Face,
+                                            contentDescription = null,
+                                            tint = LinceGreenPrimary.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = pasajero.idioma,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = LinceTextSecondary
+                                        )
+                                    }
+                                    if (pasajero.requerimientos.isNotBlank()) {
+                                        Row(verticalAlignment = Alignment.Top) {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = LinceTertiary,
+                                                modifier = Modifier
+                                                    .padding(top = 1.dp)
+                                                    .size(13.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(5.dp))
+                                            Text(
+                                                text = pasajero.requerimientos,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = LinceTextSecondary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
 
-                // Bloque 3: notas operativas destacadas en tono cálido
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = LinceTertiaryContainer.copy(alpha = 0.14f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, LinceTertiaryContainer.copy(alpha = 0.45f)),
-                    modifier = Modifier.fillMaxWidth()
+                TarjetaFinal(
+                    icono = Icons.Default.CheckCircle,
+                    titulo = "Inclusiones y Requerimientos"
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SeccionHeader(
-                            icono = Icons.Default.Info,
-                            titulo = "Notas Operativas",
-                            colorIcono = LinceTertiary
+                    if (servicio.inclusiones.isEmpty()) {
+                        Text(
+                            text = "Sin inclusiones registradas.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextSecondary
                         )
-                        HorizontalDivider(color = LinceTertiaryContainer.copy(alpha = 0.35f))
-
-                        FichaDato(
-                            etiqueta = "INSTRUCCIONES",
-                            valor = servicio.instrucciones.ifBlank { "Sin instrucciones especiales" },
-                            modifier = Modifier.fillMaxWidth(),
-                            colorFondo = LinceCardSurface.copy(alpha = 0.7f),
-                            icono = Icons.Default.Info
-                        )
-                        FichaDato(
-                            etiqueta = "OBSERVACIONES",
-                            valor = servicio.observaciones.ifBlank { "Sin observaciones" },
-                            modifier = Modifier.fillMaxWidth(),
-                            colorFondo = LinceCardSurface.copy(alpha = 0.7f),
-                            icono = Icons.Default.Edit
-                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            servicio.inclusiones.forEach { inclusion ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = LinceGreenSageLight,
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = LinceGreenPrimary,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = inclusion,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = LinceGreenDark,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
+
+                    FichaDato(
+                        etiqueta = "INSTRUCCIONES",
+                        valor = servicio.instrucciones.ifBlank { "Sin instrucciones especiales" },
+                        modifier = Modifier.fillMaxWidth(),
+                        colorFondo = LinceTertiaryContainer.copy(alpha = 0.16f),
+                        icono = Icons.Default.Info
+                    )
+                    FichaDato(
+                        etiqueta = "OBSERVACIONES",
+                        valor = servicio.observaciones.ifBlank { "Sin observaciones" },
+                        modifier = Modifier.fillMaxWidth(),
+                        colorFondo = LinceSurfaceContainerLow,
+                        icono = Icons.Default.Edit
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(2.dp))
+                val registrosMarcaje = servicio.participaciones.filter {
+                    it.checkIn != null || it.checkOut != null
+                }
+                if (registrosMarcaje.isNotEmpty()) {
+                    TarjetaFinal(
+                        icono = Icons.Default.CheckCircle,
+                        titulo = "Trazabilidad de Ejecución"
+                    ) {
+                        registrosMarcaje.forEach { participacion ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = LinceSurfaceContainerLow,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = etiquetaParticipante(servicio, participacion.usuarioId),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = LinceGreenDark,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    participacion.checkIn?.let { marcaje ->
+                                        MarcajeFila(
+                                            titulo = "CHECK-IN",
+                                            marcaje = marcaje,
+                                            color = LinceGreenPrimary,
+                                            icono = Icons.Default.PlayArrow
+                                        )
+                                    }
+                                    participacion.checkOut?.let { marcaje ->
+                                        MarcajeFila(
+                                            titulo = "CHECK-OUT",
+                                            marcaje = marcaje,
+                                            color = LinceTertiary,
+                                            icono = Icons.Default.CheckCircle
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if (tieneAcciones) {
@@ -320,6 +467,70 @@ fun DetalleScreen(
                     onIrAMarcaje = onIrAMarcaje
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun TarjetaFinal(
+    icono: ImageVector,
+    titulo: String,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SeccionHeader(icono = icono, titulo = titulo)
+            HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
+            contenido()
+        }
+    }
+}
+
+@Composable
+private fun MarcajeFila(
+    titulo: String,
+    marcaje: Marcaje,
+    color: Color,
+    icono: ImageVector
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            imageVector = icono,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier
+                .padding(top = 1.dp)
+                .size(15.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = titulo,
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
+            )
+            Text(
+                text = formatearFechaHora(marcaje.fechaHoraMillis),
+                style = MaterialTheme.typography.bodySmall,
+                color = LinceTextPrimary,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Lat ${formatearCoordenada(marcaje.latitud)} · Lon ${formatearCoordenada(marcaje.longitud)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = LinceTextSecondary
+            )
         }
     }
 }
@@ -356,7 +567,10 @@ private fun BarraAcciones(
                     ) {
                         Text("Reasignar Recurso", color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
                     }
-                } else if (rolUsuario == RolUsuario.CONDUCTOR && (estadoActual == EstadoServicio.CONFIRMADO || estadoActual == EstadoServicio.EN_CURSO)) {
+                } else if (
+                    (rolUsuario == RolUsuario.CONDUCTOR || rolUsuario == RolUsuario.GUIA) &&
+                    (estadoActual == EstadoServicio.CONFIRMADO || estadoActual == EstadoServicio.EN_CURSO)
+                ) {
                     Button(
                         onClick = onIrAMarcaje,
                         modifier = Modifier
@@ -411,7 +625,7 @@ private fun BarraAcciones(
 private fun SeccionHeader(
     icono: ImageVector,
     titulo: String,
-    colorIcono: androidx.compose.ui.graphics.Color = LinceGreenPrimary
+    colorIcono: Color = LinceGreenPrimary
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
@@ -568,3 +782,18 @@ private fun ParadasRuta(
         }
     }
 }
+
+private fun etiquetaParticipante(servicio: Servicio, usuarioId: String): String {
+    val rol = when (usuarioId) {
+        servicio.conductorId -> "Conductor"
+        servicio.guiaId -> "Guía"
+        else -> "Participante"
+    }
+    return "$rol · $usuarioId"
+}
+
+private fun formatearFechaHora(millis: Long): String =
+    SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(millis))
+
+private fun formatearCoordenada(valor: Double): String =
+    String.format(Locale.US, "%.5f", valor)

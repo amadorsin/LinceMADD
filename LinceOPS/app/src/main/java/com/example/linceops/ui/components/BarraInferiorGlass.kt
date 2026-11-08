@@ -58,10 +58,6 @@ private val ITEMS_BARRA = listOf(
     ItemBarra("perfil", Icons.Filled.Person, "Perfil")
 )
 
-/**
- * Barra inferior flotante con efecto vidrio esmerilado (blur real sin franjas sólidas).
- * Se oculta al hacer scroll o deslizar hacia abajo y reaparece al subir.
- */
 @Composable
 fun BarraInferiorGlass(
     rutaActual: String?,
@@ -85,7 +81,7 @@ fun BarraInferiorGlass(
     val formaPildora = RoundedCornerShape(32.dp)
 
     Box(modifier = modifier.fillMaxWidth()) {
-        // Zona de gesto inferior para volver a mostrar la barra cuando está oculta
+
         if (!visible) {
             Box(
                 modifier = Modifier
@@ -108,7 +104,6 @@ fun BarraInferiorGlass(
                     }
             )
 
-            // Indicador sutil de que la barra está oculta
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -119,7 +114,7 @@ fun BarraInferiorGlass(
         }
 
         if (progreso < 1f) {
-            // Contenedor único sin Surface ni shadowElevation nativo que genere bandas sólidas
+
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

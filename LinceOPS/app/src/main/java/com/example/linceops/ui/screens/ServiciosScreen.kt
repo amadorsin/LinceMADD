@@ -45,7 +45,6 @@ fun ServiciosScreen(
 
     var textoFecha by remember(filtroFecha) { mutableStateOf(filtroFecha ?: "") }
 
-    // Aplica el filtro automáticamente al completar la fecha o al borrarla.
     LaunchedEffect(textoFecha) {
         if (textoFecha.isBlank()) {
             if (!filtroFecha.isNullOrBlank()) onFiltrarPorFecha("")
@@ -54,7 +53,6 @@ fun ServiciosScreen(
         }
     }
 
-    // Un único scroll vertical para toda la sección: encabezado, filtros y lista.
     LazyColumn(
         state = listState,
         modifier = Modifier
@@ -306,7 +304,7 @@ fun ServicioItem(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Fila superior: hora destacada y badge de estado
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -336,7 +334,6 @@ fun ServicioItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Bloque de ruta sobre superficie blanca suave
             Surface(
                 color = LinceCardSurface.copy(alpha = 0.72f),
                 shape = RoundedCornerShape(12.dp),

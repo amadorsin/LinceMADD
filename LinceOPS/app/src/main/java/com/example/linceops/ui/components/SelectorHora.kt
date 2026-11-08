@@ -55,10 +55,6 @@ import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 
-/**
- * Selector de hora estilo alarma de teléfono con ruedas verticales deslizables (Wheel Picker).
- * Permite hacer scroll suave en horas (00..23) y minutos (00..59) con snap automático al centro.
- */
 @Composable
 fun SelectorHoraDialog(
     horaInicial: String,
@@ -113,9 +109,8 @@ fun SelectorHoraDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Contenedor de las dos ruedas (Hora : Minuto)
                 val itemHeight = 56.dp
-                val wheelHeight = itemHeight * 3 // 3 filas visibles (anterior, actual, siguiente)
+                val wheelHeight = itemHeight * 3
 
                 Box(
                     modifier = Modifier
@@ -127,7 +122,7 @@ fun SelectorHoraDialog(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Banda central que destaca el valor activo
+
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -143,7 +138,7 @@ fun SelectorHoraDialog(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Rueda de Horas (00 - 23)
+
                         RuedaNumericaInfinita(
                             rango = 0..23,
                             valorInicial = horaBase,
@@ -159,7 +154,6 @@ fun SelectorHoraDialog(
                             modifier = Modifier.padding(horizontal = 12.dp)
                         )
 
-                        // Rueda de Minutos (00 - 59)
                         RuedaNumericaInfinita(
                             rango = 0..59,
                             valorInicial = minutoBase,
@@ -238,7 +232,6 @@ private fun RuedaNumericaInfinita(
     val densidad = LocalDensity.current
     val alturaItemPx = with(densidad) { alturaItem.toPx() }
 
-    // Calcula cuál es el ítem que está en el centro exacto mientras se desliza la rueda
     val indiceCentral by remember {
         derivedStateOf {
             val offsetFraccion = if (alturaItemPx > 0f) {
@@ -258,7 +251,7 @@ private fun RuedaNumericaInfinita(
     LazyColumn(
         state = listState,
         flingBehavior = flingBehavior,
-        contentPadding = PaddingValues(vertical = alturaItem), // Permite centrar el primer y último elemento
+        contentPadding = PaddingValues(vertical = alturaItem),
         modifier = Modifier
             .width(92.dp)
             .height(alturaItem * 3),

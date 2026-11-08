@@ -51,8 +51,6 @@ fun DashboardScreen(
     val listState = rememberLazyListState()
     EfectoScrollBarraInferior(listState = listState, onVisibleChange = onScrollBarra)
 
-    // El filtro de Inicio es local y arranca siempre en "Todos": no hereda el
-    // estado que el usuario haya elegido en la pantalla de Servicios.
     var filtroInicio by remember { mutableStateOf<EstadoServicio?>(null) }
     val usuario = uiState.usuarioLogueado
     val serviciosVisibles = if (filtroInicio == null) {
@@ -63,7 +61,7 @@ fun DashboardScreen(
             estado == filtroInicio
         }
     }
-    // Inicio nunca debe heredar la lista filtrada de la pantalla de Servicios.
+
     val uiStateCompleto = uiState.copy(servicios = uiState.serviciosTotales)
 
     val nombreUsuario = uiState.usuarioLogueado?.nombre ?: "Usuario"
@@ -83,7 +81,7 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            // Barra superior de marca y usuario (patrón de los bocetos)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -188,11 +186,13 @@ fun DashboardScreen(
                     )
 
                 RolUsuario.GUIA ->
-                    DashboardGuiaView(uiStateCompleto)
+                    DashboardGuiaView(
+                        uiState = uiStateCompleto,
+                        onIniciarMarcaje = onIniciarMarcaje
+                    )
             }
         }
 
-        // Filtros propios de Inicio, dentro del scroll y aplicados solo al resumen.
         item {
             FiltrosInicio(
                 seleccionado = filtroInicio,
@@ -628,9 +628,16 @@ private fun DashboardDriverView(
 
 @Composable
 private fun DashboardGuiaView(
-    uiState: ServiceUiState
+    uiState: ServiceUiState,
+    onIniciarMarcaje: (String) -> Unit
 ) {
-    val servicio = uiState.servicios.firstOrNull()
+    val usuario = uiState.usuarioLogueado
+
+    val servicioMarcaje = uiState.servicios.firstOrNull { servicio ->
+        val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
+        estado == EstadoServicio.CONFIRMADO || estado == EstadoServicio.EN_CURSO
+    }
+    val servicio = servicioMarcaje ?: uiState.servicios.firstOrNull()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -681,6 +688,10 @@ private fun DashboardGuiaView(
                     }
                 }
             } else {
+                val estadoActual = usuario?.let {
+                    servicio.estadoPara(it)
+                } ?: servicio.estado
+
                 Surface(
                     color = LinceSurfaceVariant,
                     shape = RoundedCornerShape(14.dp),
@@ -696,16 +707,16 @@ private fun DashboardGuiaView(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Próximo servicio asignado",
+                                text = if (estadoActual == EstadoServicio.EN_CURSO) {
+                                    "Servicio en curso"
+                                } else {
+                                    "Próximo servicio asignado"
+                                },
                                 style = MaterialTheme.typography.labelLarge,
                                 color = LinceGreenPrimary,
                                 fontWeight = FontWeight.Bold
                             )
-                            EstadoBadge(
-                                estado = uiState.usuarioLogueado?.let {
-                                    servicio.estadoPara(it)
-                                } ?: servicio.estado
-                            )
+                            EstadoBadge(estado = estadoActual)
                         }
 
                         Text(
@@ -752,6 +763,23 @@ private fun DashboardGuiaView(
                         DashboardInfoRow(
                             icono = Icons.Default.Person,
                             texto = "Pasajeros: ${servicio.pasajeros}"
+                        )
+                    }
+                }
+
+                if (servicioMarcaje != null) {
+                    Button(
+                        onClick = { onIniciarMarcaje(servicioMarcaje.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
+                    ) {
+                        Text(
+                            text = "Iniciar Marcaje",
+                            color = LinceCardSurface,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }

@@ -43,10 +43,6 @@ import java.util.TimeZone
 private val FORMATO_FECHA = "dd/MM/yyyy"
 private val ZONA_UTC: TimeZone = TimeZone.getTimeZone("UTC")
 
-/**
- * Da formato dd/MM/yyyy mientras el usuario escribe: solo acepta dígitos y
- * agrega las barras automáticamente (2 y 4 dígitos).
- */
 fun formatearFechaEntrada(entrada: String): String {
     val digitos = entrada.filter { it.isDigit() }.take(8)
     val constructor = StringBuilder()
@@ -57,7 +53,6 @@ fun formatearFechaEntrada(entrada: String): String {
     return constructor.toString()
 }
 
-/** Comprueba que el texto sea una fecha real con formato dd/MM/yyyy. */
 fun esFechaCompleta(texto: String): Boolean {
     if (!Regex("\\d{2}/\\d{2}/\\d{4}").matches(texto)) return false
     return runCatching {
@@ -67,23 +62,17 @@ fun esFechaCompleta(texto: String): Boolean {
     }.getOrDefault(false)
 }
 
-/** Convierte una fecha dd/MM/yyyy a milisegundos para el DatePicker. */
 private fun fechaAMillis(fecha: String): Long? = runCatching {
     SimpleDateFormat(FORMATO_FECHA, Locale.ROOT)
         .apply {
             isLenient = false
-            // El DatePicker trabaja en UTC: evitamos que la fecha se corra un día
-            // en zonas horarias negativas como la de Chile.
+
             timeZone = ZONA_UTC
         }
         .parse(fecha)
         ?.time
 }.getOrNull()
 
-/**
- * Campo de fecha con barras automáticas y calendario integrado.
- * Al elegir un día en el calendario, el valor se escribe con formato dd/MM/yyyy.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CampoFecha(
@@ -97,7 +86,6 @@ fun CampoFecha(
     var campo by remember { mutableStateOf(TextFieldValue(valor, TextRange(valor.length))) }
     var mostrarCalendario by remember { mutableStateOf(false) }
 
-    // Mantiene sincronizado el texto cuando el valor llega desde fuera
     LaunchedEffect(valor) {
         if (valor != campo.text) {
             campo = TextFieldValue(valor, TextRange(valor.length))

@@ -70,7 +70,6 @@ fun MarcajeScreen(
         }
     }
 
-    // Pulso sutil del radar (solo animación visual)
     val transicionRadar = rememberInfiniteTransition(label = "radar")
     val pulsoRadar by transicionRadar.animateFloat(
         initialValue = 0.25f,
@@ -88,7 +87,7 @@ fun MarcajeScreen(
             .background(LinceCreamBackground)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        // Encabezado de la pantalla
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -126,7 +125,33 @@ fun MarcajeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Tarjeta de geolocalización con radar
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = LinceGreenSageLight,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = LinceGreenDark,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Recuerda registrar tu Check-In 15 min antes del horario de pickup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LinceGreenDark,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -173,7 +198,6 @@ fun MarcajeScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Radar: anillos concéntricos con pulso suave
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -212,7 +236,6 @@ fun MarcajeScreen(
                         }
                     }
 
-                    // Etiqueta de margen operativo
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -240,7 +263,6 @@ fun MarcajeScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Estado actual de la geolocalización
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = LinceSurfaceContainerLow,
@@ -307,7 +329,6 @@ fun MarcajeScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Acciones de marcaje
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)

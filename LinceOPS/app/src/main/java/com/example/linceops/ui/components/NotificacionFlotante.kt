@@ -29,10 +29,6 @@ import com.example.linceops.ui.theme.LinceGreenSageLight
 import com.example.linceops.ui.theme.LinceTextPrimary
 import com.example.linceops.ui.theme.StatusRejectedBg
 
-/**
- * Aviso flotante y discreto para confirmar acciones del flujo operativo.
- * Reemplaza el Snackbar oscuro por una tarjeta clara con esquinas redondeadas.
- */
 @Composable
 fun NotificacionFlotante(
     texto: String,

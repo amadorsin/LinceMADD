@@ -41,7 +41,7 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Bloque de marca
+
         Surface(
             modifier = Modifier.size(68.dp),
             shape = RoundedCornerShape(20.dp),
@@ -78,7 +78,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Tarjeta de acceso
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -194,7 +193,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(22.dp))
 
-        // Atajos de prueba (sin cambios de comportamiento)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = LinceSurfaceVariant.copy(alpha = 0.55f),
