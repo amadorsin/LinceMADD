@@ -1,7 +1,9 @@
 package com.example.linceops.repository
 
 import com.example.linceops.data.local.ServicioDao
+import com.example.linceops.mappers.aEntidadLocal
 import com.example.linceops.model.*
+import com.example.linceops.network.RetrofitClient
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -11,15 +13,14 @@ class ServiceRepository(
     private val ahora: () -> Long = { System.currentTimeMillis() }
 ) {
     private val usuariosSistema: List<Usuario> = listOf(
-        Conductor("D101", "Carlos Conductor", "driver@linceops.cl", "A-2 Profesional", "Sprinter de prueba"),
-        Guia("G201", "Gabriela Guía", "guia@linceops.cl", listOf("Español", "Inglés", "Alemán")),
+        // IDs modificados para que coincidan con los de la API de Southbound
+        Conductor("20", "Matías Soto Herrera", "driver@linceops.cl", "A-2 Profesional", "Sprinter de prueba"),
+        Guia("12", "Camila Rojas Fuentes", "guia@linceops.cl", listOf("Español", "Inglés", "Alemán")),
         Administrador("A301", "Ana Administradora", "admin@linceops.cl")
     )
 
     suspend fun inicializarDatosSiVacio() {
-        if (dao.obtenerTodosLosServicios().isEmpty()) {
-            dao.guardarServiciosIniciales(crearServiciosFicticios())
-        }
+        // Ya no necesitamos mock. La app ahora sincroniza con Southbound API.
     }
 
     fun autenticar(credencial: String): Usuario? {
@@ -33,23 +34,40 @@ class ServiceRepository(
             }
     }
 
-    suspend fun getServiciosIniciales(): List<Servicio> = dao.obtenerTodosLosServicios()
-
     suspend fun obtenerServicioPorId(servicioId: String): Servicio? =
         dao.obtenerServicioPorId(servicioId)
 
-    suspend fun obtenerServicios(usuarioId: String): List<Servicio> {
-        val usuario = usuariosSistema.find { it.id == usuarioId } ?: return emptyList()
-        return dao.obtenerTodosLosServicios().filter {
+    suspend fun obtenerServicios(usuarioId: String): Pair<List<Servicio>, Boolean> {
+        val usuario = usuariosSistema.find { it.id == usuarioId } ?: return Pair(emptyList(), false)
+        var esOffline = false
+
+        // 1. Intentar HTTP GET a la API
+        try {
+            val response = RetrofitClient.api.obtenerServicios(page = 1, pageSize = 50)
+            if (response.isSuccessful) {
+                val dtos = response.body()?.data ?: emptyList()
+
+                // 2. Mapear DTOs a Entities, haciendo MERGE con lo que ya existe en Room
+                val serviciosSincronizados = dtos.map { dto ->
+                    val existente = dao.obtenerServicioPorId(dto.id ?: "")
+                    dto.aEntidadLocal(existente)
+                }
+
+                // Guardamos masivamente (El REPLACE hará un Upsert limpio)
+                dao.guardarServiciosIniciales(serviciosSincronizados)
+            } else {
+                esOffline = true // Error HTTP 503 o 500
+            }
+        } catch (e: Exception) {
+            esOffline = true // Timeout o Sin Internet
+        }
+
+        // 3. Retornar los datos desde Room (Única Fuente de la Verdad)
+        val serviciosLocales = dao.obtenerTodosLosServicios().filter {
             usuario.rol == RolUsuario.ADMINISTRADOR || it.estaAsignadoA(usuarioId)
         }
-    }
 
-    suspend fun obtenerFinalUpdate(reservaId: String, usuarioId: String): List<Servicio> {
-        val usuario = usuariosSistema.find { it.id == usuarioId } ?: return emptyList()
-        val itinerario = dao.obtenerTodosLosServicios().filter { it.reservaId == reservaId }
-        return if (usuario.rol == RolUsuario.ADMINISTRADOR ||
-            itinerario.any { it.estaAsignadoA(usuarioId) }) itinerario else emptyList()
+        return Pair(serviciosLocales, esOffline)
     }
 
     suspend fun cambiarEstadoServicio(
@@ -131,25 +149,5 @@ class ServiceRepository(
             estados.all { it == EstadoServicio.CONFIRMADO } -> EstadoServicio.CONFIRMADO
             else -> EstadoServicio.PENDIENTE
         }
-    }
-
-    private fun crearServiciosFicticios(): List<Servicio> {
-        val base = ahora()
-        fun fecha(dias: Int): String {
-            val calendario = Calendar.getInstance().apply {
-                timeInMillis = base
-                add(Calendar.DAY_OF_MONTH, dias)
-            }
-            return SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).format(calendario.time)
-        }
-        val familia = listOf(Pasajero("Alex Demo", "Inglés"), Pasajero("Sam Demo", "Inglés", "Menú vegetariano"), Pasajero("Taylor Demo", "Inglés"))
-        val pareja = listOf(Pasajero("Lena Prueba", "Alemán"), Pasajero("Kai Prueba", "Alemán"))
-        return listOf(
-            Servicio(id = "1", titulo = "Traslado Aeropuerto - Hotel", origenDestino = "Aeropuerto El Tepual -> Hotel Centro", fecha = fecha(0), hora = "08:30", pickup = "Llegadas nacionales", estado = EstadoServicio.PENDIENTE, pasajeros = familia.size, conductorId = "D101", guiaId = "G201", reservaId = "RES-001", tipo = "Transfer IN", idioma = "Inglés", agencia = "Agencia Austral Demo", hotel = "Hotel Centro", vehiculo = "Sprinter de prueba", detallePasajeros = familia, inclusiones = listOf("Traslado", "Recepción bilingüe"), instrucciones = "Recibir con letrero RES-001. Llegar 15 minutos antes.", observaciones = "Vuelo de prueba LA-DEMO. Tres maletas."),
-            Servicio(id = "2", titulo = "Tour Puerto Varas y Frutillar", origenDestino = "Hotel Centro -> Frutillar -> Hotel Centro", fecha = fecha(1), hora = "09:00", pickup = "Lobby Hotel Centro", estado = EstadoServicio.CONFIRMADO, pasajeros = familia.size, conductorId = "D101", guiaId = "G201", reservaId = "RES-001", tipo = "Excursión", idioma = "Inglés", agencia = "Agencia Austral Demo", hotel = "Hotel Centro", vehiculo = "Sprinter de prueba", detallePasajeros = familia, inclusiones = listOf("Guía", "Traslado", "Almuerzo"), instrucciones = "Confirmar menú vegetariano. Llevar ropa impermeable.", observaciones = "Segundo día de la reserva RES-001."),
-            Servicio(id = "3", titulo = "City tour Puerto Montt", origenDestino = "Hotel Bahía -> Costanera -> Angelmó -> Hotel Bahía", fecha = fecha(0), hora = "15:00", pickup = "Recepción Hotel Bahía", estado = EstadoServicio.PENDIENTE, pasajeros = pareja.size, conductorId = "D101", guiaId = "G201", reservaId = "RES-002", tipo = "City tour", idioma = "Alemán", agencia = "Patagonia Demo", hotel = "Hotel Bahía", vehiculo = "Van de prueba", detallePasajeros = pareja, inclusiones = listOf("Guía en alemán", "Traslado"), instrucciones = "Presentarse con identificación.", observaciones = "Duración estimada de tres horas."),
-            Servicio(id = "4", titulo = "Traslado Hotel - Aeropuerto", origenDestino = "Hotel Centro -> Aeropuerto El Tepual", fecha = fecha(2), hora = "10:00", pickup = "Lobby Hotel Centro", estado = EstadoServicio.CONFIRMADO, pasajeros = familia.size, conductorId = "D101", reservaId = "RES-001", tipo = "Transfer OUT", idioma = "Inglés", agencia = "Agencia Austral Demo", hotel = "Hotel Centro", vehiculo = "Sprinter de prueba", detallePasajeros = familia, inclusiones = listOf("Traslado", "Ayuda equipaje"), instrucciones = "Dejar pasajeros a las 11:00.", observaciones = "Servicio sin guía."),
-            Servicio(id = "5", titulo = "Excursión Saltos del Petrohué", origenDestino = "Hotel Lago -> Petrohué -> Hotel Lago", fecha = fecha(3), hora = "08:00", pickup = "Recepción Hotel Lago", estado = EstadoServicio.PENDIENTE, pasajeros = pareja.size, conductorId = "D101", guiaId = "G201", reservaId = "RES-003", tipo = "Full day", idioma = "Alemán", agencia = "Lagos Demo", hotel = "Hotel Lago", vehiculo = "Van de prueba", detallePasajeros = pareja, inclusiones = listOf("Traslado", "Guía", "Entradas"), instrucciones = "Llevar calzado lluvia.", observaciones = "Jornada completa.")
-        )
     }
 }

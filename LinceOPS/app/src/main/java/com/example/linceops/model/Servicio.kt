@@ -11,6 +11,7 @@ data class Servicio(
     val fecha: String,
     val hora: String,
     val pickup: String,
+    val dropoff: String = "", // NUEVO: Extraído de la API
     val estado: EstadoServicio,
     val pasajeros: Int,
     val conductorId: String? = null,
@@ -21,6 +22,9 @@ data class Servicio(
     val agencia: String = "Agencia de prueba",
     val hotel: String = "Sin hotel",
     val vehiculo: String = "Por informar",
+    val capacidadVehiculo: Int = 0, // NUEVO
+    val oficina: String = "SCL", // NUEVO
+    val statusPL: String? = null, // NUEVO
     val detallePasajeros: List<Pasajero> = emptyList(),
     val inclusiones: List<String> = emptyList(),
     val instrucciones: String = "",
@@ -33,7 +37,6 @@ data class Servicio(
     fun estaAsignadoA(usuarioId: String): Boolean =
         participaciones.any { it.usuarioId == usuarioId }
 
-
     fun estadoPara(usuario: Usuario): EstadoServicio =
         if (usuario.rol == RolUsuario.ADMINISTRADOR) estado
         else participaciones.firstOrNull { it.usuarioId == usuario.id }?.estado ?: estado
@@ -44,7 +47,6 @@ data class Pasajero(
     val idioma: String,
     val requerimientos: String = "Sin requerimientos especiales"
 )
-
 
 data class ParticipacionServicio(
     val usuarioId: String,
