@@ -304,23 +304,46 @@ fun ServicioItem(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    color = LinceGreenPrimary,
-                    shape = RoundedCornerShape(8.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = servicio.hora,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = LinceCardSurface,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                    Surface(
+                        color = LinceGreenPrimary,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = servicio.hora,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = LinceCardSurface,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    // Oficina (ej. SCL) y statusPL de Tourplan
+                    Surface(
+                        color = LinceGreenSageLight,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        val tagOficina = if (!servicio.statusPL.isNullOrBlank()) {
+                            "${servicio.oficina} • ${servicio.statusPL}"
+                        } else {
+                            servicio.oficina
+                        }
+                        Text(
+                            text = tagOficina,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LinceGreenDark,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                        )
+                    }
                 }
                 EstadoBadge(estado = servicio.estado)
             }
@@ -339,41 +362,74 @@ fun ServicioItem(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = "Ruta",
-                        tint = LinceGreenPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = servicio.origenDestino,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LinceTextSecondary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = "Ruta",
+                            tint = LinceGreenPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = servicio.origenDestino,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (servicio.dropoff.isNotBlank()) {
+                        Text(
+                            text = "Dropoff: ${servicio.dropoff}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LinceTextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 24.dp)
+                        )
+                    }
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = "Pasajeros",
                     tint = LinceGreenPrimary,
                     modifier = Modifier.size(15.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                val textoPax = if (servicio.capacidadVehiculo > 0) {
+                    "${servicio.pasajeros}/${servicio.capacidadVehiculo} Pax"
+                } else {
+                    "${servicio.pasajeros} Pax"
+                }
                 Text(
-                    text = "${servicio.pasajeros} Pasajeros",
+                    text = textoPax,
                     style = MaterialTheme.typography.labelMedium,
                     color = LinceTextSecondary
                 )
-                Spacer(modifier = Modifier.width(14.dp))
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = "•  ${servicio.vehiculo}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = LinceGreenDark,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = "Pickup",
