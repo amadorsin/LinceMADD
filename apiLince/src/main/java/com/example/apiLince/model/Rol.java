@@ -1,5 +1,7 @@
-package com.example.apiLince.model;
+package cl.duoc.linceops.backend.model;
 
-public class Rol {
-    
+public enum Rol {
+    ADMINISTRADOR,
+    CONDUCTOR,
+    GUIA
 }
