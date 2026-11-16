@@ -14,4 +14,11 @@ sealed class Destino(val ruta: String, val icon: ImageVector? = null, val title:
     }
     object Feed : Destino("feed", Icons.Filled.List, "Servicios")
     object Perfil : Destino("perfil", Icons.Filled.Person, "Perfil")
+    object Detalle : Destino("detalle/{servicioId}") {
+        fun createRoute(id: String) = "detalle/$id"
+    }
+
+    object Marcaje : Destino("marcaje/{servicioId}") {
+        fun createRoute(id: String) = "marcaje/$id"
+    }
 }
