@@ -73,6 +73,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import com.example.linceops.R
 import com.example.linceops.ui.theme.LinceCardSurface
 import com.example.linceops.ui.theme.LinceCreamBackground
 import com.example.linceops.ui.theme.LinceGreenBorder
@@ -318,6 +320,18 @@ private suspend fun geocodificarDireccion(
     }.getOrNull()
 }
 
+@Composable
+private fun tituloMapa(titulo: String): String {
+    val numero = titulo.filter { it.isDigit() }.toIntOrNull()
+    return when {
+        titulo.equals("origen", ignoreCase = true) -> stringResource(R.string.mapa_elegir_origen)
+        titulo.equals("destino", ignoreCase = true) -> stringResource(R.string.mapa_elegir_destino)
+        titulo.startsWith("parada", ignoreCase = true) && numero != null ->
+            stringResource(R.string.mapa_elegir_parada, numero)
+        else -> stringResource(R.string.mapa_elegir_generico, titulo)
+    }
+}
+
 @SuppressLint("MissingPermission")
 @Composable
 fun SelectorUbicacionDialog(
@@ -354,10 +368,10 @@ fun SelectorUbicacionDialog(
     var busquedaRealizada by remember { mutableStateOf(false) }
 
     val clienteUbicacion = remember { LocationServices.getFusedLocationProviderClient(context) }
-    val etiquetaPunto = if (titulo.equals("origen", ignoreCase = true)) {
-        "Punto de recogida"
-    } else {
-        "Punto de destino"
+    val etiquetaPunto = when {
+        titulo.equals("origen", ignoreCase = true) -> stringResource(R.string.mapa_punto_recogida)
+        titulo.startsWith("parada", ignoreCase = true) -> stringResource(R.string.mapa_punto_parada)
+        else -> stringResource(R.string.mapa_punto_destino)
     }
 
     val lanzadorPermiso = rememberLauncherForActivityResult(
@@ -457,7 +471,7 @@ fun SelectorUbicacionDialog(
                 if (confirmarAlEncontrar) onConfirmar(punto, limpio)
             } else {
                 errorDireccion =
-                    "No encontramos \"$limpio\". Prueba con calle y comuna, o mueve el mapa."
+                    context.getString(R.string.mapa_error_no_encontrado, limpio)
             }
             geocodificando = false
         }
@@ -570,14 +584,14 @@ fun SelectorUbicacionDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "UBICACI\u00D3N DEL SERVICIO",
+                            text = stringResource(R.string.mapa_ubicacion_servicio),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp
                         )
                         Text(
-                            text = "Elegir $titulo",
+                            text = tituloMapa(titulo),
                             style = MaterialTheme.typography.headlineSmall,
                             color = LinceGreenPrimary,
                             fontWeight = FontWeight.Bold
@@ -586,7 +600,7 @@ fun SelectorUbicacionDialog(
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Cerrar",
+                            contentDescription = stringResource(R.string.mapa_cerrar),
                             tint = LinceTextSecondary
                         )
                     }
@@ -656,9 +670,9 @@ fun SelectorUbicacionDialog(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = if (errorTeselas) {
-                                        "Teselas no disponibles \u00B7 toca para reintentar"
+                                        stringResource(R.string.mapa_teselas_error)
                                     } else {
-                                        "Sin conexi\u00F3n \u00B7 mapa vectorial"
+                                        stringResource(R.string.mapa_sin_conexion)
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = LinceGreenDark,
@@ -691,7 +705,7 @@ fun SelectorUbicacionDialog(
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
-                                    contentDescription = "Centrar en mi ubicaci\u00F3n",
+                                    contentDescription = stringResource(R.string.mapa_centrar_ubicacion),
                                     tint = LinceGreenPrimary,
                                     modifier = Modifier.size(25.dp)
                                 )
@@ -725,7 +739,7 @@ fun SelectorUbicacionDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Buscando direcci\u00F3n...",
+                                        text = stringResource(R.string.mapa_buscando_direccion),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = LinceCardSurface,
                                         fontWeight = FontWeight.SemiBold
@@ -767,7 +781,7 @@ fun SelectorUbicacionDialog(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
-                                    contentDescription = "Punto seleccionado",
+                                    contentDescription = stringResource(R.string.mapa_punto_seleccionado),
                                     tint = LinceCardSurface,
                                     modifier = Modifier.size(28.dp)
                                 )
@@ -842,13 +856,13 @@ fun SelectorUbicacionDialog(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Fija el punto de ${titulo.lowercase(Locale.ROOT)}",
+                            text = stringResource(R.string.mapa_fija_punto, etiquetaPunto.lowercase(Locale.ROOT)),
                             style = MaterialTheme.typography.titleMedium,
                             color = LinceTextPrimary,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Arrastra el mapa para mover el marcador",
+                            text = stringResource(R.string.mapa_arrastra),
                             style = MaterialTheme.typography.bodySmall,
                             color = LinceTextSecondary
                         )
@@ -869,7 +883,7 @@ fun SelectorUbicacionDialog(
                                 shape = RoundedCornerShape(14.dp),
                                 placeholder = {
                                     Text(
-                                        text = "Busca calle, lugar o comuna",
+                                        text = stringResource(R.string.mapa_busca_placeholder),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = LinceTextSecondary
                                     )
@@ -902,7 +916,7 @@ fun SelectorUbicacionDialog(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
-                                                contentDescription = "Cerrar buscador",
+                                                contentDescription = stringResource(R.string.mapa_cerrar_buscador),
                                                 tint = LinceTextSecondary,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -997,7 +1011,7 @@ fun SelectorUbicacionDialog(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Buscar y usar: \"${consulta.trim()}\"",
+                                            text = stringResource(R.string.mapa_buscar_usar, consulta.trim()),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = LinceGreenDark,
                                             fontWeight = FontWeight.SemiBold
@@ -1031,7 +1045,7 @@ fun SelectorUbicacionDialog(
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "DIRECCI\u00D3N DEL MARCADOR",
+                                            text = stringResource(R.string.mapa_direccion_marcador),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = LinceTextSecondary,
                                             fontWeight = FontWeight.Bold,
@@ -1039,9 +1053,9 @@ fun SelectorUbicacionDialog(
                                         )
                                         Text(
                                             text = if (buscandoDireccion) {
-                                                "Ubicaci\u00F3n del marcador..."
+                                                stringResource(R.string.mapa_ubicacion_marcador)
                                             } else {
-                                                direccion.ifBlank { "Ubicaci\u00F3n del marcador..." }
+                                                direccion.ifBlank { stringResource(R.string.mapa_ubicacion_marcador) }
                                             },
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = LinceTextPrimary,
@@ -1053,7 +1067,7 @@ fun SelectorUbicacionDialog(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Icon(
                                         imageVector = Icons.Default.Edit,
-                                        contentDescription = "Editar direcci\u00F3n",
+                                        contentDescription = stringResource(R.string.mapa_editar_direccion),
                                         tint = LinceGreenPrimary,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -1092,7 +1106,7 @@ fun SelectorUbicacionDialog(
                                 )
                             } else {
                                 Text(
-                                    text = "Confirmar punto de ${titulo.lowercase(Locale.ROOT)}",
+                                    text = stringResource(R.string.mapa_confirmar_punto, etiquetaPunto.lowercase(Locale.ROOT)),
                                     color = LinceCardSurface,
                                     fontWeight = FontWeight.SemiBold
                                 )

@@ -29,11 +29,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.linceops.R
 import com.example.linceops.ui.components.CampoFecha
 import com.example.linceops.ui.components.PuntoMapa
 import com.example.linceops.ui.components.SelectorHoraDialog
@@ -46,6 +48,12 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private enum class PosicionRuta { ORIGEN, PARADA, DESTINO }
+
+private data class OpcionPersonal(
+    val id: String?,
+    val nombre: String,
+    val detalle: String
+)
 
 @Composable
 private fun RutaItem(
@@ -160,7 +168,7 @@ private fun RutaItem(
                         letterSpacing = 0.8.sp
                     )
                     Text(
-                        text = valor.ifBlank { "Elegir en el mapa o escribir" },
+                        text = valor.ifBlank { stringResource(R.string.crear_elegir_mapa) },
                         style = MaterialTheme.typography.bodyLarge,
                         color = if (valor.isBlank()) LinceTextSecondary else LinceTextPrimary,
                         fontWeight = if (valor.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
@@ -188,14 +196,14 @@ private fun RutaItem(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Eliminar $etiqueta",
+                            contentDescription = stringResource(R.string.crear_eliminar, etiqueta),
                             tint = LinceTertiary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 } else {
                     Text(
-                        text = if (valor.isBlank()) "Elegir" else "Cambiar",
+                        text = if (valor.isBlank()) stringResource(R.string.crear_elegir) else stringResource(R.string.crear_cambiar),
                         style = MaterialTheme.typography.labelMedium,
                         color = LinceGreenPrimary,
                         fontWeight = FontWeight.Bold
@@ -209,7 +217,7 @@ private fun RutaItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CrearServicioScreen(
-    onGuardar: (titulo: String, ruta: String, fecha: String, hora: String, tipo: String, pax: Int) -> Unit,
+    onGuardar: (titulo: String, ruta: String, fecha: String, hora: String, tipo: String, pax: Int, conductorId: String?, guiaId: String?) -> Unit,
     onCancelar: () -> Unit
 ) {
     var titulo by remember { mutableStateOf("") }
@@ -224,6 +232,18 @@ fun CrearServicioScreen(
     var pasajeros by remember { mutableStateOf(1) }
     var fechaSeleccionada by remember { mutableStateOf("") }
     var mostrarReloj by remember { mutableStateOf(false) }
+
+    val opcionesConductor = listOf(
+        OpcionPersonal("D101", "Carlos Mendoza", stringResource(R.string.crear_detalle_conductor)),
+        OpcionPersonal(null, stringResource(R.string.crear_sin_conductor), stringResource(R.string.crear_sin_asignacion))
+    )
+    val opcionesGuia = listOf(
+        OpcionPersonal("G201", "Ana Silva", stringResource(R.string.crear_detalle_guia)),
+        OpcionPersonal(null, stringResource(R.string.crear_sin_guia), stringResource(R.string.crear_sin_asignacion))
+    )
+
+    var conductorSeleccionado by remember { mutableStateOf(opcionesConductor.first()) }
+    var guiaSeleccionada by remember { mutableStateOf(opcionesGuia.first()) }
 
     val ruta = buildList {
         if (origenNombre.isNotBlank()) add(origenNombre)
@@ -264,21 +284,21 @@ fun CrearServicioScreen(
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)
         ) {
             Text(
-                text = "MÓDULO DE GESTIÓN",
+                text = stringResource(R.string.crear_modulo),
                 style = MaterialTheme.typography.labelSmall,
                 color = LinceTextSecondary,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
             Text(
-                text = "Crear Nuevo Servicio",
+                text = stringResource(R.string.crear_titulo),
                 style = MaterialTheme.typography.headlineSmall,
                 color = LinceGreenPrimary,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Completa los datos operativos para programar el servicio.",
+                text = stringResource(R.string.crear_subtitulo),
                 style = MaterialTheme.typography.bodySmall,
                 color = LinceTextSecondary
             )
@@ -306,7 +326,7 @@ fun CrearServicioScreen(
                 ) {
                     SeccionFormulario(
                         icono = Icons.Default.Info,
-                        titulo = "Datos del servicio"
+                        titulo = stringResource(R.string.crear_datos)
                     )
 
                     HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
@@ -314,7 +334,7 @@ fun CrearServicioScreen(
                     OutlinedTextField(
                         value = titulo,
                         onValueChange = { titulo = it },
-                        label = { Text("Título del Servicio") },
+                        label = { Text(stringResource(R.string.crear_titulo_servicio)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
@@ -338,7 +358,7 @@ fun CrearServicioScreen(
                 ) {
                     SeccionFormulario(
                         icono = Icons.Default.LocationOn,
-                        titulo = "Ruta del servicio"
+                        titulo = stringResource(R.string.crear_ruta)
                     )
 
                     HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
@@ -346,7 +366,7 @@ fun CrearServicioScreen(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         RutaItem(
                             posicion = PosicionRuta.ORIGEN,
-                            etiqueta = "Origen",
+                            etiqueta = stringResource(R.string.crear_origen),
                             valor = origenNombre,
                             punto = origenPunto,
                             onClick = { selectorAbierto = "origen" }
@@ -356,7 +376,7 @@ fun CrearServicioScreen(
                             RutaItem(
                                 posicion = PosicionRuta.PARADA,
                                 numero = indice + 1,
-                                etiqueta = "Parada ${indice + 1}",
+                                etiqueta = stringResource(R.string.crear_parada, indice + 1),
                                 valor = nombre,
                                 punto = paradasPuntos.getOrNull(indice),
                                 onClick = { selectorAbierto = "parada:$indice" },
@@ -366,7 +386,7 @@ fun CrearServicioScreen(
 
                         RutaItem(
                             posicion = PosicionRuta.DESTINO,
-                            etiqueta = "Destino",
+                            etiqueta = stringResource(R.string.crear_destino),
                             valor = destinoNombre,
                             punto = destinoPunto,
                             onClick = { selectorAbierto = "destino" }
@@ -395,7 +415,7 @@ fun CrearServicioScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Añadir parada (${paradasNombres.size}/4)",
+                                text = stringResource(R.string.crear_anadir_parada, paradasNombres.size),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = LinceGreenPrimary,
                                 fontWeight = FontWeight.SemiBold
@@ -422,13 +442,13 @@ fun CrearServicioScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Intercambiar origen y destino",
+                                    contentDescription = stringResource(R.string.crear_intercambiar_desc),
                                     tint = LinceGreenDark,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Intercambiar",
+                                    text = stringResource(R.string.crear_intercambiar),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = LinceGreenDark,
                                     fontWeight = FontWeight.Bold
@@ -464,9 +484,8 @@ fun CrearServicioScreen(
                                 )
                                 Spacer(modifier = Modifier.width(7.dp))
                                 Text(
-                                    text = String.format(
-                                        Locale.ROOT,
-                                        "Recorrido aproximado: %.1f km · %d min · %d parada(s)",
+                                    text = stringResource(
+                                        R.string.crear_recorrido,
                                         kilometros,
                                         minutos,
                                         paradasNombres.count { it.isNotBlank() }
@@ -495,7 +514,7 @@ fun CrearServicioScreen(
                 ) {
                     SeccionFormulario(
                         icono = Icons.Default.DateRange,
-                        titulo = "Programación y operación"
+                        titulo = stringResource(R.string.crear_programacion)
                     )
 
                     HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
@@ -503,7 +522,7 @@ fun CrearServicioScreen(
                     CampoFecha(
                         valor = fechaSeleccionada,
                         onValorChange = { fechaSeleccionada = it },
-                        etiqueta = "Fecha del servicio"
+                        etiqueta = stringResource(R.string.crear_fecha_servicio)
                     )
 
                     Surface(
@@ -529,14 +548,14 @@ fun CrearServicioScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "HORA DE SALIDA",
+                                    text = stringResource(R.string.crear_hora_salida),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = LinceTextSecondary,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.6.sp
                                 )
                                 Text(
-                                    text = if (hora.isBlank()) "Seleccionar hora" else hora,
+                                    text = if (hora.isBlank()) stringResource(R.string.crear_seleccionar_hora) else hora,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = if (hora.isBlank()) LinceTextSecondary else LinceTextPrimary,
                                     fontWeight = FontWeight.SemiBold,
@@ -565,14 +584,18 @@ fun CrearServicioScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "PASAJEROS",
+                                    text = stringResource(R.string.crear_pasajeros),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = LinceTextSecondary,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.6.sp
                                 )
                                 Text(
-                                    text = if (pasajeros == 1) "1 pasajero" else "$pasajeros pasajeros",
+                                    text = if (pasajeros == 1) {
+                                        stringResource(R.string.crear_pasajero_uno)
+                                    } else {
+                                        stringResource(R.string.crear_pasajeros_varios, pasajeros)
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = LinceTextPrimary,
                                     fontWeight = FontWeight.SemiBold
@@ -587,6 +610,42 @@ fun CrearServicioScreen(
                             }
                         }
                     }
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    SeccionFormulario(
+                        icono = Icons.Default.Person,
+                        titulo = stringResource(R.string.crear_asignacion)
+                    )
+
+                    HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
+
+                    SelectorPersonal(
+                        etiqueta = stringResource(R.string.crear_conductor),
+                        opciones = opcionesConductor,
+                        seleccionada = conductorSeleccionado,
+                        onSeleccionar = { conductorSeleccionado = it }
+                    )
+
+                    SelectorPersonal(
+                        etiqueta = stringResource(R.string.crear_guia),
+                        opciones = opcionesGuia,
+                        seleccionada = guiaSeleccionada,
+                        onSeleccionar = { guiaSeleccionada = it }
+                    )
                 }
             }
 
@@ -615,7 +674,7 @@ fun CrearServicioScreen(
                         border = BorderStroke(1.5.dp, LinceGreenPrimary),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceGreenPrimary)
                     ) {
-                        Text("Cancelar", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.accion_cancelar), fontWeight = FontWeight.SemiBold)
                     }
 
                     Button(
@@ -626,7 +685,9 @@ fun CrearServicioScreen(
                                 fechaSeleccionada,
                                 hora,
                                 "Transfer",
-                                pasajeros
+                                pasajeros,
+                                conductorSeleccionado.id,
+                                guiaSeleccionada.id
                             )
                         },
                         modifier = Modifier
@@ -640,7 +701,7 @@ fun CrearServicioScreen(
                         enabled = formularioValido
                     ) {
                         Text(
-                            text = "Guardar Servicio",
+                            text = stringResource(R.string.crear_guardar),
                             color = LinceCardSurface,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -754,6 +815,65 @@ private fun IconoReloj(modifier: Modifier = Modifier, color: Color = LinceGreenP
             strokeWidth = 1.6.dp.toPx(),
             cap = StrokeCap.Round
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectorPersonal(
+    etiqueta: String,
+    opciones: List<OpcionPersonal>,
+    seleccionada: OpcionPersonal,
+    onSeleccionar: (OpcionPersonal) -> Unit
+) {
+    var expandido by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expandido,
+        onExpandedChange = { expandido = !expandido }
+    ) {
+        OutlinedTextField(
+            value = seleccionada.nombre,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(etiqueta) },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandido)
+            },
+            supportingText = { Text(seleccionada.detalle) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            shape = RoundedCornerShape(14.dp),
+            colors = fieldColors()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expandido,
+            onDismissRequest = { expandido = false }
+        ) {
+            opciones.forEach { opcion ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                text = opcion.nombre,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = opcion.detalle,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTextSecondary
+                            )
+                        }
+                    },
+                    onClick = {
+                        onSeleccionar(opcion)
+                        expandido = false
+                    }
+                )
+            }
+        }
     }
 }
 

@@ -27,11 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.linceops.R
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
@@ -64,7 +66,7 @@ fun DashboardScreen(
 
     val uiStateCompleto = uiState.copy(servicios = uiState.serviciosTotales)
 
-    val nombreUsuario = uiState.usuarioLogueado?.nombre ?: "Usuario"
+    val nombreUsuario = uiState.usuarioLogueado?.nombre ?: stringResource(R.string.rol_participante)
     val iniciales = nombreUsuario
         .split(" ")
         .filter { it.isNotBlank() }
@@ -102,7 +104,7 @@ fun DashboardScreen(
                             color = LinceOutlineVariant
                         )
                         Text(
-                            text = rolUsuario.nombreMostrar.uppercase(),
+                            text = etiquetaRol(rolUsuario).uppercase(),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.SemiBold,
@@ -119,7 +121,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Base Operativa",
+                            text = stringResource(R.string.dashboard_base_operativa),
                             style = MaterialTheme.typography.labelMedium,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.Medium
@@ -147,7 +149,7 @@ fun DashboardScreen(
         item {
             Column {
                 Text(
-                    text = "Hola, $nombreUsuario",
+                    text = stringResource(R.string.dashboard_hola, nombreUsuario),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = LinceTextPrimary
@@ -162,7 +164,7 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = "Panel Operativo · Turno activo",
+                        text = stringResource(R.string.dashboard_turno),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary,
                         fontWeight = FontWeight.Medium
@@ -216,8 +218,8 @@ fun DashboardScreen(
                 ) {
                     Text(
                         text = filtroInicio?.let {
-                            "No hay servicios en estado ${nombreEstado(it)}."
-                        } ?: "No hay servicios disponibles.",
+                            stringResource(R.string.dashboard_sin_servicios_estado, nombreEstado(it))
+                        } ?: stringResource(R.string.dashboard_sin_servicios),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary,
                         modifier = Modifier.padding(14.dp)
@@ -229,13 +231,20 @@ fun DashboardScreen(
 }
 
 @Composable
+internal fun etiquetaRol(rol: RolUsuario): String = when (rol) {
+    RolUsuario.ADMINISTRADOR -> stringResource(R.string.rol_administrador)
+    RolUsuario.CONDUCTOR -> stringResource(R.string.rol_conductor)
+    RolUsuario.GUIA -> stringResource(R.string.rol_guia)
+}
+
+@Composable
 private fun FiltrosInicio(
     seleccionado: EstadoServicio?,
     onSeleccionar: (EstadoServicio?) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "FILTRAR POR ESTADO",
+            text = stringResource(R.string.dashboard_filtrar_estado),
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary,
             fontWeight = FontWeight.Bold,
@@ -249,7 +258,7 @@ private fun FiltrosInicio(
                 FilterChip(
                     selected = seleccionado == null,
                     onClick = { onSeleccionar(null) },
-                    label = { Text("Todos") },
+                    label = { Text(stringResource(R.string.dashboard_todos)) },
                     shape = RoundedCornerShape(50),
                     colors = filterChipColors()
                 )
@@ -298,7 +307,7 @@ private fun DashboardManagerView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Panel de administración",
+                    text = stringResource(R.string.dashboard_panel_admin),
                     style = MaterialTheme.typography.titleMedium,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.Bold
@@ -308,7 +317,7 @@ private fun DashboardManagerView(
                     shape = RoundedCornerShape(50)
                 ) {
                     Text(
-                        text = "HOY",
+                        text = stringResource(R.string.dashboard_hoy),
                         style = MaterialTheme.typography.labelSmall,
                         color = LinceGreenDark,
                         fontWeight = FontWeight.Bold,
@@ -324,9 +333,9 @@ private fun DashboardManagerView(
             ) {
                 KpiCard(
                     modifier = Modifier.weight(1f),
-                    etiqueta = "SERVICIOS VISIBLES",
+                    etiqueta = stringResource(R.string.dashboard_kpi_visibles),
                     valor = "${uiState.servicios.size}",
-                    detalle = "En seguimiento",
+                    detalle = stringResource(R.string.dashboard_kpi_seguimiento),
                     colorValor = LinceGreenDark,
                     colorFondo = LinceGreenSageLight.copy(alpha = 0.55f),
                     colorIcono = LinceGreenPrimary,
@@ -335,9 +344,9 @@ private fun DashboardManagerView(
 
                 KpiCard(
                     modifier = Modifier.weight(1f),
-                    etiqueta = "PENDIENTES",
+                    etiqueta = stringResource(R.string.dashboard_kpi_pendientes),
                     valor = "$pendientes",
-                    detalle = "Requieren gestión",
+                    detalle = stringResource(R.string.dashboard_kpi_gestion),
                     colorValor = StatusPendingText,
                     colorFondo = StatusPendingBg.copy(alpha = 0.6f),
                     colorIcono = StatusPendingText,
@@ -362,7 +371,7 @@ private fun DashboardManagerView(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Consulta el feed para revisar los servicios.",
+                        text = stringResource(R.string.dashboard_consulta_feed),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary
                     )
@@ -385,7 +394,7 @@ private fun DashboardManagerView(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Crear Nuevo Servicio",
+                    text = stringResource(R.string.dashboard_crear_servicio),
                     color = LinceCardSurface,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -493,12 +502,12 @@ private fun DashboardDriverView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Mis servicios",
+                    text = stringResource(R.string.dashboard_mis_servicios),
                     style = MaterialTheme.typography.titleMedium,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.Bold
                 )
-                CountPill(texto = "Visibles: ${uiState.servicios.size}")
+                CountPill(texto = stringResource(R.string.dashboard_visibles, uiState.servicios.size))
             }
 
             if (servicioMarcaje == null) {
@@ -519,7 +528,7 @@ private fun DashboardDriverView(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "No tienes servicios confirmados o en curso disponibles para marcaje.",
+                            text = stringResource(R.string.dashboard_sin_confirmados),
                             style = MaterialTheme.typography.bodyMedium,
                             color = LinceTextSecondary
                         )
@@ -546,9 +555,9 @@ private fun DashboardDriverView(
                         ) {
                             Text(
                                 text = if (estadoActual == EstadoServicio.EN_CURSO) {
-                                    "Servicio en curso"
+                                    stringResource(R.string.dashboard_servicio_en_curso)
                                 } else {
-                                    "Próximo servicio"
+                                    stringResource(R.string.dashboard_proximo_servicio)
                                 },
                                 color = LinceGreenPrimary,
                                 style = MaterialTheme.typography.labelLarge,
@@ -575,7 +584,7 @@ private fun DashboardDriverView(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
-                                    contentDescription = "Ruta",
+                                    contentDescription = stringResource(R.string.comun_ruta),
                                     tint = LinceGreenPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -592,15 +601,15 @@ private fun DashboardDriverView(
 
                         DashboardInfoRow(
                             icono = Icons.Default.DateRange,
-                            texto = "Fecha: ${servicioMarcaje.fecha} | Hora: ${servicioMarcaje.hora}"
+                            texto = stringResource(R.string.dashboard_fecha_hora, servicioMarcaje.fecha, servicioMarcaje.hora)
                         )
                         DashboardInfoRow(
                             icono = Icons.Default.LocationOn,
-                            texto = "Punto de encuentro: ${servicioMarcaje.pickup}"
+                            texto = stringResource(R.string.dashboard_punto_encuentro, servicioMarcaje.pickup)
                         )
                         DashboardInfoRow(
                             icono = Icons.Default.Person,
-                            texto = "Pasajeros: ${servicioMarcaje.pasajeros}"
+                            texto = stringResource(R.string.dashboard_pasajeros, servicioMarcaje.pasajeros)
                         )
                     }
                 }
@@ -616,7 +625,7 @@ private fun DashboardDriverView(
                     colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                 ) {
                     Text(
-                        text = "Iniciar Marcaje",
+                        text = stringResource(R.string.dashboard_iniciar_marcaje),
                         color = LinceCardSurface,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -655,12 +664,12 @@ private fun DashboardGuiaView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Panel del guía",
+                    text = stringResource(R.string.dashboard_panel_guia),
                     style = MaterialTheme.typography.titleMedium,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.Bold
                 )
-                CountPill(texto = "Asignados: ${uiState.servicios.size}")
+                CountPill(texto = stringResource(R.string.dashboard_asignados, uiState.servicios.size))
             }
 
             if (servicio == null) {
@@ -681,7 +690,7 @@ private fun DashboardGuiaView(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "No tienes servicios asignados.",
+                            text = stringResource(R.string.dashboard_sin_asignados),
                             style = MaterialTheme.typography.bodyMedium,
                             color = LinceTextSecondary
                         )
@@ -708,9 +717,9 @@ private fun DashboardGuiaView(
                         ) {
                             Text(
                                 text = if (estadoActual == EstadoServicio.EN_CURSO) {
-                                    "Servicio en curso"
+                                    stringResource(R.string.dashboard_servicio_en_curso)
                                 } else {
-                                    "Próximo servicio asignado"
+                                    stringResource(R.string.dashboard_proximo_asignado)
                                 },
                                 style = MaterialTheme.typography.labelLarge,
                                 color = LinceGreenPrimary,
@@ -737,7 +746,7 @@ private fun DashboardGuiaView(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
-                                    contentDescription = "Ruta",
+                                    contentDescription = stringResource(R.string.comun_ruta),
                                     tint = LinceGreenPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -754,15 +763,15 @@ private fun DashboardGuiaView(
 
                         DashboardInfoRow(
                             icono = Icons.Default.DateRange,
-                            texto = "Fecha: ${servicio.fecha} | Hora: ${servicio.hora}"
+                            texto = stringResource(R.string.dashboard_fecha_hora, servicio.fecha, servicio.hora)
                         )
                         DashboardInfoRow(
                             icono = Icons.Default.LocationOn,
-                            texto = "Punto de encuentro: ${servicio.pickup}"
+                            texto = stringResource(R.string.dashboard_punto_encuentro, servicio.pickup)
                         )
                         DashboardInfoRow(
                             icono = Icons.Default.Person,
-                            texto = "Pasajeros: ${servicio.pasajeros}"
+                            texto = stringResource(R.string.dashboard_pasajeros, servicio.pasajeros)
                         )
                     }
                 }
@@ -777,7 +786,7 @@ private fun DashboardGuiaView(
                         colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                     ) {
                         Text(
-                            text = "Iniciar Marcaje",
+                            text = stringResource(R.string.dashboard_iniciar_marcaje),
                             color = LinceCardSurface,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -800,13 +809,13 @@ private fun ResumenServicios(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Resumen de servicios",
+                text = stringResource(R.string.dashboard_resumen),
                 style = MaterialTheme.typography.titleMedium,
                 color = LinceTextPrimary,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Últimos ${minOf(3, servicios.size)}",
+                text = stringResource(R.string.dashboard_ultimos, minOf(3, servicios.size)),
                 style = MaterialTheme.typography.labelSmall,
                 color = LinceTextSecondary
             )

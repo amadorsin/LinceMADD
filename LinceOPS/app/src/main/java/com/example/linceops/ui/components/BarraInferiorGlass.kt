@@ -34,9 +34,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.linceops.R
 import com.example.linceops.ui.theme.LinceGlassBorder
 import com.example.linceops.ui.theme.LinceGreenDark
 import com.example.linceops.ui.theme.LinceGreenSageLight
@@ -49,13 +51,13 @@ import dev.chrisbanes.haze.hazeChild
 private data class ItemBarra(
     val id: String,
     val icono: ImageVector,
-    val etiqueta: String
+    val etiquetaRes: Int
 )
 
 private val ITEMS_BARRA = listOf(
-    ItemBarra("inicio", Icons.Filled.Home, "Inicio"),
-    ItemBarra("servicios", Icons.AutoMirrored.Filled.List, "Servicios"),
-    ItemBarra("perfil", Icons.Filled.Person, "Perfil")
+    ItemBarra("inicio", Icons.Filled.Home, R.string.nav_inicio),
+    ItemBarra("servicios", Icons.AutoMirrored.Filled.List, R.string.nav_servicios),
+    ItemBarra("perfil", Icons.Filled.Person, R.string.nav_perfil)
 )
 
 @Composable
@@ -172,6 +174,7 @@ fun BarraInferiorGlass(
                 ) {
                     ITEMS_BARRA.forEach { item ->
                         val seleccionado = cuandoSeleccionado(rutaActual, item.id)
+                        val etiqueta = stringResource(item.etiquetaRes)
                         val interactionSource = remember { MutableInteractionSource() }
 
                         Box(
@@ -182,7 +185,7 @@ fun BarraInferiorGlass(
                                     interactionSource = interactionSource,
                                     indication = null
                                 ) { onNavegar(item.id) }
-                                .semantics { contentDescription = item.etiqueta },
+                                .semantics { contentDescription = etiqueta },
                             contentAlignment = Alignment.Center
                         ) {
                             if (seleccionado) {
