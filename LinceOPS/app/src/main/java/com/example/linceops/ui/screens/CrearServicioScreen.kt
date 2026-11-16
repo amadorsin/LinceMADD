@@ -232,6 +232,9 @@ fun CrearServicioScreen(
     var pasajeros by remember { mutableStateOf(1) }
     var fechaSeleccionada by remember { mutableStateOf("") }
     var mostrarReloj by remember { mutableStateOf(false) }
+    var vehiculoContingencia by remember { mutableStateOf("") }
+    var motivoContingencia by remember { mutableStateOf("") }
+
 
     val opcionesConductor = listOf(
         OpcionPersonal("D101", "Carlos Mendoza", stringResource(R.string.crear_detalle_conductor)),
@@ -286,7 +289,7 @@ fun CrearServicioScreen(
             Text(
                 text = stringResource(R.string.crear_modulo),
                 style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary,
+                color = LinceTertiary,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
@@ -330,7 +333,6 @@ fun CrearServicioScreen(
                     )
 
                     HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
-
                     OutlinedTextField(
                         value = titulo,
                         onValueChange = { titulo = it },
@@ -679,8 +681,13 @@ fun CrearServicioScreen(
 
                     Button(
                         onClick = {
+                            val tituloFinal = if (vehiculoContingencia.isNotBlank()) {
+                                "$titulo [${vehiculoContingencia.uppercase()}]"
+                            } else {
+                                titulo
+                            }
                             onGuardar(
-                                titulo,
+                                tituloFinal,
                                 ruta,
                                 fechaSeleccionada,
                                 hora,
@@ -698,7 +705,7 @@ fun CrearServicioScreen(
                             containerColor = LinceGreenPrimary,
                             disabledContainerColor = LinceGreenPrimary.copy(alpha = 0.4f)
                         ),
-                        enabled = formularioValido
+                        enabled = formularioValido && vehiculoContingencia.isNotBlank()
                     ) {
                         Text(
                             text = stringResource(R.string.crear_guardar),

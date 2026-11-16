@@ -54,14 +54,20 @@ class ServiceViewModel(
             return
         }
         viewModelScope.launch {
-            val lista = repository.obtenerServicios(usuario.id)
+            // Obtenemos los datos (desde Room) y el flag de si la red falló
+            val (lista, esOffline) = repository.obtenerServicios(usuario.id)
+
             val filtrados = lista.filter { servicio ->
                 (_uiState.value.filtroEstado == null || servicio.estadoPara(usuario) == _uiState.value.filtroEstado) &&
                         (_uiState.value.filtroFecha == null || servicio.fecha == _uiState.value.filtroFecha)
             }
+
             _uiState.value = _uiState.value.copy(
                 servicios = filtrados,
-                serviciosTotales = lista
+                serviciosTotales = lista,
+                // Dispara tu NotificacionFlotante automáticamente
+                error = if (esOffline) "Sin conexión con el servidor. Trabajando en Modo Offline." else null,
+                mensaje = null
             )
         }
     }
@@ -211,7 +217,7 @@ class ServiceViewModel(
         }
     }
 
-    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
     fun reasignarServicio(servicioId: String) {

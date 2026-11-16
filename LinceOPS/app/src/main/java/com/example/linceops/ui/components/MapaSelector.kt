@@ -303,14 +303,20 @@ private suspend fun geocodificarDireccion(
     context: Context,
     texto: String
 ): PuntoMapa? = withContext(Dispatchers.IO) {
+    val limpio = texto.trim()
+    if (limpio.isBlank()) return@withContext null
+
+    // 1. Pre-carga y geocodifica con Nominatim si hay internet
     if (isInternetAvailable(context)) {
-        buscarDirecciones(texto, limite = 1).firstOrNull()?.punto?.let { return@withContext it }
+        buscarDirecciones(limpio, limite = 1).firstOrNull()?.punto?.let { return@withContext it }
     }
-    runCatching {
+
+    // 2. Respaldo con Geocoder nativo dentro de los límites de Chile
+    val desdeGeocoder = runCatching {
         val geocoder = Geocoder(context, Locale("es", "CL"))
         @Suppress("DEPRECATION")
         geocoder.getFromLocationName(
-            texto,
+            limpio,
             1,
             -56.0,
             -76.0,
@@ -318,6 +324,13 @@ private suspend fun geocodificarDireccion(
             -66.0
         )?.firstOrNull()?.let { PuntoMapa(it.latitude, it.longitude) }
     }.getOrNull()
+
+    if (desdeGeocoder != null) return@withContext desdeGeocoder
+
+    // 3. Respaldo Offline en la lista local LUGARES_SUGERIDOS
+    LUGARES_SUGERIDOS.firstOrNull {
+        it.nombre.contains(limpio, ignoreCase = true) || limpio.contains(it.nombre, ignoreCase = true)
+    }?.punto
 }
 
 @Composable
@@ -338,7 +351,8 @@ fun SelectorUbicacionDialog(
     titulo: String,
     puntoInicial: PuntoMapa?,
     onDismiss: () -> Unit,
-    onConfirmar: (PuntoMapa, String) -> Unit
+    onConfirmar: (PuntoMapa, String) -> Unit,
+    direccionInicial: String? = null
 ) {
     val context = LocalContext.current
     val teclado = LocalSoftwareKeyboardController.current
@@ -349,7 +363,7 @@ fun SelectorUbicacionDialog(
     var hayRed by remember { mutableStateOf(isInternetAvailable(context)) }
     var centro by remember { mutableStateOf(puntoInicial ?: PUNTO_PUERTO_MONTT) }
     var zoomOsm by remember { mutableStateOf(16) }
-    var direccion by remember { mutableStateOf("") }
+    var direccion by remember { mutableStateOf(direccionInicial?.trim().orEmpty()) }
     var direccionManual by remember { mutableStateOf(false) }
     var buscandoDireccion by remember { mutableStateOf(false) }
     var geocodificando by remember { mutableStateOf(false) }
@@ -380,6 +394,25 @@ fun SelectorUbicacionDialog(
         val concedido = permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (concedido) disparadorGps++
+    }
+
+    // Geocodifica automáticamente la dirección en texto proveniente de la API al abrir el mapa
+    LaunchedEffect(direccionInicial, puntoInicial) {
+        val textoApi = direccionInicial?.trim().orEmpty()
+        if (puntoInicial == null && textoApi.isNotBlank()) {
+            geocodificando = true
+            errorDireccion = null
+            val puntoGeocodificado = geocodificarDireccion(context, textoApi)
+            if (puntoGeocodificado != null) {
+                saltarGeocodificacion = true
+                direccionManual = false
+                centro = puntoGeocodificado
+                direccion = textoApi
+            } else {
+                direccion = textoApi
+            }
+            geocodificando = false
+        }
     }
 
     LaunchedEffect(Unit) {

@@ -2,6 +2,7 @@ package com.example.linceops.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -120,6 +121,7 @@ fun MarcajeScreen(
         accionPendiente = null
     }
 
+    @SuppressLint("MissingPermission")
     fun obtenerUbicacion(onSuccess: (Double, Double) -> Unit) {
         if (ubicacionEnProceso) return
 
@@ -132,7 +134,55 @@ fun MarcajeScreen(
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
-        if (!permisoFino && !permisoAproximado) {
+        if (tieneFine || tieneCoarse) {
+            mensajeEstado = "Obteniendo coordenadas satelitales..."
+            try {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            mensajeEstado = String.format(
+                                Locale.ROOT,
+                                "Ubicación capturada: %.5f, %.5f",
+                                location.latitude,
+                                location.longitude
+                            )
+                            onSuccess(location.latitude, location.longitude)
+                        } else {
+                            // Si no hay caché en lastLocation (común en Modo Offline), forzamos lectura satelital
+                            val token = CancellationTokenSource()
+                            val prioridad = if (tieneFine) {
+                                Priority.PRIORITY_HIGH_ACCURACY
+                            } else {
+                                Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                            }
+                            fusedLocationClient.getCurrentLocation(prioridad, token.token)
+                                .addOnSuccessListener { ubicacionActual ->
+                                    if (ubicacionActual != null) {
+                                        mensajeEstado = String.format(
+                                            Locale.ROOT,
+                                            "Ubicación capturada: %.5f, %.5f",
+                                            ubicacionActual.latitude,
+                                            ubicacionActual.longitude
+                                        )
+                                        onSuccess(ubicacionActual.latitude, ubicacionActual.longitude)
+                                    } else {
+                                        mensajeEstado = "No se pudo obtener la ubicación. Verifica que el GPS esté activo."
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    mensajeEstado = "No se pudo obtener la ubicación satelital."
+                                }
+                        }
+                    }
+                    .addOnFailureListener {
+                        mensajeEstado = "Error al leer el sensor GPS del dispositivo."
+                    }
+            } catch (e: SecurityException) {
+                mensajeEstado = "Permiso de ubicación insuficiente."
+            } catch (e: Exception) {
+                mensajeEstado = "Error inesperado al capturar GPS en modo local."
+            }
+        } else {
             accionPendiente = { obtenerUbicacion(onSuccess) }
             permissionLauncher.launch(
                 arrayOf(

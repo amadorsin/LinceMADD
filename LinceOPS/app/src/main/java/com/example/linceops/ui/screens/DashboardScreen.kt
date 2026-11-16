@@ -74,6 +74,7 @@ fun DashboardScreen(
         .mapNotNull { it.firstOrNull()?.uppercaseChar() }
         .joinToString("")
 
+    Box(modifier = modifier.fillMaxSize()) {
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -229,7 +230,15 @@ fun DashboardScreen(
         }
     }
 }
-
+    if (uiState.esModoOffline) {
+        NotificacionFlotante(
+            mensaje = "Modo Offline: Mostrando datos cacheados por caída del servidor",
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp)
+        )
+    }
+}
 @Composable
 internal fun etiquetaRol(rol: RolUsuario): String = when (rol) {
     RolUsuario.ADMINISTRADOR -> stringResource(R.string.rol_administrador)
@@ -848,16 +857,26 @@ private fun ResumenServicios(
                     Spacer(modifier = Modifier.width(10.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = servicio.titulo,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = LinceTextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "[${servicio.oficina}]",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceGreenPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         Text(
-                            text = servicio.titulo,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = servicio.origenDestino,
+                            text = "${servicio.origenDestino} · ${servicio.vehiculo}",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             maxLines = 1,
@@ -878,7 +897,7 @@ private fun ResumenServicios(
     }
 }
 
-@Composable
+@Composables
 private fun CountPill(texto: String) {
     Surface(
         color = LinceGreenSageLight,
