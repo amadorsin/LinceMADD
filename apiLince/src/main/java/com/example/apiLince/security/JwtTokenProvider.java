@@ -1,6 +1,6 @@
-package cl.duoc.linceops.backend.security;
+package com.example.apiLince.security;
 
-import cl.duoc.linceops.backend.model.UsuarioLocal;
+import com.example.apiLince.model.UsuarioLocal;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;

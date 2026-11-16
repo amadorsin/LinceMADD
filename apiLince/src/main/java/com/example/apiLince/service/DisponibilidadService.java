@@ -1,10 +1,10 @@
-package cl.duoc.linceops.backend.service;
+package com.example.apiLince.service;
 
-import cl.duoc.linceops.backend.dto.request.BloqueoRequestDTO;
-import cl.duoc.linceops.backend.model.BloqueoCalendario;
-import cl.duoc.linceops.backend.model.UsuarioLocal;
-import cl.duoc.linceops.backend.repository.BloqueoCalendarioRepository;
-import cl.duoc.linceops.backend.repository.UsuarioLocalRepository;
+import com.example.apiLince.dto.request.BloqueoRequestDTO;
+import com.example.apiLince.model.BloqueoCalendario;
+import com.example.apiLince.model.UsuarioLocal;
+import com.example.apiLince.repository.BloqueoCalendarioRepository;
+import com.example.apiLince.repository.UsuarioLocalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,18 +34,18 @@ public class DisponibilidadService {
         // 1. Validación de la regla de los 7 días
         long diasAnticipacion = ChronoUnit.DAYS.between(fechaHoy, fechaObjetivo);
         if (diasAnticipacion < 7) {
-            throw new IllegalStateException("Solo puedes bloquear días con al menos 7 días de anticipación.");
+            throw new IllegalArgumentException("Solo puedes bloquear días con al menos 7 días de anticipación.");
         }
 
         // 2. Validación de duplicados
         if (bloqueoCalendarioRepository.existsByUsuarioIdAndFechaBloqueada(usuarioId, fechaObjetivo)) {
             throw new IllegalArgumentException("La fecha " + fechaObjetivo + " ya se encuentra bloqueada.");
         }
-
         BloqueoCalendario bloqueo = new BloqueoCalendario();
         bloqueo.setUsuario(usuario);
         bloqueo.setFechaBloqueada(fechaObjetivo);
         bloqueo.setFechaSolicitud(fechaHoy);
+        bloqueo.setMotivo(request.getMotivo());
 
         return bloqueoCalendarioRepository.save(bloqueo);
     }

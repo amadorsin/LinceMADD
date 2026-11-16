@@ -1,7 +1,7 @@
-package cl.duoc.linceops.backend.service;
+package com.example.apiLince.service;
 
-import cl.duoc.linceops.backend.model.Geocerca;
-import cl.duoc.linceops.backend.repository.GeocercaRepository;
+import com.example.apiLince.model.Geocerca;
+import com.example.apiLince.repository.GeocercaRepository;
 import org.springframework.stereotype.Service;
 
 @Service

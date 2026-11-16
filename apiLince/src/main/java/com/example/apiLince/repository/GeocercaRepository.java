@@ -1,6 +1,6 @@
-package cl.duoc.linceops.backend.repository;
+package com.example.apiLince.repository;
 
-import cl.duoc.linceops.backend.model.Geocerca;
+import com.example.apiLince.model.Geocerca;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

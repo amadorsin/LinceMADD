@@ -1,6 +1,6 @@
-package cl.duoc.linceops.backend.repository;
+package com.example.apiLince.repository;
 
-import cl.duoc.linceops.backend.model.Hito;
+import com.example.apiLince.model.Hito;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

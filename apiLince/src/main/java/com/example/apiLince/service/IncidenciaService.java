@@ -1,10 +1,10 @@
-package cl.duoc.linceops.backend.service;
+package com.example.apiLince.service;
 
-import cl.duoc.linceops.backend.dto.request.IncidenciaRequestDTO;
-import cl.duoc.linceops.backend.model.Incidencia;
-import cl.duoc.linceops.backend.model.UsuarioLocal;
-import cl.duoc.linceops.backend.repository.IncidenciaRepository;
-import cl.duoc.linceops.backend.repository.UsuarioLocalRepository;
+import com.example.apiLince.dto.request.IncidenciaRequestDTO;
+import com.example.apiLince.model.Incidencia;
+import com.example.apiLince.model.UsuarioLocal;
+import com.example.apiLince.repository.IncidenciaRepository;
+import com.example.apiLince.repository.UsuarioLocalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -1,7 +1,7 @@
-package cl.duoc.linceops.backend.security;
+package com.example.apiLince.security;
 
-import cl.duoc.linceops.backend.model.UsuarioLocal;
-import cl.duoc.linceops.backend.repository.UsuarioLocalRepository;
+import com.example.apiLince.model.UsuarioLocal;
+import com.example.apiLince.repository.UsuarioLocalRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;

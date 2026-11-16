@@ -1,5 +1,6 @@
-package cl.duoc.linceops.backend.model;
+package com.example.apiLince.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.util.List;
 
@@ -17,6 +18,7 @@ public class UsuarioLocal {
     @Column(nullable = false, unique = true)
     private String correo;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 

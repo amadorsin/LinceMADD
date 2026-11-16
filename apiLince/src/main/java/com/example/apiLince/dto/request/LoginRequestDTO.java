@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.dto.request;
+package com.example.apiLince.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

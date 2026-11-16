@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.security;
+package com.example.apiLince.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

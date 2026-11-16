@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.config;
+package com.example.apiLince.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

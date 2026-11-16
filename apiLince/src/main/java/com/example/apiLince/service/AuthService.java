@@ -1,10 +1,10 @@
-package cl.duoc.linceops.backend.service;
+package com.example.apiLince.service;
 
-import cl.duoc.linceops.backend.dto.request.LoginRequestDTO;
-import cl.duoc.linceops.backend.dto.response.AuthResponseDTO;
-import cl.duoc.linceops.backend.model.UsuarioLocal;
-import cl.duoc.linceops.backend.repository.UsuarioLocalRepository;
-import cl.duoc.linceops.backend.security.JwtTokenProvider;
+import com.example.apiLince.dto.request.LoginRequestDTO;
+import com.example.apiLince.dto.response.AuthResponseDTO;
+import com.example.apiLince.model.UsuarioLocal;
+import com.example.apiLince.repository.UsuarioLocalRepository;
+import com.example.apiLince.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 

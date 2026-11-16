@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.model;
+package com.example.apiLince.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -14,7 +14,9 @@ public class BloqueoCalendario {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private UsuarioLocal usuario;
-
+    @Column(name = "motivo")
+    private String motivo;
+    // (Asegúrate de tener sus getters y setters correspondientes)
     @Column(nullable = false)
     private LocalDate fechaBloqueada;
 
@@ -32,4 +34,7 @@ public class BloqueoCalendario {
     public void setFechaBloqueada(LocalDate fechaBloqueada) { this.fechaBloqueada = fechaBloqueada; }
     public LocalDate getFechaSolicitud() { return fechaSolicitud; }
     public void setFechaSolicitud(LocalDate fechaSolicitud) { this.fechaSolicitud = fechaSolicitud; }
+
+    public String getMotivo() { return motivo; }
+    public void setMotivo(String motivo) { this.motivo = motivo; }
 }

@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.exception;
+package com.example.apiLince.exception;
 
 public class GeocercaValidationException extends RuntimeException {
     public GeocercaValidationException(String message) {

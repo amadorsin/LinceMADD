@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.model;
+package com.example.apiLince.model;
 
 public enum Rol {
     ADMINISTRADOR,

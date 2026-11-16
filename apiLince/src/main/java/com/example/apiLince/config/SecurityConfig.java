@@ -1,6 +1,6 @@
-package cl.duoc.linceops.backend.config;
+package com.example.apiLince.config;
 
-import cl.duoc.linceops.backend.security.JwtAuthenticationFilter;
+import com.example.apiLince.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

@@ -1,8 +1,8 @@
-package cl.duoc.linceops.backend.controller;
+package com.example.apiLince.controller;
 
-import cl.duoc.linceops.backend.dto.request.LoginRequestDTO;
-import cl.duoc.linceops.backend.dto.response.AuthResponseDTO;
-import cl.duoc.linceops.backend.service.AuthService;
+import com.example.apiLince.dto.request.LoginRequestDTO;
+import com.example.apiLince.dto.response.AuthResponseDTO;
+import com.example.apiLince.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.dto.response;
+package com.example.apiLince.dto.response;
 
 import java.time.LocalDateTime;
 

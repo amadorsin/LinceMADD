@@ -1,10 +1,10 @@
-package cl.duoc.linceops.backend.controller;
+package com.example.apiLince.controller;
 
-import cl.duoc.linceops.backend.dto.request.MarcajeRequestDTO;
-import cl.duoc.linceops.backend.dto.response.MensajeResponseDTO;
-import cl.duoc.linceops.backend.model.UsuarioLocal;
-import cl.duoc.linceops.backend.repository.UsuarioLocalRepository;
-import cl.duoc.linceops.backend.service.HitoService;
+import com.example.apiLince.dto.request.MarcajeRequestDTO;
+import com.example.apiLince.dto.response.MensajeResponseDTO;
+import com.example.apiLince.model.UsuarioLocal;
+import com.example.apiLince.repository.UsuarioLocalRepository;
+import com.example.apiLince.service.HitoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

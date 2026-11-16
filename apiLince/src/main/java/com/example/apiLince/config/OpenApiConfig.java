@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.config;
+package com.example.apiLince.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;

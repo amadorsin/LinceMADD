@@ -1,6 +1,6 @@
-package cl.duoc.linceops.backend.exception;
+package com.example.apiLince.exception;
 
-import cl.duoc.linceops.backend.dto.response.ErrorResponseDTO;
+import com.example.apiLince.dto.response.ErrorResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;

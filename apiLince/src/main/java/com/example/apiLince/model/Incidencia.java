@@ -1,4 +1,4 @@
-package cl.duoc.linceops.backend.model;
+package com.example.apiLince.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
