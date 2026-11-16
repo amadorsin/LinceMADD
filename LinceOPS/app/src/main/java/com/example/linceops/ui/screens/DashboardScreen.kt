@@ -72,6 +72,7 @@ fun DashboardScreen(
         .mapNotNull { it.firstOrNull()?.uppercaseChar() }
         .joinToString("")
 
+    Box(modifier = modifier.fillMaxSize()) {
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -227,7 +228,15 @@ fun DashboardScreen(
         }
     }
 }
-
+    if (uiState.esModoOffline) {
+        NotificacionFlotante(
+            mensaje = "Modo Offline: Mostrando datos cacheados por caída del servidor",
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp)
+        )
+    }
+}
 @Composable
 private fun FiltrosInicio(
     seleccionado: EstadoServicio?,
@@ -385,7 +394,7 @@ private fun DashboardManagerView(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Crear Nuevo Servicio",
+                    text = "Asignación Local (Contingencia)",
                     color = LinceCardSurface,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -592,16 +601,21 @@ private fun DashboardDriverView(
 
                         DashboardInfoRow(
                             icono = Icons.Default.DateRange,
-                            texto = "Fecha: ${servicioMarcaje.fecha} | Hora: ${servicioMarcaje.hora}"
+                            texto = "Fecha: ${servicioMarcaje.fecha} | Hora: ${servicioMarcaje.hora} (${servicioMarcaje.oficina})"
                         )
                         DashboardInfoRow(
                             icono = Icons.Default.LocationOn,
-                            texto = "Punto de encuentro: ${servicioMarcaje.pickup}"
+                            texto = buildString {
+                                append("Pickup: ${servicioMarcaje.pickup}")
+                                if (servicioMarcaje.dropoff.isNotBlank()) append(" → Dropoff: ${servicioMarcaje.dropoff}")
+                            }
                         )
                         DashboardInfoRow(
                             icono = Icons.Default.Person,
-                            texto = "Pasajeros: ${servicioMarcaje.pasajeros}"
-                        )
+                            texto = buildString {
+                                append("Pax: ${servicioMarcaje.pasajeros}")
+                                if (servicioMarcaje.capacidadVehiculo > 0) append("/${servicioMarcaje.capacidadVehiculo}")
+                                append(" · Unidad: ${servicioMarcaje.vehiculo}")
                     }
                 }
 
@@ -839,16 +853,26 @@ private fun ResumenServicios(
                     Spacer(modifier = Modifier.width(10.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = servicio.titulo,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = LinceTextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "[${servicio.oficina}]",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceGreenPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         Text(
-                            text = servicio.titulo,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = servicio.origenDestino,
+                            text = "${servicio.origenDestino} · ${servicio.vehiculo}",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             maxLines = 1,
@@ -869,7 +893,7 @@ private fun ResumenServicios(
     }
 }
 
-@Composable
+@Composables
 private fun CountPill(texto: String) {
     Surface(
         color = LinceGreenSageLight,

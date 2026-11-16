@@ -151,7 +151,7 @@ fun DetalleScreen(
                         shape = RoundedCornerShape(50)
                     ) {
                         Text(
-                            text = servicio.tipo.uppercase(Locale.getDefault()),
+                            text = "${servicio.tipo.uppercase(Locale.getDefault())} • ${servicio.oficina}",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceGreenDark,
                             fontWeight = FontWeight.Bold,
@@ -159,6 +159,20 @@ fun DetalleScreen(
                             maxLines = 1,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
+                    }
+                    if (!servicio.statusPL.isNullOrBlank()) {
+                        Surface(
+                            color = LinceSurfaceContainerHigh,
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                text = "PL: ${servicio.statusPL}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
                     }
                 }
 
@@ -194,24 +208,36 @@ fun DetalleScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FichaDato(
-                            etiqueta = "PUNTO DE RECOGIDA",
-                            valor = servicio.pickup,
+                            etiqueta = "PUNTO DE RECOGIDA (PICKUP)",
+                            valor = servicio.pickup.ifBlank { "Por definir" },
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.Place
                         )
                         FichaDato(
-                            etiqueta = "HOTEL DE REFERENCIA",
-                            valor = servicio.hotel,
+                            etiqueta = "PUNTO DE DESTINO (DROPOFF)",
+                            valor = servicio.dropoff.ifBlank { "Según ruta" },
                             modifier = Modifier.weight(1f),
-                            icono = Icons.Default.Home
+                            icono = Icons.Default.LocationOn
                         )
                     }
-                }
+
+                    FichaDato(
+                        etiqueta = "HOTEL DE REFERENCIA",
+                        valor = servicio.hotel.ifBlank { "Sin hotel registrado" },
+                        modifier = Modifier.fillMaxWidth(),
+                        icono = Icons.Default.Home
+                    )
 
                 TarjetaFinal(
                     icono = Icons.Default.Person,
                     titulo = "Equipo Operativo Asignado"
                 ) {
+                    val textoVehiculo = if (servicio.capacidadVehiculo > 0) {
+                        "${servicio.vehiculo} (Cap. ${servicio.capacidadVehiculo} pax)"
+                    } else {
+                        servicio.vehiculo
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -224,7 +250,7 @@ fun DetalleScreen(
                         )
                         FichaDato(
                             etiqueta = "VEHÍCULO / UNIDAD",
-                            valor = servicio.vehiculo,
+                            valor = textoVehiculo,
                             modifier = Modifier.weight(1f),
                             icono = Icons.AutoMirrored.Filled.Send
                         )
@@ -242,7 +268,7 @@ fun DetalleScreen(
                         )
                         FichaDato(
                             etiqueta = "AGENCIA ORIGEN",
-                            valor = servicio.agencia,
+                            valor = servicio.agencia.takeIf { it.isNotBlank() && it != "Agencia de prueba" } ?: "No especificada",
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.AccountBox
                         )
@@ -329,7 +355,10 @@ fun DetalleScreen(
                                             color = LinceTextSecondary
                                         )
                                     }
-                                    if (pasajero.requerimientos.isNotBlank()) {
+                                    val tieneRequerimientoReal = pasajero.requerimientos.isNotBlank() &&
+                                            !pasajero.requerimientos.equals("Sin requerimientos especiales", ignoreCase = true)
+
+                                    if (tieneRequerimientoReal) {
                                         Row(verticalAlignment = Alignment.Top) {
                                             Icon(
                                                 imageVector = Icons.Default.Info,
@@ -351,7 +380,6 @@ fun DetalleScreen(
                             }
                         }
                     }
-                }
 
                 TarjetaFinal(
                     icono = Icons.Default.CheckCircle,

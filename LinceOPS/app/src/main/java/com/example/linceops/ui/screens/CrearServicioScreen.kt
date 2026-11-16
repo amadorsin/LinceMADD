@@ -224,6 +224,9 @@ fun CrearServicioScreen(
     var pasajeros by remember { mutableStateOf(1) }
     var fechaSeleccionada by remember { mutableStateOf("") }
     var mostrarReloj by remember { mutableStateOf(false) }
+    var vehiculoContingencia by remember { mutableStateOf("") }
+    var motivoContingencia by remember { mutableStateOf("") }
+
 
     val ruta = buildList {
         if (origenNombre.isNotBlank()) add(origenNombre)
@@ -264,21 +267,21 @@ fun CrearServicioScreen(
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)
         ) {
             Text(
-                text = "MÓDULO DE GESTIÓN",
+                text = "CONTINGENCIA OPERATIVA",
                 style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary,
+                color = LinceTertiary,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
             Text(
-                text = "Crear Nuevo Servicio",
+                text = "Asignación Local de Recursos",
                 style = MaterialTheme.typography.headlineSmall,
                 color = LinceGreenPrimary,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Completa los datos operativos para programar el servicio.",
+                text = "Usa este formulario solo cuando Tourplan no esté disponible o requieras despachar una unidad de respaldo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = LinceTextSecondary
             )
@@ -310,11 +313,32 @@ fun CrearServicioScreen(
                     )
 
                     HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
-
                     OutlinedTextField(
                         value = titulo,
                         onValueChange = { titulo = it },
-                        label = { Text("Título del Servicio") },
+                        label = { Text("Referencia / Título del Servicio") },
+                        placeholder = { Text("Ej. Traslado Contingencia - Vuelo LA402") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = fieldColors()
+                    )
+
+                    OutlinedTextField(
+                        value = vehiculoContingencia,
+                        onValueChange = { vehiculoContingencia = it },
+                        label = { Text("Unidad / Patente Asignada") },
+                        placeholder = { Text("Ej. Sprinter ABCD-12") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = fieldColors()
+                    )
+
+                    OutlinedTextField(
+                        value = motivoContingencia,
+                        onValueChange = { motivoContingencia = it },
+                        label = { Text("Observación de Contingencia (Opcional)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
@@ -620,12 +644,17 @@ fun CrearServicioScreen(
 
                     Button(
                         onClick = {
+                            val tituloFinal = if (vehiculoContingencia.isNotBlank()) {
+                                "$titulo [${vehiculoContingencia.uppercase()}]"
+                            } else {
+                                titulo
+                            }
                             onGuardar(
-                                titulo,
+                                tituloFinal,
                                 ruta,
                                 fechaSeleccionada,
                                 hora,
-                                "Transfer",
+                                "Contingencia Local",
                                 pasajeros
                             )
                         },
@@ -637,10 +666,10 @@ fun CrearServicioScreen(
                             containerColor = LinceGreenPrimary,
                             disabledContainerColor = LinceGreenPrimary.copy(alpha = 0.4f)
                         ),
-                        enabled = formularioValido
+                        enabled = formularioValido && vehiculoContingencia.isNotBlank()
                     ) {
                         Text(
-                            text = "Guardar Servicio",
+                            text = "Asignar Recurso",
                             color = LinceCardSurface,
                             fontWeight = FontWeight.SemiBold
                         )
