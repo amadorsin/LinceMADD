@@ -89,8 +89,6 @@ class ServiceViewModel(
         cargarServicios()
     }
 
-    // Nota: Como Compose no se lleva tan bien devolviendo datos directo desde un ViewModel en funciones normales,
-    // obtenerServicio ahora busca en el estado actual cargado.
     fun obtenerServicio(servicioId: String): Servicio? {
         return _uiState.value.serviciosTotales.find { it.id == servicioId }
             ?: _uiState.value.servicios.find { it.id == servicioId }
@@ -102,7 +100,7 @@ class ServiceViewModel(
         motivo: String = "",
         latitud: Double? = null,
         longitud: Double? = null,
-        hayInternet: Boolean = true // Esto lo usará David después
+        hayInternet: Boolean = true
     ) {
         val usuario = _uiState.value.usuarioLogueado
         if (usuario == null) {
@@ -131,10 +129,11 @@ class ServiceViewModel(
     fun rechazarServicio(id: String, motivo: String) =
         cambiarEstadoServicio(id, EstadoServicio.RECHAZADO, motivo = motivo)
 
-    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+    // Marcajes configurados con hayInternet = false para persistencia exclusiva en Room (API es de solo lectura)
+    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
         cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
-    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
+    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
     fun reasignarServicio(servicioId: String) {
@@ -170,7 +169,7 @@ class ServiceViewModel(
         tipo: String, pasajeros: Int
     ) {
         val nuevoServicio = Servicio(
-            id = UUID.randomUUID().toString(), // Genera un ID único
+            id = UUID.randomUUID().toString(),
             titulo = titulo,
             origenDestino = origenDestino,
             fecha = fecha,
@@ -179,13 +178,12 @@ class ServiceViewModel(
             tipo = tipo,
             pasajeros = pasajeros,
             estado = EstadoServicio.PENDIENTE,
-            participaciones = emptyList() // Sin asignar inicialmente
+            participaciones = emptyList()
         )
         viewModelScope.launch {
-            repository // Usa el DAO de forma segura a través del repositorio, pero dado que en tu código anterior usaste dao directo, te dejé dao.guardarServicio si tu DAO es accesible desde aquí.
             dao.guardarServicio(nuevoServicio)
             _uiState.value = _uiState.value.copy(mensaje = "Servicio creado exitosamente")
-            cargarServicios() // Refresca la lista de servicios en la UI
+            cargarServicios()
         }
     }
 }
