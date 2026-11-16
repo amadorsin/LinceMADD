@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.linceops.R
 import com.example.linceops.navigation.Destino
 import com.example.linceops.ui.theme.*
 
@@ -41,24 +43,23 @@ fun PrincipalScreen(
                 ) {
                     pantallasMenu.forEach { destino ->
                         val seleccionado = rutaActual?.substringBefore("/") == destino.ruta.substringBefore("/")
+                        val etiqueta = etiquetaDestino(destino)
 
                         NavigationBarItem(
                             icon = {
                                 destino.icon?.let {
                                     Icon(
                                         imageVector = it,
-                                        contentDescription = destino.title
+                                        contentDescription = etiqueta
                                     )
                                 }
                             },
                             label = {
-                                destino.title?.let {
-                                    Text(
-                                        text = it,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (seleccionado) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
+                                Text(
+                                    text = etiqueta,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (seleccionado) FontWeight.Bold else FontWeight.Normal
+                                )
                             },
                             selected = seleccionado,
                             onClick = {
@@ -93,4 +94,12 @@ fun PrincipalScreen(
             content(paddingValues)
         }
     }
+}
+
+@Composable
+private fun etiquetaDestino(destino: Destino): String = when (destino.ruta.substringBefore("/")) {
+    "dashboard" -> stringResource(R.string.nav_inicio)
+    "feed" -> stringResource(R.string.nav_servicios)
+    "perfil" -> stringResource(R.string.nav_perfil)
+    else -> destino.title.orEmpty()
 }

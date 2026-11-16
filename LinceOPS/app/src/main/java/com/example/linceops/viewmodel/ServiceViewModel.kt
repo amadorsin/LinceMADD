@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.model.EstadoServicio
+import com.example.linceops.model.ParticipacionServicio
+import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.repository.ServiceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +17,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.UUID
 
+private const val RADIO_MAXIMO_CHECKIN_METROS = 500
+
 class ServiceViewModel(
     private val dao: ServicioDao
 ) : ViewModel() {
@@ -24,7 +28,6 @@ class ServiceViewModel(
     val uiState: StateFlow<ServiceUiState> = _uiState.asStateFlow()
 
     init {
-        // Inicializamos los datos ficticios en Room si la tabla está vacía
         viewModelScope.launch {
             repository.inicializarDatosSiVacio()
         }
@@ -129,9 +132,90 @@ class ServiceViewModel(
     fun rechazarServicio(id: String, motivo: String) =
         cambiarEstadoServicio(id, EstadoServicio.RECHAZADO, motivo = motivo)
 
-    // Marcajes configurados con hayInternet = false para persistencia exclusiva en Room (API es de solo lectura)
-    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
-        cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
+    fun registrarCheckIn(
+        id: String,
+        latitud: Double,
+        longitud: Double,
+        distanciaMetros: Int,
+        hayInternet: Boolean = true
+    ) {
+        if (distanciaMetros > RADIO_MAXIMO_CHECKIN_METROS) {
+            _uiState.value = _uiState.value.copy(
+                error = "Check-In fuera del rango de 500 m. Usa el Check-In de Contingencia.",
+                mensaje = null
+            )
+            return
+        }
+        cambiarEstadoServicio(
+            id,
+            EstadoServicio.EN_CURSO,
+            latitud = latitud,
+            longitud = longitud,
+            hayInternet = hayInternet
+        )
+    }
+
+    fun registrarCheckInContingencia(
+        id: String,
+        latitud: Double,
+        longitud: Double,
+        motivo: String,
+        nota: String,
+        distanciaMetros: Int,
+        hayInternet: Boolean = true
+    ) {
+        val usuario = _uiState.value.usuarioLogueado
+        if (usuario == null) {
+            _uiState.value = _uiState.value.copy(error = "Primero debes iniciar sesión.", mensaje = null)
+            return
+        }
+        if (motivo.isBlank() || nota.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                error = "Selecciona un motivo y escribe una observación para el Check-In de contingencia.",
+                mensaje = null
+            )
+            return
+        }
+        viewModelScope.launch {
+            repository.cambiarEstadoServicio(
+                id,
+                usuario.id,
+                EstadoServicio.EN_CURSO,
+                "",
+                latitud,
+                longitud
+            ).fold(
+                onSuccess = { servicio ->
+                    val participacion = servicio.participaciones.find { it.usuarioId == usuario.id }
+                    val rol = participacion?.rol ?: usuario.rol
+                    val registro = "[CHECK-IN CONTINGENCIA - ${rol.nombreMostrar}: ${motivo.trim()} | " +
+                        "Dist: ${distanciaMetros}m | Nota: ${nota.trim()}]"
+                    val observaciones = if (servicio.observaciones.isBlank()) {
+                        registro
+                    } else {
+                        "${servicio.observaciones}\n$registro"
+                    }
+                    dao.guardarServicio(servicio.copy(observaciones = observaciones))
+                    val msjRed = if (hayInternet) {
+                        "Sincronizado en la nube."
+                    } else {
+                        "Guardado localmente (Offline)."
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        mensaje = "Check-In de contingencia registrado. $msjRed",
+                        error = null
+                    )
+                    cargarServicios()
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(
+                        error = it.message ?: "No se pudo registrar el Check-In de contingencia.",
+                        mensaje = null
+                    )
+                }
+            )
+        }
+    }
 
     fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
@@ -166,19 +250,45 @@ class ServiceViewModel(
 
     fun crearNuevoServicio(
         titulo: String, origenDestino: String, fecha: String, hora: String,
-        tipo: String, pasajeros: Int
+        tipo: String, pasajeros: Int,
+        conductorId: String? = null, guiaId: String? = null
     ) {
+        val conductorAsignado = conductorId?.takeIf { it.isNotBlank() }
+        val guiaAsignada = guiaId?.takeIf { it.isNotBlank() }
+        val participaciones = buildList {
+            conductorAsignado?.let {
+                add(
+                    ParticipacionServicio(
+                        usuarioId = it,
+                        rol = RolUsuario.CONDUCTOR,
+                        estado = EstadoServicio.PENDIENTE
+                    )
+                )
+            }
+            guiaAsignada?.let {
+                add(
+                    ParticipacionServicio(
+                        usuarioId = it,
+                        rol = RolUsuario.GUIA,
+                        estado = EstadoServicio.PENDIENTE
+                    )
+                )
+            }
+        }.distinctBy { it.usuarioId }
+        val primerTramo = origenDestino.substringBefore("->").trim()
         val nuevoServicio = Servicio(
             id = UUID.randomUUID().toString(),
             titulo = titulo,
             origenDestino = origenDestino,
             fecha = fecha,
             hora = hora,
-            pickup = "Por definir",
+            pickup = primerTramo.ifBlank { "Por definir" },
             tipo = tipo,
             pasajeros = pasajeros,
             estado = EstadoServicio.PENDIENTE,
-            participaciones = emptyList()
+            conductorId = conductorAsignado,
+            guiaId = guiaAsignada,
+            participaciones = participaciones
         )
         viewModelScope.launch {
             dao.guardarServicio(nuevoServicio)

@@ -26,12 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.linceops.R
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Marcaje
+import com.example.linceops.model.ParticipacionServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.ui.theme.*
@@ -81,7 +84,7 @@ fun DetalleScreen(
                     title = {
                         Column {
                             Text(
-                                text = "FINAL UPDATE • RESERVA #${servicio.reservaId}",
+                                text = stringResource(R.string.detalle_final_update, servicio.reservaId),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceTextSecondary,
                                 fontWeight = FontWeight.Bold,
@@ -137,7 +140,7 @@ fun DetalleScreen(
                         shape = RoundedCornerShape(50)
                     ) {
                         Text(
-                            text = "ID ${servicio.id}",
+                            text = stringResource(R.string.detalle_id, servicio.id),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.Bold,
@@ -151,7 +154,7 @@ fun DetalleScreen(
                         shape = RoundedCornerShape(50)
                     ) {
                         Text(
-                            text = "${servicio.tipo.uppercase(Locale.getDefault())} • ${servicio.oficina}",
+                            text = etiquetaTipo(servicio.tipo),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceGreenDark,
                             fontWeight = FontWeight.Bold,
@@ -178,20 +181,20 @@ fun DetalleScreen(
 
                 TarjetaFinal(
                     icono = Icons.Default.LocationOn,
-                    titulo = "Ruta y Logística de Pickup"
+                    titulo = stringResource(R.string.detalle_ruta_titulo)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FichaDato(
-                            etiqueta = "FECHA",
+                            etiqueta = stringResource(R.string.detalle_fecha),
                             valor = servicio.fecha,
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.DateRange
                         )
                         FichaDato(
-                            etiqueta = "HORA DE SALIDA",
+                            etiqueta = stringResource(R.string.detalle_hora_salida),
                             valor = servicio.hora,
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.PlayArrow
@@ -208,14 +211,14 @@ fun DetalleScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FichaDato(
-                            etiqueta = "PUNTO DE RECOGIDA (PICKUP)",
-                            valor = servicio.pickup.ifBlank { "Por definir" },
+                            etiqueta = stringResource(R.string.detalle_punto_recogida),
+                            valor = servicio.pickup,
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.Place
                         )
                         FichaDato(
-                            etiqueta = "PUNTO DE DESTINO (DROPOFF)",
-                            valor = servicio.dropoff.ifBlank { "Según ruta" },
+                            etiqueta = stringResource(R.string.detalle_hotel_referencia),
+                            valor = servicio.hotel,
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.LocationOn
                         )
@@ -230,7 +233,7 @@ fun DetalleScreen(
 
                 TarjetaFinal(
                     icono = Icons.Default.Person,
-                    titulo = "Equipo Operativo Asignado"
+                    titulo = stringResource(R.string.detalle_equipo)
                 ) {
                     val textoVehiculo = if (servicio.capacidadVehiculo > 0) {
                         "${servicio.vehiculo} (Cap. ${servicio.capacidadVehiculo} pax)"
@@ -243,14 +246,14 @@ fun DetalleScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FichaDato(
-                            etiqueta = "CONDUCTOR",
-                            valor = servicio.conductorId ?: "Sin conductor asignado",
+                            etiqueta = stringResource(R.string.detalle_conductor),
+                            valor = servicio.conductorId ?: stringResource(R.string.detalle_sin_conductor),
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.Person
                         )
                         FichaDato(
-                            etiqueta = "VEHÍCULO / UNIDAD",
-                            valor = textoVehiculo,
+                            etiqueta = stringResource(R.string.detalle_vehiculo),
+                            valor = servicio.vehiculo,
                             modifier = Modifier.weight(1f),
                             icono = Icons.AutoMirrored.Filled.Send
                         )
@@ -261,21 +264,21 @@ fun DetalleScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FichaDato(
-                            etiqueta = "GUÍA",
-                            valor = servicio.guiaId ?: "Sin guía asignado",
+                            etiqueta = stringResource(R.string.detalle_guia),
+                            valor = servicio.guiaId ?: stringResource(R.string.detalle_sin_guia),
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.Face
                         )
                         FichaDato(
-                            etiqueta = "AGENCIA ORIGEN",
-                            valor = servicio.agencia.takeIf { it.isNotBlank() && it != "Agencia de prueba" } ?: "No especificada",
+                            etiqueta = stringResource(R.string.detalle_agencia),
+                            valor = servicio.agencia,
                             modifier = Modifier.weight(1f),
                             icono = Icons.Default.AccountBox
                         )
                     }
 
                     FichaDato(
-                        etiqueta = "IDIOMA REQUERIDO",
+                        etiqueta = stringResource(R.string.detalle_idioma),
                         valor = servicio.idioma,
                         modifier = Modifier.fillMaxWidth(),
                         icono = Icons.Default.Face
@@ -284,7 +287,7 @@ fun DetalleScreen(
 
                 TarjetaFinal(
                     icono = Icons.Default.Person,
-                    titulo = "Nómina de Pasajeros"
+                    titulo = stringResource(R.string.detalle_nomina)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -292,7 +295,7 @@ fun DetalleScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Detalle nominal",
+                            text = stringResource(R.string.detalle_detalle_nominal),
                             style = MaterialTheme.typography.labelMedium,
                             color = LinceTextSecondary
                         )
@@ -301,7 +304,7 @@ fun DetalleScreen(
                             shape = RoundedCornerShape(50)
                         ) {
                             Text(
-                                text = "${servicio.pasajeros} PASAJEROS",
+                                text = stringResource(R.string.detalle_pasajeros_count, servicio.pasajeros),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceGreenDark,
                                 fontWeight = FontWeight.Bold,
@@ -318,7 +321,7 @@ fun DetalleScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "Lista nominal pendiente de confirmación (${servicio.pasajeros} pax)",
+                                text = stringResource(R.string.detalle_lista_pendiente, servicio.pasajeros),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = LinceTextSecondary,
                                 modifier = Modifier.padding(12.dp)
@@ -383,11 +386,11 @@ fun DetalleScreen(
 
                 TarjetaFinal(
                     icono = Icons.Default.CheckCircle,
-                    titulo = "Inclusiones y Requerimientos"
+                    titulo = stringResource(R.string.detalle_inclusiones)
                 ) {
                     if (servicio.inclusiones.isEmpty()) {
                         Text(
-                            text = "Sin inclusiones registradas.",
+                            text = stringResource(R.string.detalle_sin_inclusiones),
                             style = MaterialTheme.typography.bodySmall,
                             color = LinceTextSecondary
                         )
@@ -423,15 +426,15 @@ fun DetalleScreen(
                     }
 
                     FichaDato(
-                        etiqueta = "INSTRUCCIONES",
-                        valor = servicio.instrucciones.ifBlank { "Sin instrucciones especiales" },
+                        etiqueta = stringResource(R.string.detalle_instrucciones),
+                        valor = servicio.instrucciones.ifBlank { stringResource(R.string.detalle_sin_instrucciones) },
                         modifier = Modifier.fillMaxWidth(),
                         colorFondo = LinceTertiaryContainer.copy(alpha = 0.16f),
                         icono = Icons.Default.Info
                     )
                     FichaDato(
-                        etiqueta = "OBSERVACIONES",
-                        valor = servicio.observaciones.ifBlank { "Sin observaciones" },
+                        etiqueta = stringResource(R.string.detalle_observaciones),
+                        valor = servicio.observaciones.ifBlank { stringResource(R.string.detalle_sin_observaciones) },
                         modifier = Modifier.fillMaxWidth(),
                         colorFondo = LinceSurfaceContainerLow,
                         icono = Icons.Default.Edit
@@ -444,7 +447,7 @@ fun DetalleScreen(
                 if (registrosMarcaje.isNotEmpty()) {
                     TarjetaFinal(
                         icono = Icons.Default.CheckCircle,
-                        titulo = "Trazabilidad de Ejecución"
+                        titulo = stringResource(R.string.detalle_trazabilidad)
                     ) {
                         registrosMarcaje.forEach { participacion ->
                             Surface(
@@ -464,15 +467,83 @@ fun DetalleScreen(
                                     )
                                     participacion.checkIn?.let { marcaje ->
                                         MarcajeFila(
-                                            titulo = "CHECK-IN",
+                                            titulo = stringResource(R.string.comun_checkin),
                                             marcaje = marcaje,
                                             color = LinceGreenPrimary,
                                             icono = Icons.Default.PlayArrow
                                         )
+                                        val motivo = motivoContingencia(
+                                            servicio = servicio,
+                                            participacion = participacion
+                                        )
+                                        if (motivo == null) {
+                                            Surface(
+                                                color = LinceGreenSageLight,
+                                                shape = RoundedCornerShape(50)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 10.dp,
+                                                        vertical = 5.dp
+                                                    ),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.CheckCircle,
+                                                        contentDescription = null,
+                                                        tint = LinceGreenPrimary,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(5.dp))
+                                                    Text(
+                                                        text = stringResource(R.string.detalle_verificado_rango),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = LinceGreenDark,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            Surface(
+                                                color = LinceTertiaryContainer.copy(alpha = 0.3f),
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 10.dp,
+                                                        vertical = 7.dp
+                                                    ),
+                                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Info,
+                                                            contentDescription = null,
+                                                            tint = LinceTertiary,
+                                                            modifier = Modifier.size(13.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(5.dp))
+                                                        Text(
+                                                            text = stringResource(R.string.detalle_contingencia_auditado),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = LinceOnTertiaryContainer,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                    Text(
+                                                        text = stringResource(R.string.detalle_motivo, motivo),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = LinceOnTertiaryContainer
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                     participacion.checkOut?.let { marcaje ->
                                         MarcajeFila(
-                                            titulo = "CHECK-OUT",
+                                            titulo = stringResource(R.string.comun_checkout),
                                             marcaje = marcaje,
                                             color = LinceTertiary,
                                             icono = Icons.Default.CheckCircle
@@ -555,7 +626,11 @@ private fun MarcajeFila(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "Lat ${formatearCoordenada(marcaje.latitud)} · Lon ${formatearCoordenada(marcaje.longitud)}",
+                text = stringResource(
+                    R.string.detalle_lat_lon,
+                    formatearCoordenada(marcaje.latitud),
+                    formatearCoordenada(marcaje.longitud)
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = LinceTextSecondary
             )
@@ -593,7 +668,7 @@ private fun BarraAcciones(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                     ) {
-                        Text("Reasignar Recurso", color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.detalle_reasignar), color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
                     }
                 } else if (
                     (rolUsuario == RolUsuario.CONDUCTOR || rolUsuario == RolUsuario.GUIA) &&
@@ -614,7 +689,7 @@ private fun BarraAcciones(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Ir a Check-In / Check-Out", color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.detalle_ir_marcaje), color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
                     }
                 } else if (estadoActual == EstadoServicio.PENDIENTE && rolUsuario != RolUsuario.ADMINISTRADOR) {
                     Row(
@@ -630,7 +705,7 @@ private fun BarraAcciones(
                             border = BorderStroke(1.5.dp, LinceDangerRed),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceDangerRed)
                         ) {
-                            Text("Rechazar", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.accion_rechazar), fontWeight = FontWeight.SemiBold)
                         }
                         Button(
                             onClick = onAceptar,
@@ -640,7 +715,7 @@ private fun BarraAcciones(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                         ) {
-                            Text("Aceptar", color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.accion_aceptar), color = LinceCardSurface, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -785,9 +860,9 @@ private fun ParadasRuta(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = when {
-                                    index == 0 -> "PICK-UP · $hora"
-                                    esUltima -> "DESTINO FINAL"
-                                    else -> "PARADA"
+                                    index == 0 -> stringResource(R.string.detalle_pickup, hora)
+                                    esUltima -> stringResource(R.string.detalle_destino_final)
+                                    else -> stringResource(R.string.detalle_parada)
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceTextSecondary,
@@ -811,13 +886,47 @@ private fun ParadasRuta(
     }
 }
 
+@Composable
 private fun etiquetaParticipante(servicio: Servicio, usuarioId: String): String {
     val rol = when (usuarioId) {
-        servicio.conductorId -> "Conductor"
-        servicio.guiaId -> "Guía"
-        else -> "Participante"
+        servicio.conductorId -> stringResource(R.string.rol_conductor)
+        servicio.guiaId -> stringResource(R.string.rol_guia)
+        else -> stringResource(R.string.rol_participante)
     }
     return "$rol · $usuarioId"
+}
+
+@Composable
+private fun etiquetaTipo(tipo: String): String = when {
+    tipo.startsWith("Transfer", ignoreCase = true) -> stringResource(R.string.tipo_transfer)
+    tipo.contains("Tour", ignoreCase = true) -> stringResource(R.string.tipo_tour_guiado)
+    tipo.contains("Excursi", ignoreCase = true) -> stringResource(R.string.tipo_excursion)
+    else -> tipo
+}
+
+private fun rolDeParticipacion(
+    servicio: Servicio,
+    participacion: ParticipacionServicio
+): RolUsuario? = participacion.rol ?: when (participacion.usuarioId) {
+    servicio.conductorId -> RolUsuario.CONDUCTOR
+    servicio.guiaId -> RolUsuario.GUIA
+    else -> null
+}
+
+private fun motivoContingencia(
+    servicio: Servicio,
+    participacion: ParticipacionServicio
+): String? {
+    val rol = rolDeParticipacion(servicio, participacion) ?: return null
+    val prefijo = "[CHECK-IN CONTINGENCIA - ${rol.nombreMostrar}:"
+    return servicio.observaciones
+        .lineSequence()
+        .map { it.trim() }
+        .firstOrNull { it.startsWith(prefijo) }
+        ?.removePrefix(prefijo)
+        ?.substringBefore("| Dist:")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
 }
 
 private fun formatearFechaHora(millis: Long): String =

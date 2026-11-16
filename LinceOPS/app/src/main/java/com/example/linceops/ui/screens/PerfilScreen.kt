@@ -30,17 +30,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.linceops.R
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.model.Usuario
 import com.example.linceops.ui.theme.*
+import com.example.linceops.utils.LocaleHelper
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -62,7 +65,8 @@ fun PerfilScreen(
     val prefs = remember(idUsuario) {
         context.getSharedPreferences(PREFS_PERFIL, Context.MODE_PRIVATE)
     }
-    val base = remember(usuario?.id, usuario?.rol) { perfilBase(usuario) }
+    val base = remember(usuario?.id, usuario?.rol, context) { perfilBase(context, usuario) }
+    val idiomaActual = remember(context) { LocaleHelper.getLanguage(context) }
 
     LaunchedEffect(scrollState) {
         var posicionAnterior = 0
@@ -128,13 +132,13 @@ fun PerfilScreen(
 
         Column(modifier = Modifier.padding(top = 4.dp)) {
             Text(
-                text = "Cuenta Operativa",
+                text = stringResource(R.string.perfil_cuenta),
                 style = MaterialTheme.typography.labelLarge,
                 color = LinceTextSecondary
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Mi Perfil",
+                text = stringResource(R.string.perfil_titulo),
                 style = MaterialTheme.typography.headlineMedium,
                 color = LinceGreenPrimary,
                 fontWeight = FontWeight.Bold
@@ -192,7 +196,7 @@ fun PerfilScreen(
                             color = LinceTextSecondary
                         )
                         Text(
-                            text = usuario?.correo ?: "Sesión de demostración",
+                            text = usuario?.correo ?: stringResource(R.string.perfil_sesion_demo),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary
                         )
@@ -215,7 +219,7 @@ fun PerfilScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Editar",
+                            text = stringResource(R.string.accion_editar),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -226,12 +230,12 @@ fun PerfilScreen(
 
                 DatoPerfil(
                     icono = Icons.Default.Call,
-                    etiqueta = "TELÉFONO",
+                    etiqueta = stringResource(R.string.perfil_telefono),
                     valor = telefono
                 )
                 DatoPerfil(
                     icono = Icons.Default.Face,
-                    etiqueta = "IDIOMAS",
+                    etiqueta = stringResource(R.string.perfil_idiomas),
                     valor = idiomas
                 )
 
@@ -253,7 +257,7 @@ fun PerfilScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "UNIDAD / CERTIFICACIÓN",
+                                text = stringResource(R.string.perfil_unidad),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceGreenDark,
                                 fontWeight = FontWeight.Bold,
@@ -290,13 +294,61 @@ fun PerfilScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 EncabezadoTarjeta(
+                    icono = Icons.Default.Face,
+                    titulo = stringResource(R.string.perfil_idioma_titulo)
+                )
+                Text(
+                    text = stringResource(R.string.perfil_idioma_subtitulo),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LinceTextSecondary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IdiomaChip(
+                        texto = stringResource(R.string.perfil_idioma_es),
+                        seleccionado = idiomaActual == "es",
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (idiomaActual != "es") {
+                            LocaleHelper.cambiarIdiomaYRecrear(context, "es")
+                        }
+                    }
+                    IdiomaChip(
+                        texto = stringResource(R.string.perfil_idioma_en),
+                        seleccionado = idiomaActual == "en",
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (idiomaActual != "en") {
+                            LocaleHelper.cambiarIdiomaYRecrear(context, "en")
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                EncabezadoTarjeta(
                     icono = Icons.Default.DateRange,
-                    titulo = "Disponibilidad y Días Bloqueados"
+                    titulo = stringResource(R.string.perfil_disponibilidad)
                 )
                 HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
 
                 Text(
-                    text = "FECHAS CON SERVICIO ASIGNADO",
+                    text = stringResource(R.string.perfil_fechas_asignadas),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -304,7 +356,7 @@ fun PerfilScreen(
                 )
                 if (fechasServicio.isEmpty()) {
                     Text(
-                        text = "Sin servicios activos asignados.",
+                        text = stringResource(R.string.perfil_sin_servicios_activos),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary
                     )
@@ -326,7 +378,7 @@ fun PerfilScreen(
                 }
 
                 Text(
-                    text = "DÍAS BLOQUEADOS",
+                    text = stringResource(R.string.perfil_dias_bloqueados),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -334,7 +386,7 @@ fun PerfilScreen(
                 )
                 if (diasBloqueadosOrdenados.isEmpty()) {
                     Text(
-                        text = "No tienes días bloqueados.",
+                        text = stringResource(R.string.perfil_sin_bloqueados),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary
                     )
@@ -354,7 +406,7 @@ fun PerfilScreen(
                                     val actualizados = diasBloqueados - fecha
                                     diasBloqueados = actualizados
                                     guardarDiasBloqueados(prefs, idUsuario, actualizados)
-                                    mensajeDisponibilidad = "Fecha $fecha desbloqueada."
+                                    mensajeDisponibilidad = context.getString(R.string.perfil_fecha_desbloqueada, fecha)
                                     disponibilidadError = false
                                 }
                             )
@@ -379,18 +431,18 @@ fun PerfilScreen(
                                 when {
                                     anticipacion == null || anticipacion < 7L -> {
                                         mensajeDisponibilidad =
-                                            "Solo puedes bloquear con al menos 7 días de anticipación."
+                                            context.getString(R.string.perfil_error_anticipacion)
                                         disponibilidadError = true
                                     }
 
                                     fecha in fechasServicio -> {
                                         mensajeDisponibilidad =
-                                            "No puedes bloquear el $fecha porque tienes un servicio asignado."
+                                            context.getString(R.string.perfil_error_servicio, fecha)
                                         disponibilidadError = true
                                     }
 
                                     fecha in diasBloqueados -> {
-                                        mensajeDisponibilidad = "La fecha $fecha ya está bloqueada."
+                                        mensajeDisponibilidad = context.getString(R.string.perfil_error_ya_bloqueada, fecha)
                                         disponibilidadError = true
                                     }
 
@@ -398,7 +450,7 @@ fun PerfilScreen(
                                         val actualizados = diasBloqueados + fecha
                                         diasBloqueados = actualizados
                                         guardarDiasBloqueados(prefs, idUsuario, actualizados)
-                                        mensajeDisponibilidad = "Fecha $fecha bloqueada correctamente."
+                                        mensajeDisponibilidad = context.getString(R.string.perfil_fecha_bloqueada, fecha)
                                         disponibilidadError = false
                                     }
                                 }
@@ -424,7 +476,7 @@ fun PerfilScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Bloquear Fecha",
+                        text = stringResource(R.string.perfil_bloquear_fecha),
                         color = LinceCardSurface,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -463,7 +515,7 @@ fun PerfilScreen(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "¿No puedes asistir a un servicio asignado?",
+                        text = stringResource(R.string.perfil_no_asistir),
                         fontWeight = FontWeight.Bold,
                         color = LinceTextPrimary,
                         style = MaterialTheme.typography.titleMedium
@@ -473,7 +525,7 @@ fun PerfilScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Si tienes un imprevisto médico o de fuerza mayor para un turno ya calendarizado, comunícate de inmediato con tu Manager para reasignar tu ruta.",
+                    text = stringResource(R.string.perfil_no_asistir_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = LinceTextSecondary
                 )
@@ -501,7 +553,7 @@ fun PerfilScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Llamar al Manager",
+                            text = stringResource(R.string.perfil_llamar_manager),
                             style = MaterialTheme.typography.labelLarge,
                             color = LinceCardSurface,
                             fontWeight = FontWeight.SemiBold,
@@ -527,7 +579,7 @@ fun PerfilScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "WhatsApp Directo",
+                            text = stringResource(R.string.perfil_whatsapp),
                             style = MaterialTheme.typography.labelLarge,
                             color = LinceGreenPrimary,
                             fontWeight = FontWeight.SemiBold,
@@ -556,7 +608,7 @@ fun PerfilScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Cerrar Sesión",
+                text = stringResource(R.string.perfil_cerrar_sesion),
                 style = MaterialTheme.typography.titleMedium,
                 color = LinceCardSurface,
                 fontWeight = FontWeight.SemiBold
@@ -586,7 +638,7 @@ fun PerfilScreen(
                 idiomas = nuevosIdiomas
                 unidad = nuevaUnidad
                 mostrarEditor = false
-                mensajePerfil = "Perfil actualizado correctamente."
+                mensajePerfil = context.getString(R.string.perfil_actualizado)
                 perfilError = false
             }
         )
@@ -667,6 +719,29 @@ private fun DatoPerfil(
 }
 
 @Composable
+private fun IdiomaChip(
+    texto: String,
+    seleccionado: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = seleccionado,
+        onClick = onClick,
+        label = {
+            Text(
+                text = texto,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        colors = filterChipColors()
+    )
+}
+
+@Composable
 private fun ChipFecha(
     fecha: String,
     fondo: Color,
@@ -697,7 +772,7 @@ private fun ChipFecha(
                 Spacer(modifier = Modifier.width(6.dp))
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Desbloquear $fecha",
+                    contentDescription = stringResource(R.string.perfil_desbloquear, fecha),
                     tint = colorTexto,
                     modifier = Modifier
                         .size(15.dp)
@@ -757,6 +832,7 @@ private fun EditarPerfilDialog(
     var idiomas by remember { mutableStateOf(idiomasInicial) }
     var unidad by remember { mutableStateOf(unidadInicial) }
     var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -773,13 +849,13 @@ private fun EditarPerfilDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Editar perfil",
+                    text = stringResource(R.string.perfil_editar_titulo),
                     style = MaterialTheme.typography.titleLarge,
                     color = LinceGreenPrimary,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Todos los campos son obligatorios.",
+                    text = stringResource(R.string.perfil_campos_obligatorios),
                     style = MaterialTheme.typography.bodySmall,
                     color = LinceTextSecondary
                 )
@@ -790,7 +866,7 @@ private fun EditarPerfilDialog(
                         nombre = it
                         error = null
                     },
-                    label = { Text("Nombre") },
+                    label = { Text(stringResource(R.string.perfil_nombre)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -800,7 +876,7 @@ private fun EditarPerfilDialog(
                         telefono = it
                         error = null
                     },
-                    label = { Text("Teléfono") },
+                    label = { Text(stringResource(R.string.perfil_telefono_label)) },
                     placeholder = { Text("+56 9 8412 3901") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -811,8 +887,8 @@ private fun EditarPerfilDialog(
                         idiomas = it
                         error = null
                     },
-                    label = { Text("Idiomas") },
-                    placeholder = { Text("Español, Inglés, Alemán") },
+                    label = { Text(stringResource(R.string.perfil_idiomas_label)) },
+                    placeholder = { Text(stringResource(R.string.perfil_idiomas_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -822,7 +898,7 @@ private fun EditarPerfilDialog(
                         unidad = it
                         error = null
                     },
-                    label = { Text("Unidad o certificación") },
+                    label = { Text(stringResource(R.string.perfil_unidad_label)) },
                     placeholder = { Text("Van Mercedes Sprinter 4x4") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -850,7 +926,7 @@ private fun EditarPerfilDialog(
                         border = BorderStroke(1.dp, LinceOutlineVariant),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceTextSecondary)
                     ) {
-                        Text("Cancelar", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.accion_cancelar), fontWeight = FontWeight.SemiBold)
                     }
                     Button(
                         onClick = {
@@ -866,7 +942,7 @@ private fun EditarPerfilDialog(
                                     unidadLimpia
                                 ).any { it.isBlank() }
                             ) {
-                                error = "Todos los campos son obligatorios."
+                                error = context.getString(R.string.perfil_campos_obligatorios)
                             } else {
                                 onGuardar(
                                     nombreLimpio,
@@ -883,7 +959,7 @@ private fun EditarPerfilDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                     ) {
                         Text(
-                            text = "Guardar",
+                            text = stringResource(R.string.perfil_guardar),
                             color = LinceCardSurface,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -902,7 +978,7 @@ private data class PerfilBase(
     val subtitulo: String
 )
 
-private fun perfilBase(usuario: Usuario?): PerfilBase {
+private fun perfilBase(context: Context, usuario: Usuario?): PerfilBase {
     val nombreUsuario = usuario?.nombre?.takeIf { it.isNotBlank() }
     return when (usuario?.rol) {
         RolUsuario.CONDUCTOR -> PerfilBase(
@@ -910,7 +986,7 @@ private fun perfilBase(usuario: Usuario?): PerfilBase {
             telefono = "+56 9 8412 3901",
             idiomas = "Español, Inglés",
             unidad = "Van Mercedes Sprinter 4x4",
-            subtitulo = "Conductor Profesional Clase A2"
+            subtitulo = context.getString(R.string.perfil_sub_conductor)
         )
 
         RolUsuario.GUIA -> PerfilBase(
@@ -918,7 +994,7 @@ private fun perfilBase(usuario: Usuario?): PerfilBase {
             telefono = "+56 9 7654 3210",
             idiomas = "Español, Inglés, Alemán",
             unidad = "Registro SERNATUR #4821",
-            subtitulo = "Guía Turístico Bilingüe"
+            subtitulo = context.getString(R.string.perfil_sub_guia)
         )
 
         RolUsuario.ADMINISTRADOR -> PerfilBase(
@@ -926,7 +1002,7 @@ private fun perfilBase(usuario: Usuario?): PerfilBase {
             telefono = "+56 9 6123 4567",
             idiomas = "Español",
             unidad = "Coordinación de Operaciones",
-            subtitulo = "Coordinador de Operaciones"
+            subtitulo = context.getString(R.string.perfil_sub_admin)
         )
 
         null -> PerfilBase(
@@ -934,7 +1010,7 @@ private fun perfilBase(usuario: Usuario?): PerfilBase {
             telefono = "+56 9 0000 0000",
             idiomas = "Español",
             unidad = "Unidad por asignar",
-            subtitulo = "Operador"
+            subtitulo = context.getString(R.string.perfil_sub_operador)
         )
     }
 }

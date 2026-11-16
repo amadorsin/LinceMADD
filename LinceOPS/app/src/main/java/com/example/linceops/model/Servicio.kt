@@ -29,10 +29,26 @@ data class Servicio(
     val inclusiones: List<String> = emptyList(),
     val instrucciones: String = "",
     val observaciones: String = "",
-    val participaciones: List<ParticipacionServicio> =
-        listOfNotNull(conductorId, guiaId).distinct().map {
-            ParticipacionServicio(usuarioId = it, estado = estado)
+    val participaciones: List<ParticipacionServicio> = buildList {
+        conductorId?.let {
+            add(
+                ParticipacionServicio(
+                    usuarioId = it,
+                    rol = RolUsuario.CONDUCTOR,
+                    estado = estado
+                )
+            )
         }
+        guiaId?.let {
+            add(
+                ParticipacionServicio(
+                    usuarioId = it,
+                    rol = RolUsuario.GUIA,
+                    estado = estado
+                )
+            )
+        }
+    }.distinctBy { it.usuarioId }
 ) {
     fun estaAsignadoA(usuarioId: String): Boolean =
         participaciones.any { it.usuarioId == usuarioId }
@@ -50,6 +66,7 @@ data class Pasajero(
 
 data class ParticipacionServicio(
     val usuarioId: String,
+    val rol: RolUsuario? = null,
     val estado: EstadoServicio = EstadoServicio.PENDIENTE,
     val motivoRechazo: String? = null,
     val checkIn: Marcaje? = null,

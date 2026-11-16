@@ -27,9 +27,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.example.linceops.R
 import com.example.linceops.ui.theme.LinceCardSurface
 import com.example.linceops.ui.theme.LinceGreenPrimary
 import com.example.linceops.ui.theme.LinceOutlineVariant
@@ -79,10 +81,11 @@ fun CampoFecha(
     valor: String,
     onValorChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    etiqueta: String = "Fecha",
+    etiqueta: String? = null,
     placeholder: String = "dd/MM/yyyy",
     habilitado: Boolean = true
 ) {
+    val textoEtiqueta = etiqueta ?: stringResource(R.string.fecha_etiqueta)
     var campo by remember { mutableStateOf(TextFieldValue(valor, TextRange(valor.length))) }
     var mostrarCalendario by remember { mutableStateOf(false) }
 
@@ -106,7 +109,7 @@ fun CampoFecha(
         modifier = modifier.fillMaxWidth(),
         enabled = habilitado,
         singleLine = true,
-        label = { Text(etiqueta) },
+        label = { Text(textoEtiqueta) },
         placeholder = {
             Text(
                 text = placeholder,
@@ -128,7 +131,7 @@ fun CampoFecha(
                     IconButton(onClick = { onValorChange("") }) {
                         Icon(
                             imageVector = Icons.Default.Clear,
-                            contentDescription = "Borrar fecha",
+                            contentDescription = stringResource(R.string.fecha_borrar),
                             tint = LinceTextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -137,7 +140,7 @@ fun CampoFecha(
                 IconButton(onClick = { mostrarCalendario = true }) {
                     Icon(
                         imageVector = Icons.Default.DateRange,
-                        contentDescription = "Abrir calendario",
+                        contentDescription = stringResource(R.string.fecha_abrir_calendario),
                         tint = LinceGreenPrimary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -160,12 +163,12 @@ fun CampoFecha(
                     }
                     mostrarCalendario = false
                 }) {
-                    Text("Aceptar", color = LinceGreenPrimary)
+                    Text(stringResource(R.string.accion_aceptar), color = LinceGreenPrimary)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { mostrarCalendario = false }) {
-                    Text("Cancelar", color = LinceTextSecondary)
+                    Text(stringResource(R.string.accion_cancelar), color = LinceTextSecondary)
                 }
             }
         ) {

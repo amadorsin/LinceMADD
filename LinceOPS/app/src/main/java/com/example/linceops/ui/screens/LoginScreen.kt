@@ -14,12 +14,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.linceops.R
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.theme.*
 
@@ -31,6 +34,7 @@ fun LoginScreen(
     var usuario by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var mensajeError by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -69,7 +73,7 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(3.dp))
         Text(
-            text = "OPERACIONES EN TERRENO",
+            text = stringResource(R.string.login_operaciones_terreno),
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary,
             fontWeight = FontWeight.Bold,
@@ -92,7 +96,7 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    text = "ACCESO OPERATIVO",
+                    text = stringResource(R.string.login_acceso_operativo),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -105,12 +109,12 @@ fun LoginScreen(
                         usuario = it
                         mensajeError = ""
                     },
-                    label = { Text("Usuario") },
-                    placeholder = { Text("Ej: admin, driver o guia") },
+                    label = { Text(stringResource(R.string.login_usuario)) },
+                    placeholder = { Text(stringResource(R.string.login_usuario_placeholder)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Person,
-                            contentDescription = "Usuario",
+                            contentDescription = stringResource(R.string.login_usuario),
                             tint = LinceGreenPrimary
                         )
                     },
@@ -126,11 +130,11 @@ fun LoginScreen(
                         password = it
                         mensajeError = ""
                     },
-                    label = { Text("Contraseña") },
+                    label = { Text(stringResource(R.string.login_contrasena)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "Contraseña",
+                            contentDescription = stringResource(R.string.login_contrasena),
                             tint = LinceGreenPrimary
                         )
                     },
@@ -170,9 +174,9 @@ fun LoginScreen(
                     "guia" -> onLoginSuccess(RolUsuario.GUIA)
                     else -> {
                         if (usuario.isEmpty() || password.isEmpty()) {
-                            mensajeError = "Por favor ingresa tus credenciales."
+                            mensajeError = context.getString(R.string.login_error_credenciales)
                         } else {
-                            mensajeError = "Usuario no válido. Usa 'admin', 'driver' o 'guia'."
+                            mensajeError = context.getString(R.string.login_error_usuario)
                         }
                     }
                 }
@@ -184,7 +188,7 @@ fun LoginScreen(
             colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
         ) {
             Text(
-                text = "Ingresar",
+                text = stringResource(R.string.login_ingresar),
                 style = MaterialTheme.typography.titleMedium,
                 color = LinceCardSurface,
                 fontWeight = FontWeight.SemiBold
@@ -204,7 +208,7 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "ATAJOS DE DESARROLLADOR (TESTING)",
+                    text = stringResource(R.string.login_atajos),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -216,17 +220,17 @@ fun LoginScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     AtajoRol(
-                        texto = "Manager",
+                        texto = stringResource(R.string.rol_administrador),
                         modifier = Modifier.weight(1f),
                         onClick = { onLoginSuccess(RolUsuario.ADMINISTRADOR) }
                     )
                     AtajoRol(
-                        texto = "Driver",
+                        texto = stringResource(R.string.rol_conductor),
                         modifier = Modifier.weight(1f),
                         onClick = { onLoginSuccess(RolUsuario.CONDUCTOR) }
                     )
                     AtajoRol(
-                        texto = "Guía",
+                        texto = stringResource(R.string.rol_guia),
                         modifier = Modifier.weight(1f),
                         onClick = { onLoginSuccess(RolUsuario.GUIA) }
                     )
@@ -237,7 +241,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "LINCE OPS Mobile",
+            text = stringResource(R.string.login_footer),
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary
         )

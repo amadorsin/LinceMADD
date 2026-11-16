@@ -14,11 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.example.linceops.R
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.screens.*
 import com.example.linceops.ui.components.BarraInferiorGlass
@@ -208,24 +210,48 @@ fun AppNavHost(
                 arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
+                val servicio = uiState.serviciosTotales.firstOrNull { it.id == servicioId }
+                    ?: uiState.servicios.firstOrNull { it.id == servicioId }
+                val hayRed = isInternetAvailable(context)
 
-                MarcajeScreen(
-                    servicioId = servicioId,
-                    onCheckIn = { lat, lon ->
-                        val hayRed = isInternetAvailable(context)
-                        serviceViewModel.registrarCheckIn(servicioId, lat, lon, hayRed)
-                    },
-                    onCheckOut = { lat, lon ->
-                        val hayRed = isInternetAvailable(context)
-                        serviceViewModel.registrarCheckOut(servicioId, lat, lon, hayRed)
+                if (servicio == null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.servicio_no_disponible),
+                            style = MaterialTheme.typography.titleMedium
+                        )
                     }
-                )
+                } else {
+                    val estadoMarcaje = uiState.usuarioLogueado?.let { servicio.estadoPara(it) }
+                        ?: servicio.estado
+                    MarcajeScreen(
+                        servicio = servicio,
+                        estadoActual = estadoMarcaje,
+                        hayInternet = hayRed,
+                        onCheckIn = { lat, lon, distancia ->
+                            serviceViewModel.registrarCheckIn(
+                                servicio.id, lat, lon, distancia, hayRed
+                            )
+                        },
+                        onCheckInContingencia = { lat, lon, motivo, nota, distancia ->
+                            serviceViewModel.registrarCheckInContingencia(
+                                servicio.id, lat, lon, motivo, nota, distancia, hayRed
+                            )
+                        },
+                        onCheckOut = { lat, lon ->
+                            serviceViewModel.registrarCheckOut(servicio.id, lat, lon, hayRed)
+                        }
+                    )
+                }
             }
             composable("crear_servicio") {
                 CrearServicioScreen(
-                    onGuardar = { titulo, ruta, fecha, hora, tipo, pax ->
+                    onGuardar = { titulo, ruta, fecha, hora, tipo, pax, conductorId, guiaId ->
                         serviceViewModel.crearNuevoServicio(titulo, ruta, fecha,
-                            hora, tipo, pax)
+                            hora, tipo, pax, conductorId, guiaId)
                         navController.popBackStack()
                     },
                     onCancelar = { navController.popBackStack() }
