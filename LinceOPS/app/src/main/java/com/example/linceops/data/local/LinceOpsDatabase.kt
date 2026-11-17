@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.linceops.model.Servicio
 
-@Database(entities = [Servicio::class], version = 1, exportSchema = false)
+@Database(entities = [Servicio::class], version = 2, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class LinceOpsDatabase : RoomDatabase() {
 
@@ -23,7 +23,11 @@ abstract class LinceOpsDatabase : RoomDatabase() {
                     context.applicationContext,
                     LinceOpsDatabase::class.java,
                     "linceops_offline_db"
-                ).build()
+                )
+                    // AGREGAR ESTA LÍNEA DE ABAJO:
+                    .fallbackToDestructiveMigration()
+                    .build()
+
                 INSTANCE = instance
                 instance
             }

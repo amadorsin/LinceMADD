@@ -36,6 +36,7 @@ import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.ui.components.EfectoScrollBarraInferior
+import com.example.linceops.ui.components.NotificacionFlotante
 import com.example.linceops.ui.theme.*
 import com.example.linceops.viewmodel.ServiceUiState
 
@@ -73,170 +74,163 @@ fun DashboardScreen(
         .joinToString("")
 
     Box(modifier = modifier.fillMaxSize()) {
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .background(LinceCreamBackground),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 124.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "LINCE OPS",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = LinceGreenPrimary,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.2.sp
-                        )
-                        Text(
-                            text = "  •  ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = LinceOutlineVariant
-                        )
-                        Text(
-                            text = rolUsuario.nombreMostrar.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = LinceTextSecondary,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.8.sp
-                        )
+        LazyColumn(
+            state = listState,
+            modifier = modifier
+                .fillMaxSize()
+                .background(LinceCreamBackground),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 124.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "LINCE OPS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceGreenPrimary,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.2.sp
+                            )
+                            Text(
+                                text = "  •  ",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceOutlineVariant
+                            )
+                            Text(
+                                text = rolUsuario.nombreMostrar.uppercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTextSecondary,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = LinceTertiary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Base Operativa",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = LinceTextSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
+
+                    Surface(
+                        modifier = Modifier.size(44.dp),
+                        shape = CircleShape,
+                        color = LinceGreenSageLight
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = iniciales.ifBlank { "LO" },
+                                style = MaterialTheme.typography.titleSmall,
+                                color = LinceGreenDark,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column {
+                    Text(
+                        text = "Hola, $nombreUsuario",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = LinceTextPrimary
+                    )
                     Spacer(modifier = Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.LocationOn,
+                            imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = LinceTertiary,
+                            tint = LinceGreenPrimary,
                             modifier = Modifier.size(14.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = "Base Operativa",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "Panel Operativo · Turno activo",
+                            style = MaterialTheme.typography.bodySmall,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
+            }
 
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = CircleShape,
-                    color = LinceGreenSageLight
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
+            item {
+                when (rolUsuario) {
+                    RolUsuario.ADMINISTRADOR ->
+                        DashboardManagerView(
+                            uiState = uiStateCompleto,
+                            onCrearServicio = onCrearServicio
+                        )
+
+                    RolUsuario.CONDUCTOR ->
+                        DashboardDriverView(
+                            uiState = uiStateCompleto,
+                            onIniciarMarcaje = onIniciarMarcaje
+                        )
+
+                    RolUsuario.GUIA ->
+                        DashboardGuiaView(
+                            uiState = uiStateCompleto,
+                            onIniciarMarcaje = onIniciarMarcaje
+                        )
+                }
+            }
+
+            item {
+                FiltrosInicio(
+                    seleccionado = filtroInicio,
+                    onSeleccionar = { filtroInicio = it }
+                )
+            }
+
+            if (serviciosVisibles.isNotEmpty()) {
+                item {
+                    ResumenServicios(
+                        servicios = serviciosVisibles,
+                        uiState = uiStateCompleto
+                    )
+                }
+            } else {
+                item {
+                    Surface(
+                        color = LinceSurfaceContainerLow,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
-                            text = iniciales.ifBlank { "LO" },
-                            style = MaterialTheme.typography.titleSmall,
-                            color = LinceGreenDark,
-                            fontWeight = FontWeight.ExtraBold
+                            text = filtroInicio?.let {
+                                "No hay servicios en estado ${nombreEstado(it)}."
+                            } ?: "No hay servicios disponibles.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextSecondary,
+                            modifier = Modifier.padding(14.dp)
                         )
                     }
                 }
             }
         }
 
-        item {
-            Column {
-                Text(
-                    text = "Hola, $nombreUsuario",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = LinceTextPrimary
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = LinceGreenPrimary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Panel Operativo · Turno activo",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LinceTextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-
-        item {
-            when (rolUsuario) {
-                RolUsuario.ADMINISTRADOR ->
-                    DashboardManagerView(
-                        uiState = uiStateCompleto,
-                        onCrearServicio = onCrearServicio
-                    )
-
-                RolUsuario.CONDUCTOR ->
-                    DashboardDriverView(
-                        uiState = uiStateCompleto,
-                        onIniciarMarcaje = onIniciarMarcaje
-                    )
-
-                RolUsuario.GUIA ->
-                    DashboardGuiaView(
-                        uiState = uiStateCompleto,
-                        onIniciarMarcaje = onIniciarMarcaje
-                    )
-            }
-        }
-
-        item {
-            FiltrosInicio(
-                seleccionado = filtroInicio,
-                onSeleccionar = { filtroInicio = it }
-            )
-        }
-
-        if (serviciosVisibles.isNotEmpty()) {
-            item {
-                ResumenServicios(
-                    servicios = serviciosVisibles,
-                    uiState = uiStateCompleto
-                )
-            }
-        } else {
-            item {
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = filtroInicio?.let {
-                            "No hay servicios en estado ${nombreEstado(it)}."
-                        } ?: "No hay servicios disponibles.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LinceTextSecondary,
-                        modifier = Modifier.padding(14.dp)
-                    )
-                }
-            }
-        }
     }
 }
-    if (uiState.esModoOffline) {
-        NotificacionFlotante(
-            mensaje = "Modo Offline: Mostrando datos cacheados por caída del servidor",
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp)
-        )
-    }
-}
+
 @Composable
 private fun FiltrosInicio(
     seleccionado: EstadoServicio?,
@@ -616,6 +610,8 @@ private fun DashboardDriverView(
                                 append("Pax: ${servicioMarcaje.pasajeros}")
                                 if (servicioMarcaje.capacidadVehiculo > 0) append("/${servicioMarcaje.capacidadVehiculo}")
                                 append(" · Unidad: ${servicioMarcaje.vehiculo}")
+                            }
+                        )
                     }
                 }
 
@@ -893,7 +889,7 @@ private fun ResumenServicios(
     }
 }
 
-@Composables
+@Composable
 private fun CountPill(texto: String) {
     Surface(
         color = LinceGreenSageLight,

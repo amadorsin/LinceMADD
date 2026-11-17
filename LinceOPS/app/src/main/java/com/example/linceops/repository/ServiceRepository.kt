@@ -4,6 +4,7 @@ import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.mappers.aEntidadLocal
 import com.example.linceops.model.*
 import com.example.linceops.network.RetrofitClient
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -41,7 +42,6 @@ class ServiceRepository(
         val usuario = usuariosSistema.find { it.id == usuarioId } ?: return Pair(emptyList(), false)
         var esOffline = false
 
-        // 1. Intentar HTTP GET a la API
         try {
             val response = RetrofitClient.api.obtenerServicios(page = 1, pageSize = 50)
             if (response.isSuccessful) {
@@ -56,10 +56,14 @@ class ServiceRepository(
                 // Guardamos masivamente (El REPLACE hará un Upsert limpio)
                 dao.guardarServiciosIniciales(serviciosSincronizados)
             } else {
-                esOffline = true // Error HTTP 503 o 500
+                // AQUÍ CAPTURAMOS EL CÓDIGO DE ERROR EXACTO
+                Log.e("API_LINCE", "Error HTTP: ${response.code()} - ${response.errorBody()?.string()}")
+                esOffline = true
             }
         } catch (e: Exception) {
-            esOffline = true // Timeout o Sin Internet
+            // AQUÍ CAPTURAMOS EL CRASH DE GSON O DE RED
+            Log.e("API_LINCE", "Fallo catastrófico al conectar", e)
+            esOffline = true
         }
 
         // 3. Retornar los datos desde Room (Única Fuente de la Verdad)

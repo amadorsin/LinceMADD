@@ -227,6 +227,7 @@ fun DetalleScreen(
                         modifier = Modifier.fillMaxWidth(),
                         icono = Icons.Default.Home
                     )
+                } // Se cierra TarjetaFinal de Ruta
 
                 TarjetaFinal(
                     icono = Icons.Default.Person,
@@ -380,6 +381,7 @@ fun DetalleScreen(
                             }
                         }
                     }
+                }
 
                 TarjetaFinal(
                     icono = Icons.Default.CheckCircle,
@@ -499,8 +501,12 @@ fun DetalleScreen(
     }
 }
 
+// -------------------------------------------------------------
+// COMPONENTES INTERNOS REPARADOS
+// -------------------------------------------------------------
+
 @Composable
-private fun TarjetaFinal(
+fun TarjetaFinal(
     icono: ImageVector,
     titulo: String,
     contenido: @Composable ColumnScope.() -> Unit
@@ -524,7 +530,7 @@ private fun TarjetaFinal(
 }
 
 @Composable
-private fun MarcajeFila(
+fun MarcajeFila(
     titulo: String,
     marcaje: Marcaje,
     color: Color,
@@ -564,7 +570,7 @@ private fun MarcajeFila(
 }
 
 @Composable
-private fun BarraAcciones(
+fun BarraAcciones(
     rolUsuario: RolUsuario,
     estadoActual: EstadoServicio,
     onAceptar: () -> Unit,
@@ -650,7 +656,7 @@ private fun BarraAcciones(
 }
 
 @Composable
-private fun SeccionHeader(
+fun SeccionHeader(
     icono: ImageVector,
     titulo: String,
     colorIcono: Color = LinceGreenPrimary
@@ -681,7 +687,7 @@ private fun SeccionHeader(
 }
 
 @Composable
-private fun FichaDato(
+fun FichaDato(
     etiqueta: String,
     valor: String,
     modifier: Modifier = Modifier,
@@ -728,7 +734,7 @@ private fun FichaDato(
 }
 
 @Composable
-private fun ParadasRuta(
+fun ParadasRuta(
     origenDestino: String,
     hora: String
 ) {
@@ -811,7 +817,7 @@ private fun ParadasRuta(
     }
 }
 
-private fun etiquetaParticipante(servicio: Servicio, usuarioId: String): String {
+fun etiquetaParticipante(servicio: Servicio, usuarioId: String): String {
     val rol = when (usuarioId) {
         servicio.conductorId -> "Conductor"
         servicio.guiaId -> "Guía"
@@ -820,8 +826,8 @@ private fun etiquetaParticipante(servicio: Servicio, usuarioId: String): String 
     return "$rol · $usuarioId"
 }
 
-private fun formatearFechaHora(millis: Long): String =
+fun formatearFechaHora(millis: Long): String =
     SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(millis))
 
-private fun formatearCoordenada(valor: Double): String =
+fun formatearCoordenada(valor: Double): String =
     String.format(Locale.US, "%.5f", valor)
