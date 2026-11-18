@@ -39,3 +39,7 @@ Thumbs.db
 /.idea/vcs.xml
 /.idea/runConfigurations.xml
 /.idea/inspectionProfiles/Project_Default.xml
+
+local.properties
+*.jks
+*.keystore
