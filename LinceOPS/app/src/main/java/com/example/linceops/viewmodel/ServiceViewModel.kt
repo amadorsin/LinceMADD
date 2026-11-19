@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
+import com.example.linceops.network.BackendRetrofitClient
 import com.example.linceops.repository.ServiceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,13 +25,27 @@ class ServiceViewModel(
     val uiState: StateFlow<ServiceUiState> = _uiState.asStateFlow()
 
     init {
-        // Inicializamos los datos ficticios en Room si la tabla está vacía
         viewModelScope.launch {
             repository.inicializarDatosSiVacio()
         }
     }
 
-    fun iniciarSesion(correo: String) {
+    fun iniciarSesion(correo: String, password: String? = null) {
+        if (!password.isNullOrBlank()) {
+            viewModelScope.launch {
+                repository.autenticarConBackend(correo, password).fold(
+                    onSuccess = { usuario ->
+                        _uiState.value = ServiceUiState(usuarioLogueado = usuario)
+                        cargarServicios()
+                    },
+                    onFailure = { err ->
+                        _uiState.value = ServiceUiState(errorLogin = err.message ?: "Error al iniciar sesión.")
+                    }
+                )
+            }
+            return
+        }
+
         val usuario = repository.autenticar(correo)
         _uiState.value = if (usuario == null) {
             ServiceUiState(errorLogin = "Ingresa un correo de prueba válido.")
@@ -41,6 +56,7 @@ class ServiceViewModel(
     }
 
     fun cerrarSesion() {
+        BackendRetrofitClient.jwtToken = null
         _uiState.value = ServiceUiState()
     }
 
@@ -51,18 +67,26 @@ class ServiceViewModel(
             return
         }
         viewModelScope.launch {
-            // Obtenemos los datos (desde Room) y el flag de si la red falló
-            val (lista, esOffline) = repository.obtenerServicios(usuario.id)
+            val fechaIso = _uiState.value.filtroFecha?.let { convertirAFechaIso(it) }
+
+            val (lista, esOffline) = repository.obtenerServicios(
+                usuarioId = usuario.id,
+                fechaDesde = fechaIso,
+                fechaHasta = fechaIso,
+                oficina = _uiState.value.filtroOficina,
+                statusPL = _uiState.value.filtroStatusPL
+            )
 
             val filtrados = lista.filter { servicio ->
                 (_uiState.value.filtroEstado == null || servicio.estadoPara(usuario) == _uiState.value.filtroEstado) &&
-                        (_uiState.value.filtroFecha == null || servicio.fecha == _uiState.value.filtroFecha)
+                        (fechaIso == null || servicio.fecha == fechaIso) &&
+                        (_uiState.value.filtroOficina == null || servicio.oficina == _uiState.value.filtroOficina) &&
+                        (_uiState.value.filtroStatusPL == null || servicio.statusPL == _uiState.value.filtroStatusPL)
             }
 
             _uiState.value = _uiState.value.copy(
                 servicios = filtrados,
                 serviciosTotales = lista,
-                // Dispara tu NotificacionFlotante automáticamente
                 error = if (esOffline) "Sin conexión con el servidor. Trabajando en Modo Offline." else null,
                 mensaje = null
             )
@@ -77,15 +101,32 @@ class ServiceViewModel(
     fun filtrarPorFecha(fecha: String?) {
         val normalizada = fecha?.trim()?.takeIf { it.isNotEmpty() }
         if (normalizada != null && !fechaValida(normalizada)) {
-            _uiState.value = _uiState.value.copy(error = "Usa una fecha válida con formato dd/MM/yyyy.", mensaje = null)
+            _uiState.value = _uiState.value.copy(error = "Usa una fecha válida (dd/MM/yyyy o yyyy-MM-dd).", mensaje = null)
             return
         }
         _uiState.value = _uiState.value.copy(filtroFecha = normalizada, error = null, mensaje = null)
         cargarServicios()
     }
 
+    fun filtrarPorOficina(oficina: String?) {
+        _uiState.value = _uiState.value.copy(filtroOficina = oficina, error = null, mensaje = null)
+        cargarServicios()
+    }
+
+    fun filtrarPorStatusPL(statusPL: String?) {
+        _uiState.value = _uiState.value.copy(filtroStatusPL = statusPL, error = null, mensaje = null)
+        cargarServicios()
+    }
+
     fun limpiarFiltros() {
-        _uiState.value = _uiState.value.copy(filtroEstado = null, filtroFecha = null, error = null, mensaje = null)
+        _uiState.value = _uiState.value.copy(
+            filtroEstado = null,
+            filtroFecha = null,
+            filtroOficina = null,
+            filtroStatusPL = null,
+            error = null,
+            mensaje = null
+        )
         cargarServicios()
     }
 
@@ -113,12 +154,15 @@ class ServiceViewModel(
                 servicioId, usuario.id, nuevoEstado, motivo, latitud, longitud
             ).fold(
                 onSuccess = {
-                    val msjRed = if (hayInternet) "Sincronizado en la nube." else "Guardado localmente (Offline)."
+                    val msjRed = if (hayInternet) "Sincronizado con el servidor." else "Guardado localmente (Offline)."
                     _uiState.value = _uiState.value.copy(mensaje = "Estado actualizado. $msjRed", error = null)
                     cargarServicios()
                 },
                 onFailure = {
-                    _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo guardar el cambio.", mensaje = null)
+                    _uiState.value = _uiState.value.copy(
+                        error = it.message ?: "No se pudo guardar el cambio.",
+                        mensaje = null
+                    )
                 }
             )
         }
@@ -129,11 +173,10 @@ class ServiceViewModel(
     fun rechazarServicio(id: String, motivo: String) =
         cambiarEstadoServicio(id, EstadoServicio.RECHAZADO, motivo = motivo)
 
-    // Marcajes configurados con hayInternet = false para persistencia exclusiva en Room (API es de solo lectura)
-    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
+    fun registrarCheckIn(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
         cambiarEstadoServicio(id, EstadoServicio.EN_CURSO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
-    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = false) =
+    fun registrarCheckOut(id: String, latitud: Double, longitud: Double, hayInternet: Boolean = true) =
         cambiarEstadoServicio(id, EstadoServicio.FINALIZADO, latitud = latitud, longitud = longitud, hayInternet = hayInternet)
 
     fun reasignarServicio(servicioId: String) {
@@ -158,10 +201,28 @@ class ServiceViewModel(
     }
 
     private fun fechaValida(fecha: String): Boolean {
-        if (!Regex("\\d{2}/\\d{2}/\\d{4}").matches(fecha)) return false
-        val formato = SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).apply { isLenient = false }
+        val formatoIso = Regex("\\d{4}-\\d{2}-\\d{2}")
+        val formatoLatam = Regex("\\d{2}/\\d{2}/\\d{4}")
+        val patron = when {
+            formatoIso.matches(fecha) -> "yyyy-MM-dd"
+            formatoLatam.matches(fecha) -> "dd/MM/yyyy"
+            else -> return false
+        }
+        val formato = SimpleDateFormat(patron, Locale.ROOT).apply { isLenient = false }
         val posicion = ParsePosition(0)
         return formato.parse(fecha, posicion) != null && posicion.index == fecha.length
+    }
+
+    private fun convertirAFechaIso(fecha: String): String {
+        if (Regex("\\d{4}-\\d{2}-\\d{2}").matches(fecha)) return fecha
+        return try {
+            val entrada = SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).apply { isLenient = false }
+            val salida = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
+            val date = entrada.parse(fecha)
+            if (date != null) salida.format(date) else fecha
+        } catch (_: Exception) {
+            fecha
+        }
     }
 
     fun crearNuevoServicio(

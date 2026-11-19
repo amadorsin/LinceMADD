@@ -20,6 +20,10 @@ val maptilerKey = (secretos.getProperty("MAPTILER_KEY")
     ?: System.getenv("MAPTILER_KEY")
     ?: "").trim()
 
+val southboundApiKey = (System.getenv("SOUTHBOUND_API_KEY")
+    ?: secretos.getProperty("SOUTHBOUND_API_KEY")
+    ?: "").trim()
+
 android {
     namespace = "com.example.linceops"
     compileSdk = 34
@@ -37,6 +41,11 @@ android {
             "String",
             "MAPTILER_KEY",
             "\"${maptilerKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        buildConfigField(
+            "String",
+            "SOUTHBOUND_API_KEY",
+            "\"${southboundApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         )
     }
 

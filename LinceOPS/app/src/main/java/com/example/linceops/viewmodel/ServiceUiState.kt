@@ -13,6 +13,8 @@ data class ServiceUiState(
     val errorLogin: String? = null,
     val filtroEstado: EstadoServicio? = null,
     val filtroFecha: String? = null,
+    val filtroOficina: String? = null,
+    val filtroStatusPL: String? = null,
     val mensaje: String? = null,
     val error: String? = null
 )

@@ -5,7 +5,7 @@
 build/
 */build/
 local.properties
-
+.target/
 # Claves y credenciales de seguridad
 *.jks
 *.keystore
@@ -24,7 +24,10 @@ secrets.properties
 .idea/caches
 .idea/modules.xml
 /shelf/
-
+# Maven / Spring Boot
+target/
+*.class
+.env
 # ==========================================
 # SISTEMAS OPERATIVOS
 # ==========================================

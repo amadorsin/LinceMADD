@@ -20,17 +20,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (RolUsuario) -> Unit,
+    onLogin: (correo: String, password: String) -> Unit,
+    errorLogin: String? = null,
     modifier: Modifier = Modifier
 ) {
     var usuario by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var mensajeError by remember { mutableStateOf("") }
+    var mensajeErrorLocal by remember { mutableStateOf("") }
+
+    val errorVisible = mensajeErrorLocal.ifBlank { errorLogin.orEmpty() }
 
     Column(
         modifier = modifier
@@ -103,10 +105,10 @@ fun LoginScreen(
                     value = usuario,
                     onValueChange = {
                         usuario = it
-                        mensajeError = ""
+                        mensajeErrorLocal = ""
                     },
-                    label = { Text("Usuario") },
-                    placeholder = { Text("Ej: admin, driver o guia") },
+                    label = { Text("Correo o usuario") },
+                    placeholder = { Text("Ej: driver@linceops.cl") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Person,
@@ -114,6 +116,7 @@ fun LoginScreen(
                             tint = LinceGreenPrimary
                         )
                     },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
@@ -124,7 +127,7 @@ fun LoginScreen(
                     value = password,
                     onValueChange = {
                         password = it
-                        mensajeError = ""
+                        mensajeErrorLocal = ""
                     },
                     label = { Text("Contraseña") },
                     leadingIcon = {
@@ -142,14 +145,14 @@ fun LoginScreen(
                     colors = loginFieldColors()
                 )
 
-                if (mensajeError.isNotEmpty()) {
+                if (errorVisible.isNotEmpty()) {
                     Surface(
                         color = StatusRejectedBg,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = mensajeError,
+                            text = errorVisible,
                             color = StatusRejectedText,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
@@ -164,17 +167,12 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                when (usuario.lowercase().trim()) {
-                    "admin", "manager" -> onLoginSuccess(RolUsuario.ADMINISTRADOR)
-                    "driver", "conductor" -> onLoginSuccess(RolUsuario.CONDUCTOR)
-                    "guia" -> onLoginSuccess(RolUsuario.GUIA)
-                    else -> {
-                        if (usuario.isEmpty() || password.isEmpty()) {
-                            mensajeError = "Por favor ingresa tus credenciales."
-                        } else {
-                            mensajeError = "Usuario no válido. Usa 'admin', 'driver' o 'guia'."
-                        }
-                    }
+                val correoResuelto = resolverCorreo(usuario)
+                if (correoResuelto.isBlank() || password.isBlank()) {
+                    mensajeErrorLocal = "Por favor ingresa tu correo y contraseña."
+                } else {
+                    mensajeErrorLocal = ""
+                    onLogin(correoResuelto, password)
                 }
             },
             modifier = Modifier
@@ -218,17 +216,17 @@ fun LoginScreen(
                     AtajoRol(
                         texto = "Manager",
                         modifier = Modifier.weight(1f),
-                        onClick = { onLoginSuccess(RolUsuario.ADMINISTRADOR) }
+                        onClick = { onLogin("admin@linceops.cl", "123456") }
                     )
                     AtajoRol(
                         texto = "Driver",
                         modifier = Modifier.weight(1f),
-                        onClick = { onLoginSuccess(RolUsuario.CONDUCTOR) }
+                        onClick = { onLogin("driver@linceops.cl", "123456") }
                     )
                     AtajoRol(
                         texto = "Guía",
                         modifier = Modifier.weight(1f),
-                        onClick = { onLoginSuccess(RolUsuario.GUIA) }
+                        onClick = { onLogin("guia@linceops.cl", "123456") }
                     )
                 }
             }
@@ -241,6 +239,15 @@ fun LoginScreen(
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary
         )
+    }
+}
+
+private fun resolverCorreo(entrada: String): String {
+    return when (entrada.trim().lowercase()) {
+        "admin", "manager", "administrador" -> "admin@linceops.cl"
+        "driver", "conductor" -> "driver@linceops.cl"
+        "guia", "guía" -> "guia@linceops.cl"
+        else -> entrada.trim()
     }
 }
 
