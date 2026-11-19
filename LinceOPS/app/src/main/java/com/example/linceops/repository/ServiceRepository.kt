@@ -227,8 +227,9 @@ class ServiceRepository(
         return try {
             val response = BackendRetrofitClient.api.registrarMarcaje(
                 request = request,
-                puntoReferenciaPickup = servicio.pickup,
-                horaProgramada = horaProgramadaIso
+                pickup = servicio.pickup,
+                oficina = servicio.oficina.name,
+                horaPickup = horaProgramadaIso
             )
             when {
                 response.isSuccessful -> Result.success(Unit)

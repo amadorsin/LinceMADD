@@ -98,7 +98,7 @@ fun PerfilScreen(
                 val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
                 estado != EstadoServicio.RECHAZADO
             }
-            .map { it.fecha }
+            .map { normalizarFechaMostrar(it.fecha) }
             .distinct()
             .sortedBy { parseFecha(it)?.time ?: Long.MAX_VALUE }
     }
@@ -979,11 +979,22 @@ private fun fechaFutura(dias: Int): String {
     return SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).format(calendario.time)
 }
 
-private fun parseFecha(fecha: String): Date? =
-    runCatching {
-        SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).apply { isLenient = false }.parse(fecha)
-    }.getOrNull()
+private fun parseFecha(fecha: String): Date? {
+    val texto = fecha.trim()
+    val patrones = listOf("yyyy-MM-dd", "dd/MM/yyyy")
+    for (patron in patrones) {
+        val parsed = runCatching {
+            SimpleDateFormat(patron, Locale.ROOT).apply { isLenient = false }.parse(texto)
+        }.getOrNull()
+        if (parsed != null) return parsed
+    }
+    return null
+}
 
+private fun normalizarFechaMostrar(fecha: String): String {
+    val date = parseFecha(fecha) ?: return fecha.trim()
+    return SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).format(date)
+}
 private fun diasDeAnticipacion(fecha: String): Long? {
     val seleccionada = parseFecha(fecha) ?: return null
 

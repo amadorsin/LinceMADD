@@ -331,10 +331,10 @@ fun ServicioItem(
                         color = LinceGreenSageLight,
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        val tagOficina = if (!servicio.statusPL.isNullOrBlank()) {
-                            "${servicio.oficina} • ${servicio.statusPL}"
+                        val tagOficina = if (servicio.statusPL != null) {
+                            "${servicio.oficina.name} • ${servicio.statusPL.name}"
                         } else {
-                            servicio.oficina
+                            servicio.oficina.name
                         }
                         Text(
                             text = tagOficina,

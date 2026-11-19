@@ -33,16 +33,15 @@ public class HitoController {
     @Operation(summary = "Registrar Marcaje", description = "Registra un check-in o check-out validando geocerca y horarios")
     public ResponseEntity<MensajeResponseDTO> registrarMarcaje(
             @Valid @RequestBody MarcajeRequestDTO request,
-            @RequestParam(required = false) String puntoReferenciaPickup,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaProgramada,
+            @RequestParam(required = false) String pickup,
+            @RequestParam(required = false, defaultValue = "SCL") String oficina,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaPickup,
             Principal principal) {
 
-        // Extraemos el ID real del usuario desde su token (correo)
         UsuarioLocal usuario = usuarioLocalRepository.findByCorreo(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado en la base de datos"));
 
-        // Enviamos al servicio para que procese la matemática de Haversine y las reglas de negocio
-        hitoService.registrarMarcaje(request, usuario.getId(), puntoReferenciaPickup, horaProgramada);
+        hitoService.registrarMarcaje(request, usuario.getId(), pickup, oficina, horaPickup);
 
         return new ResponseEntity<>(new MensajeResponseDTO("Marcaje registrado exitosamente"), HttpStatus.CREATED);
     }

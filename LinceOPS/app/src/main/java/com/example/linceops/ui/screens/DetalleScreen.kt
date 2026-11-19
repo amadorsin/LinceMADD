@@ -151,7 +151,7 @@ fun DetalleScreen(
                         shape = RoundedCornerShape(50)
                     ) {
                         Text(
-                            text = "${servicio.tipo.uppercase(Locale.getDefault())} • ${servicio.oficina}",
+                            text = "${servicio.tipo.etiqueta.uppercase(Locale.getDefault())} (${servicio.srv.name}) • ${servicio.oficina.name}",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceGreenDark,
                             fontWeight = FontWeight.Bold,
@@ -160,13 +160,10 @@ fun DetalleScreen(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
                     }
-                    if (!servicio.statusPL.isNullOrBlank()) {
-                        Surface(
-                            color = LinceSurfaceContainerHigh,
-                            shape = RoundedCornerShape(50)
-                        ) {
+                    servicio.statusPL?.let { pl ->
+                        Surface(color = LinceSurfaceContainerHigh, shape = RoundedCornerShape(50)) {
                             Text(
-                                text = "PL: ${servicio.statusPL}",
+                                text = "PL: ${pl.name}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceTextPrimary,
                                 fontWeight = FontWeight.Bold,
@@ -233,12 +230,12 @@ fun DetalleScreen(
                     icono = Icons.Default.Person,
                     titulo = "Equipo Operativo Asignado"
                 ) {
+                    val tipoVeh = servicio.tipoVehiculo?.etiqueta?.let { "$it · " } ?: ""
                     val textoVehiculo = if (servicio.capacidadVehiculo > 0) {
-                        "${servicio.vehiculo} (Cap. ${servicio.capacidadVehiculo} pax)"
+                        "$tipoVeh${servicio.vehiculo} (Cap. ${servicio.capacidadVehiculo} pax)"
                     } else {
-                        servicio.vehiculo
+                        "$tipoVeh${servicio.vehiculo}"
                     }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -277,7 +274,7 @@ fun DetalleScreen(
 
                     FichaDato(
                         etiqueta = "IDIOMA REQUERIDO",
-                        valor = servicio.idioma,
+                        valor = servicio.idiomaRequerido?.let { "${it.nombre} (${it.name})" } ?: "No especificado",
                         modifier = Modifier.fillMaxWidth(),
                         icono = Icons.Default.Face
                     )

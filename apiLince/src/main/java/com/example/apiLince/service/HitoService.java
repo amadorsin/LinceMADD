@@ -1,6 +1,8 @@
 package com.example.apiLince.service;
 
 import com.example.apiLince.dto.request.MarcajeRequestDTO;
+import com.example.apiLince.exception.GeocercaValidationException;
+import com.example.apiLince.exception.HorarioInvalidoException;
 import com.example.apiLince.model.Hito;
 import com.example.apiLince.model.Incidencia;
 import com.example.apiLince.model.UsuarioLocal;
@@ -24,7 +26,7 @@ public class HitoService {
     public HitoService(HitoRepository hitoRepository,
                        IncidenciaRepository incidenciaRepository,
                        UsuarioLocalRepository usuarioLocalRepository,
-                       com.example.apiLince.service.GeocercaService geocercaService) {
+                       GeocercaService geocercaService) {
         this.hitoRepository = hitoRepository;
         this.incidenciaRepository = incidenciaRepository;
         this.usuarioLocalRepository = usuarioLocalRepository;
@@ -32,15 +34,15 @@ public class HitoService {
     }
 
     @Transactional(noRollbackFor = {
-            com.example.apiLince.exception.GeocercaValidationException.class,
-            com.example.apiLince.exception.HorarioInvalidoException.class
+            GeocercaValidationException.class,
+            HorarioInvalidoException.class
     })
-    public Hito registrarMarcaje(MarcajeRequestDTO request, String usuarioId, String puntoReferenciaPickup, LocalDateTime horaProgramada) {
+    public Hito registrarMarcaje(MarcajeRequestDTO request, String usuarioId, String pickup, String oficina, LocalDateTime horaPickup) {
 
         UsuarioLocal usuario = usuarioLocalRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no autorizado"));
 
-        // 1. Idempotencia: Evitar doble marcaje si el WorkManager del móvil reintenta el envío[cite: 48]
+        // 1. Idempotencia: Evitar doble marcaje si WorkManager reintenta el envío
         if (hitoRepository.existsByServicioIdAndUsuarioIdAndTipo(request.getServicioId(), usuarioId, request.getTipo())) {
             throw new IllegalArgumentException("El " + request.getTipo() + " ya fue registrado para este servicio.");
         }
@@ -49,28 +51,28 @@ public class HitoService {
         if ("CHECK_IN".equalsIgnoreCase(request.getTipo())) {
 
             // A. Validación de Geocerca (150 metros)
-            boolean enRango = geocercaService.validarDentroDeGeocerca(puntoReferenciaPickup, request.getLatitud(), request.getLongitud());
+            boolean enRango = geocercaService.validarDentroDeGeocerca(pickup, oficina, request.getLatitud(), request.getLongitud());
             if (!enRango) {
-                registrarIncidencia(request.getServicioId(), usuario, "FUERA_DE_RADIO", "Usuario intentó marcar a más de 150m del punto.");
-                // CAMBIA LA LÍNEA DE ABAJO:
-                throw new com.example.apiLince.exception.GeocercaValidationException("Estás fuera de la geocerca permitida. Acércate al punto de encuentro.");
+                registrarIncidencia(request.getServicioId(), usuario, "FUERA_DE_RADIO", "Usuario intentó marcar a más de 150m del punto: " + pickup);
+                throw new GeocercaValidationException("Estás fuera de la geocerca permitida. Acércate al punto de encuentro.");
             }
 
             // B. Validación de Tiempo (15 minutos antes de la hora programada)
-            long minutosDiferencia = ChronoUnit.MINUTES.between(request.getTimestamp(), horaProgramada);
-            if (minutosDiferencia < 15) {
-                registrarIncidencia(request.getServicioId(), usuario, "ATRASO", "Marcaje realizado con menos de 15 minutos de anticipación.");
-                // CAMBIA LA LÍNEA DE ABAJO:
-                throw new com.example.apiLince.exception.HorarioInvalidoException("Llegada tardía. Debes presentarte al menos 15 minutos antes.");
+            if (horaPickup != null) {
+                long minutosDiferencia = ChronoUnit.MINUTES.between(request.getTimestamp(), horaPickup);
+                if (minutosDiferencia < 15) {
+                    registrarIncidencia(request.getServicioId(), usuario, "ATRASO", "Marcaje realizado con menos de 15 minutos de anticipación.");
+                    throw new HorarioInvalidoException("Llegada tardía. Debes presentarte al menos 15 minutos antes.");
+                }
             }
         }
 
-        // 3. Si pasa las validaciones (o es Check-out), guardamos el Hito
+        // 3. Guardar Hito
         Hito hito = new Hito();
         hito.setServicioId(request.getServicioId());
         hito.setUsuario(usuario);
         hito.setTipo(request.getTipo().toUpperCase());
-        hito.setTimestampRegistro(request.getTimestamp()); // Se prioriza la hora del servidor en un caso real, pero usamos la del dto para offline
+        hito.setTimestampRegistro(request.getTimestamp());
         hito.setLatitudMarcaje(request.getLatitud());
         hito.setLongitudMarcaje(request.getLongitud());
 

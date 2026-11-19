@@ -4,6 +4,8 @@ import com.example.apiLince.model.Geocerca;
 import com.example.apiLince.repository.GeocercaRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class GeocercaService {
 
@@ -27,24 +29,33 @@ public class GeocercaService {
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        // Retornamos en metros
         return RADIO_TIERRA_KM * c * 1000;
     }
 
     /**
-     * Valida si una coordenada está dentro del radio permitido del punto de referencia.
+     * Valida si una coordenada está dentro del radio permitido del pickup (o de la oficina como respaldo).
      */
-    public boolean validarDentroDeGeocerca(String puntoReferencia, double latUsuario, double lonUsuario) {
-        // Buscamos el hotel/aeropuerto en la base de datos
-        Geocerca geocerca = geocercaRepository.findByPuntoReferencia(puntoReferencia)
-                .orElseThrow(() -> new IllegalArgumentException("Punto de referencia no encontrado en el sistema"));
+    public boolean validarDentroDeGeocerca(String pickup, String oficina, double latUsuario, double lonUsuario) {
+        Optional<Geocerca> geocercaOpt = Optional.empty();
+
+        if (pickup != null && !pickup.isBlank()) {
+            geocercaOpt = geocercaRepository.findByPuntoReferencia(pickup.trim());
+        }
+
+        // Respaldo por código de oficina de Southbound (SCL, PUX, PUQ)
+        if (geocercaOpt.isEmpty() && oficina != null && !oficina.isBlank()) {
+            geocercaOpt = geocercaRepository.findByPuntoReferencia(oficina.trim().toUpperCase());
+        }
+
+        Geocerca geocerca = geocercaOpt.orElseThrow(
+                () -> new IllegalArgumentException("Punto de referencia '" + pickup + "' no encontrado en el sistema")
+        );
 
         double distancia = calcularDistanciaMetros(
                 geocerca.getLatitudCentro(), geocerca.getLongitudCentro(),
                 latUsuario, lonUsuario
         );
 
-        // Retorna true si está dentro de los 150m (o el radio configurado)[cite: 47]
         return distancia <= geocerca.getRadioMetros();
     }
 }

@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.linceops.model.Servicio
 
-@Database(entities = [Servicio::class], version = 2, exportSchema = false)
+@Database(entities = [Servicio::class], version = 3, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class LinceOpsDatabase : RoomDatabase() {
 

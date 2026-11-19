@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
+import com.example.linceops.model.TipoServicio
 import com.example.linceops.network.BackendRetrofitClient
 import com.example.linceops.repository.ServiceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,8 +81,8 @@ class ServiceViewModel(
             val filtrados = lista.filter { servicio ->
                 (_uiState.value.filtroEstado == null || servicio.estadoPara(usuario) == _uiState.value.filtroEstado) &&
                         (fechaIso == null || servicio.fecha == fechaIso) &&
-                        (_uiState.value.filtroOficina == null || servicio.oficina == _uiState.value.filtroOficina) &&
-                        (_uiState.value.filtroStatusPL == null || servicio.statusPL == _uiState.value.filtroStatusPL)
+                        (_uiState.value.filtroOficina == null || servicio.oficina.name.equals(_uiState.value.filtroOficina, ignoreCase = true)) &&
+                        (_uiState.value.filtroStatusPL == null || servicio.statusPL?.name.equals(_uiState.value.filtroStatusPL, ignoreCase = true))
             }
 
             _uiState.value = _uiState.value.copy(
@@ -236,7 +237,7 @@ class ServiceViewModel(
             fecha = fecha,
             hora = hora,
             pickup = "Por definir",
-            tipo = tipo,
+            tipo = TipoServicio.fromApi(tipo),
             pasajeros = pasajeros,
             estado = EstadoServicio.PENDIENTE,
             participaciones = emptyList()

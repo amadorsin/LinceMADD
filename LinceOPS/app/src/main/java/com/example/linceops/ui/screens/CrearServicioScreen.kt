@@ -1,5 +1,6 @@
 package com.example.linceops.ui.screens
 
+import com.example.linceops.model.TipoServicio
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -225,6 +226,7 @@ fun CrearServicioScreen(
     var fechaSeleccionada by remember { mutableStateOf("") }
     var mostrarReloj by remember { mutableStateOf(false) }
     var vehiculoContingencia by remember { mutableStateOf("") }
+    var tipoSeleccionado by remember { mutableStateOf(TipoServicio.TRANSFER) }
     var motivoContingencia by remember { mutableStateOf("") }
 
 
@@ -334,7 +336,28 @@ fun CrearServicioScreen(
                         shape = RoundedCornerShape(14.dp),
                         colors = fieldColors()
                     )
-
+                    Text(
+                        text = "TIPO DE SERVICIO",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LinceTextSecondary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TipoServicio.entries.forEach { tipo ->
+                            FilterChip(
+                                selected = tipoSeleccionado == tipo,
+                                onClick = { tipoSeleccionado = tipo },
+                                label = { Text(tipo.etiqueta, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f),
+                                colors = filterChipColors()
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = motivoContingencia,
                         onValueChange = { motivoContingencia = it },
@@ -654,7 +677,7 @@ fun CrearServicioScreen(
                                 ruta,
                                 fechaSeleccionada,
                                 hora,
-                                "Contingencia Local",
+                                tipoSeleccionado.name,
                                 pasajeros
                             )
                         },

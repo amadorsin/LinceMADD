@@ -1,8 +1,6 @@
 package com.example.linceops.mappers
 
-import com.example.linceops.model.EstadoServicio
-import com.example.linceops.model.ParticipacionServicio
-import com.example.linceops.model.Servicio
+import com.example.linceops.model.*
 import com.example.linceops.network.dto.ServicioDto
 
 fun ServicioDto.aEntidadLocal(servicioExistente: Servicio?): Servicio {
@@ -10,12 +8,14 @@ fun ServicioDto.aEntidadLocal(servicioExistente: Servicio?): Servicio {
     val driverId = this.transportista?.id?.toString()
     val guideId = this.guia?.id?.toString()
 
+    val statusPLEnum = StatusPL.fromApi(this.asignacion?.statusPL)
+    val estadoTourplanEnum = EstadoTourplan.fromApi(this.estadoServicio)
+
     val estadoRemoto = mapearEstadoRemoto(
-        statusPL = this.asignacion?.statusPL,
-        estadoServicio = this.estadoServicio
+        statusPL = statusPLEnum,
+        estadoTourplan = estadoTourplanEnum
     )
 
-    // Preservamos el estado local si el usuario ya inició o finalizó el servicio en Room
     val estadoLocal = servicioExistente?.estado ?: estadoRemoto
 
     val participacionesLocales = servicioExistente?.participaciones ?: listOfNotNull(driverId, guideId)
@@ -43,14 +43,17 @@ fun ServicioDto.aEntidadLocal(servicioExistente: Servicio?): Servicio {
         conductorId = driverId,
         guiaId = guideId,
         reservaId = this.reserva?.referencia ?: srvId,
-        tipo = this.tipo ?: "TRANSFER",
-        idioma = this.idiomaRequerido?.nombre ?: this.idiomaRequerido?.codigo ?: "Español",
+        srv = CodigoSrv.fromApi(this.srv),
+        tipo = TipoServicio.fromApi(this.tipo),
+        estadoTourplan = estadoTourplanEnum,
+        idiomaRequerido = CodigoIdioma.fromApi(this.idiomaRequerido?.codigo),
         agencia = this.cliente?.nombre ?: "Sin Agencia",
         hotel = this.pickup ?: "Sin hotel",
         vehiculo = this.vehiculo?.patente ?: "Por informar",
+        tipoVehiculo = TipoVehiculo.fromApi(this.vehiculo?.tipo),
         capacidadVehiculo = this.vehiculo?.capacidad ?: 0,
-        oficina = this.oficina?.codigo ?: "SCL",
-        statusPL = this.asignacion?.statusPL,
+        oficina = CodigoOficina.fromApi(this.oficina?.codigo),
+        statusPL = statusPLEnum,
         detallePasajeros = servicioExistente?.detallePasajeros ?: emptyList(),
         inclusiones = servicioExistente?.inclusiones ?: emptyList(),
         instrucciones = "",
@@ -59,13 +62,13 @@ fun ServicioDto.aEntidadLocal(servicioExistente: Servicio?): Servicio {
     )
 }
 
-private fun mapearEstadoRemoto(statusPL: String?, estadoServicio: String?): EstadoServicio {
-    if (estadoServicio == "XX" || statusPL == "CX" || statusPL == "DL") {
+private fun mapearEstadoRemoto(statusPL: StatusPL?, estadoTourplan: EstadoTourplan): EstadoServicio {
+    if (estadoTourplan == EstadoTourplan.XX || statusPL == StatusPL.CX || statusPL == StatusPL.DL) {
         return EstadoServicio.RECHAZADO
     }
     return when (statusPL) {
-        "CF" -> EstadoServicio.CONFIRMADO
-        "RQ", null -> EstadoServicio.PENDIENTE
+        StatusPL.CF -> EstadoServicio.CONFIRMADO
+        StatusPL.RQ, null -> EstadoServicio.PENDIENTE
         else -> EstadoServicio.PENDIENTE
     }
 }

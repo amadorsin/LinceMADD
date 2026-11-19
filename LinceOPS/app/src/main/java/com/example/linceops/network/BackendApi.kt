@@ -14,8 +14,9 @@ interface BackendApi {
     @POST("api/hitos/marcaje")
     suspend fun registrarMarcaje(
         @Body request: MarcajeRequestDto,
-        @Query("puntoReferenciaPickup") puntoReferenciaPickup: String? = null,
-        @Query("horaProgramada") horaProgramada: String? = null
+        @Query("pickup") pickup: String?,
+        @Query("oficina") oficina: String?,
+        @Query("horaPickup") horaPickup: String?
     ): Response<MensajeResponseDto>
 
     @POST("api/disponibilidad/bloquear")
