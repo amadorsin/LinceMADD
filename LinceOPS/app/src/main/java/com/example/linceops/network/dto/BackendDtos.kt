@@ -61,3 +61,17 @@ data class BackendErrorResponseDto(
     @SerializedName("error") val error: String? = null,
     @SerializedName("message") val message: String? = null
 )
+// --- Confirmaciones / Rechazos ---
+data class ConfirmacionRequestDto(
+    @SerializedName("servicioId") val servicioId: String,
+    @SerializedName("estado") val estado: String, // "CONFIRMADO" o "RECHAZADO"
+    @SerializedName("motivo") val motivo: String? = null
+)
+
+data class ConfirmacionResponseDto(
+    @SerializedName("id") val id: Long? = null,
+    @SerializedName("servicioId") val servicioId: String? = null,
+    @SerializedName("estado") val estado: String? = null,
+    @SerializedName("motivo") val motivo: String? = null,
+    @SerializedName("fechaHora") val fechaHora: String? = null
+)

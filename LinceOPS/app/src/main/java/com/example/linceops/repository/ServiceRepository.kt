@@ -151,8 +151,15 @@ class ServiceRepository(
             EstadoServicio.RECHAZADO, EstadoServicio.FINALIZADO -> false
         }
         if (!permitido) return error("Cambio de estado no permitido.")
-        if (nuevoEstado == EstadoServicio.RECHAZADO && motivo.isBlank()) {
-            return error("Escribe un motivo para rechazar el servicio.")
+        if (nuevoEstado == EstadoServicio.CONFIRMADO || nuevoEstado == EstadoServicio.RECHAZADO) {
+            val respConfirmacion = enviarConfirmacionAlBackend(
+                servicioId = servicioId,
+                estado = nuevoEstado.name,
+                motivo = motivo.trim().takeIf { it.isNotBlank() }
+            )
+            if (respConfirmacion.isFailure) {
+                return Result.failure(respConfirmacion.exceptionOrNull()!!)
+            }
         }
 
         val requiereMarcaje = nuevoEstado == EstadoServicio.EN_CURSO || nuevoEstado == EstadoServicio.FINALIZADO
@@ -253,7 +260,32 @@ class ServiceRepository(
             Result.success(Unit)
         }
     }
-
+    private suspend fun enviarConfirmacionAlBackend(
+        servicioId: String,
+        estado: String,
+        motivo: String?
+    ): Result<Unit> {
+        return try {
+            val response = BackendRetrofitClient.api.registrarConfirmacion(
+                ConfirmacionRequestDto(servicioId, estado, motivo)
+            )
+            when {
+                response.isSuccessful -> Result.success(Unit)
+                response.code() == 400 -> {
+                    val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                        ?: "No se pudo registrar la confirmación (HTTP 400)."
+                    Result.failure(IllegalArgumentException(msg))
+                }
+                response.code() == 401 || response.code() == 403 -> {
+                    Result.failure(IllegalStateException("Sesión expirada o sin permisos (HTTP ${response.code()})."))
+                }
+                else -> Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Log.w("API_BACKEND", "Backend no alcanzable, guardando confirmación en Room", e)
+            Result.success(Unit)
+        }
+    }
     suspend fun bloquearFecha(fechaIso: String, motivo: String): Result<BloqueoCalendarioDto> {
         return try {
             val response = BackendRetrofitClient.api.bloquearFecha(BloqueoRequestDto(fechaIso, motivo))

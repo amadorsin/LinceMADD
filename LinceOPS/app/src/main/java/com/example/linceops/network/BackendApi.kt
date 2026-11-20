@@ -34,6 +34,11 @@ interface BackendApi {
     @GET("api/disponibilidad/mis-bloqueos")
     suspend fun obtenerMisBloqueos(): Response<List<BloqueoCalendarioDto>>
 
+    @POST("api/confirmaciones/registrar")
+    suspend fun registrarConfirmacion(
+        @Body request: ConfirmacionRequestDto
+    ): Response<ConfirmacionResponseDto>
+
     @DELETE("api/disponibilidad/desbloquear/{fecha}")
     suspend fun desbloquearFecha(@Path("fecha") fechaIso: String): Response<Unit>
 }
