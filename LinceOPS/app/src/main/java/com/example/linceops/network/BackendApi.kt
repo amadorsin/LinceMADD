@@ -41,4 +41,12 @@ interface BackendApi {
 
     @DELETE("api/disponibilidad/desbloquear/{fecha}")
     suspend fun desbloquearFecha(@Path("fecha") fechaIso: String): Response<Unit>
+    @GET("api/geocercas")
+    suspend fun obtenerGeocercas(): Response<List<GeocercaDto>>
+
+    @GET("api/hitos")
+    suspend fun obtenerTodosLosHitos(): Response<List<HitoDto>>
+
+    @GET("api/incidencias")
+    suspend fun obtenerTodasLasIncidencias(): Response<List<IncidenciaDto>>
 }

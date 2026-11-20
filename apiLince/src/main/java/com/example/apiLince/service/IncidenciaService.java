@@ -36,7 +36,9 @@ public class IncidenciaService {
 
         return incidenciaRepository.save(incidencia);
     }
-
+    public List<Incidencia> obtenerTodasLasIncidencias() {
+        return incidenciaRepository.findAll();
+    }
     public List<Incidencia> obtenerIncidenciasPorServicio(String servicioId) {
         return incidenciaRepository.findByServicioId(servicioId);
     }

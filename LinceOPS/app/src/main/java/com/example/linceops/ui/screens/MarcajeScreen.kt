@@ -30,23 +30,40 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.linceops.model.Servicio
+import com.example.linceops.network.dto.GeocercaDto
 import com.example.linceops.ui.theme.*
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import java.util.Locale
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @Composable
 fun MarcajeScreen(
     servicioId: String,
+    servicio: Servicio? = null,
+    geocercas: List<GeocercaDto> = emptyList(),
     onCheckIn: (Double, Double) -> Unit,
     onCheckOut: (Double, Double) -> Unit,
     modifier: Modifier = Modifier
-) {
+){
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var mensajeEstado by remember { mutableStateOf("Esperando inicio de ruta...") }
     var accionPendiente by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var precisionGpsMetros by remember { mutableStateOf<Float?>(null) }
+    var distanciaMetros by remember { mutableStateOf<Double?>(null) }
+
+    val geocercaObjetivo = remember(servicio, geocercas) {
+        geocercas.firstOrNull { it.puntoReferencia.equals(servicio?.pickup, ignoreCase = true) }
+            ?: geocercas.firstOrNull { it.puntoReferencia.equals(servicio?.oficina?.name, ignoreCase = true) }
+    }
+    val radioPermitido = geocercaObjetivo?.radioMetros ?: 150
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val concedido = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
@@ -59,8 +76,40 @@ fun MarcajeScreen(
         accionPendiente = null
     }
 
+    fun procesarUbicacion(
+        location: android.location.Location,
+        esCheckIn: Boolean,
+        onSuccess: (Double, Double) -> Unit
+    ) {
+        precisionGpsMetros = location.accuracy
+        val dist = if (geocercaObjetivo?.latitudCentro != null && geocercaObjetivo.longitudCentro != null) {
+            calcularHaversineMetros(
+                geocercaObjetivo.latitudCentro, geocercaObjetivo.longitudCentro,
+                location.latitude, location.longitude
+            )
+        } else null
+        distanciaMetros = dist
+
+        if (esCheckIn && location.accuracy > 50f) {
+            mensajeEstado = String.format(
+                Locale.ROOT,
+                "GPS impreciso (±%.0f m). Espera mejor señal.",
+                location.accuracy
+            )
+            return
+        }
+        mensajeEstado = String.format(
+            Locale.ROOT,
+            "Ubicación: %.5f, %.5f (±%.0f m)",
+            location.latitude,
+            location.longitude,
+            location.accuracy
+        )
+        onSuccess(location.latitude, location.longitude)
+    }
+
     @SuppressLint("MissingPermission")
-    fun obtenerUbicacion(onSuccess: (Double, Double) -> Unit) {
+    fun obtenerUbicacion(esCheckIn: Boolean, onSuccess: (Double, Double) -> Unit) {
         val tieneFine = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
@@ -76,15 +125,8 @@ fun MarcajeScreen(
                 fusedLocationClient.lastLocation
                     .addOnSuccessListener { location ->
                         if (location != null) {
-                            mensajeEstado = String.format(
-                                Locale.ROOT,
-                                "Ubicación capturada: %.5f, %.5f",
-                                location.latitude,
-                                location.longitude
-                            )
-                            onSuccess(location.latitude, location.longitude)
+                            procesarUbicacion(location, esCheckIn, onSuccess)
                         } else {
-                            // Si no hay caché en lastLocation (común en Modo Offline), forzamos lectura satelital
                             val token = CancellationTokenSource()
                             val prioridad = if (tieneFine) {
                                 Priority.PRIORITY_HIGH_ACCURACY
@@ -94,13 +136,7 @@ fun MarcajeScreen(
                             fusedLocationClient.getCurrentLocation(prioridad, token.token)
                                 .addOnSuccessListener { ubicacionActual ->
                                     if (ubicacionActual != null) {
-                                        mensajeEstado = String.format(
-                                            Locale.ROOT,
-                                            "Ubicación capturada: %.5f, %.5f",
-                                            ubicacionActual.latitude,
-                                            ubicacionActual.longitude
-                                        )
-                                        onSuccess(ubicacionActual.latitude, ubicacionActual.longitude)
+                                        procesarUbicacion(ubicacionActual, esCheckIn, onSuccess)
                                     } else {
                                         mensajeEstado = "No se pudo obtener la ubicación. Verifica que el GPS esté activo."
                                     }
@@ -119,7 +155,7 @@ fun MarcajeScreen(
                 mensajeEstado = "Error inesperado al capturar GPS en modo local."
             }
         } else {
-            accionPendiente = { obtenerUbicacion(onSuccess) }
+            accionPendiente = { obtenerUbicacion(esCheckIn, onSuccess) }
             permissionLauncher.launch(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
             )
@@ -308,7 +344,11 @@ fun MarcajeScreen(
                                 letterSpacing = 0.5.sp
                             )
                             Text(
-                                text = "Radio de geocerca",
+                                text = buildString {
+                                    append("Radio: $radioPermitido m")
+                                    distanciaMetros?.let { append(" · Dist: ${it.toInt()} m") }
+                                    precisionGpsMetros?.let { append(" · GPS ±${it.toInt()} m") }
+                                },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = LinceTextPrimary,
                                 fontWeight = FontWeight.SemiBold
@@ -390,7 +430,7 @@ fun MarcajeScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Button(
-                onClick = { obtenerUbicacion { lat, lon -> onCheckIn(lat, lon) } },
+                onClick = { obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp),
@@ -413,7 +453,7 @@ fun MarcajeScreen(
             }
 
             OutlinedButton(
-                onClick = { obtenerUbicacion { lat, lon -> onCheckOut(lat, lon) } },
+                onClick = { obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp),
@@ -448,4 +488,12 @@ fun MarcajeScreen(
             )
         }
     }
+
+}
+private fun calcularHaversineMetros(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val r = 6371000.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
+    return 2 * r * atan2(sqrt(a), sqrt(1 - a))
 }

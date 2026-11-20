@@ -40,6 +40,7 @@ class ServiceViewModel(
                         _uiState.value = ServiceUiState(usuarioLogueado = usuario)
                         cargarServicios()
                         cargarBloqueos()
+                        cargarGeocercas()
                         if (usuario.rol == RolUsuario.ADMINISTRADOR) {
                             cargarDatosCoordinacion()
                         }
@@ -60,7 +61,13 @@ class ServiceViewModel(
         }
         cargarServicios()
     }
-
+    fun cargarGeocercas() {
+        viewModelScope.launch {
+            repository.obtenerGeocercas().onSuccess { lista ->
+                _uiState.value = _uiState.value.copy(geocercas = lista)
+            }
+        }
+    }
     fun cerrarSesion() {
         BackendRetrofitClient.jwtToken = null
         _uiState.value = ServiceUiState()
@@ -231,6 +238,12 @@ class ServiceViewModel(
             }
             repository.obtenerTransportistasActivos().onSuccess { transportistas ->
                 _uiState.value = _uiState.value.copy(transportistasSouthbound = transportistas)
+            }
+            repository.obtenerTodosLosHitos().onSuccess { hitos ->
+                _uiState.value = _uiState.value.copy(hitosCoordinacion = hitos)
+            }
+            repository.obtenerTodasLasIncidencias().onSuccess { incidencias ->
+                _uiState.value = _uiState.value.copy(incidenciasCoordinacion = incidencias)
             }
         }
     }

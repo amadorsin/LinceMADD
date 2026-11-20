@@ -446,6 +446,49 @@ private fun DashboardManagerView(
                     }
                 }
             }
+            if (uiState.hitosCoordinacion.isNotEmpty() || uiState.incidenciasCoordinacion.isNotEmpty()) {
+                Surface(
+                    color = LinceSurfaceContainerLow,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "TRAZABILIDAD E INCIDENCIAS (BACKEND)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LinceGreenDark,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Hitos: ${uiState.hitosCoordinacion.size}  •  Incidencias: ${uiState.incidenciasCoordinacion.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        uiState.hitosCoordinacion.takeLast(2).reversed().forEach { hito ->
+                            Text(
+                                text = "${hito.tipo ?: "HITO"} Srv #${hito.servicioId ?: "-"} · ${hito.usuario?.nombre ?: "-"} (${String.format(java.util.Locale.US, "%.4f, %.4f", hito.latitudMarcaje ?: 0.0, hito.longitudMarcaje ?: 0.0)})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        uiState.incidenciasCoordinacion.takeLast(2).reversed().forEach { inc ->
+                            Text(
+                                text = "⚠ ${inc.motivo ?: "INCIDENCIA"} Srv #${inc.servicioId ?: "-"}: ${inc.detalle ?: ""}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = StatusRejectedText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
             Button(
                 onClick = onCrearServicio,
                 modifier = Modifier

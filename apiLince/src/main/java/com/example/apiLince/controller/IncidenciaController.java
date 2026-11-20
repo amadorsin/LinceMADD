@@ -27,7 +27,11 @@ public class IncidenciaController {
         this.incidenciaService = incidenciaService;
         this.usuarioLocalRepository = usuarioLocalRepository;
     }
-
+    @GetMapping
+    @Operation(summary = "Listar todas las incidencias", description = "Retorna todas las incidencias registradas para coordinación")
+    public ResponseEntity<List<Incidencia>> listarTodas() {
+        return ResponseEntity.ok(incidenciaService.obtenerTodasLasIncidencias());
+    }
     @PostMapping("/registrar")
     @Operation(summary = "Registrar incidencia manual", description = "Permite a un usuario registrar un problema asociado a un servicio")
     public ResponseEntity<Incidencia> registrarIncidencia(@Valid @RequestBody IncidenciaRequestDTO request, Principal principal) {

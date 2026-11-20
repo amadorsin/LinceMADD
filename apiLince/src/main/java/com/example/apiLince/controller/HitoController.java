@@ -12,7 +12,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.List;
 import java.security.Principal;
 import java.time.LocalDateTime;
 
@@ -44,5 +44,10 @@ public class HitoController {
         hitoService.registrarMarcaje(request, usuario.getId(), pickup, oficina, horaPickup);
 
         return new ResponseEntity<>(new MensajeResponseDTO("Marcaje registrado exitosamente"), HttpStatus.CREATED);
+    }
+    @GetMapping
+    @Operation(summary = "Listar todos los hitos", description = "Retorna los check-ins y check-outs registrados con su ubicación y hora")
+    public ResponseEntity<List<com.example.apiLince.model.Hito>> listarHitos() {
+        return ResponseEntity.ok(hitoService.obtenerTodosLosHitos());
     }
 }

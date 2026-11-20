@@ -409,6 +409,23 @@ class ServiceRepository(
             Result.failure(IllegalStateException("Sin conexión con el servidor para registrar la incidencia."))
         }
     }
+    suspend fun obtenerGeocercas(): Result<List<GeocercaDto>> = try {
+        val resp = BackendRetrofitClient.api.obtenerGeocercas()
+        if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
+        else Result.failure(IllegalStateException("HTTP ${resp.code()} en /geocercas"))
+    } catch (e: Exception) { Result.failure(e) }
+
+    suspend fun obtenerTodosLosHitos(): Result<List<HitoDto>> = try {
+        val resp = BackendRetrofitClient.api.obtenerTodosLosHitos()
+        if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
+        else Result.failure(IllegalStateException("HTTP ${resp.code()} en /hitos"))
+    } catch (e: Exception) { Result.failure(e) }
+
+    suspend fun obtenerTodasLasIncidencias(): Result<List<IncidenciaDto>> = try {
+        val resp = BackendRetrofitClient.api.obtenerTodasLasIncidencias()
+        if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
+        else Result.failure(IllegalStateException("HTTP ${resp.code()} en /incidencias"))
+    } catch (e: Exception) { Result.failure(e) }
 
     suspend fun reasignarServicio(servicioId: String): Result<Servicio> {
         val servicio = dao.obtenerServicioPorId(servicioId) ?: return error("El servicio no existe.")

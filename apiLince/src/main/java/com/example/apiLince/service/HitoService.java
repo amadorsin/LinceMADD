@@ -11,7 +11,7 @@ import com.example.apiLince.repository.IncidenciaRepository;
 import com.example.apiLince.repository.UsuarioLocalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.util.List;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
@@ -87,5 +87,8 @@ public class HitoService {
         incidencia.setDetalle(detalle);
         incidencia.setFechaHora(LocalDateTime.now());
         incidenciaRepository.save(incidencia);
+    }
+    public List<Hito> obtenerTodosLosHitos() {
+        return hitoRepository.findAll();
     }
 }

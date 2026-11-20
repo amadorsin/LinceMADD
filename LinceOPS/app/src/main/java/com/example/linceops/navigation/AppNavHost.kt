@@ -216,8 +216,11 @@ fun AppNavHost(
                     ) { backStackEntry ->
                         val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
 
+                        val servicio = serviceViewModel.obtenerServicio(servicioId)
                         MarcajeScreen(
                             servicioId = servicioId,
+                            servicio = servicio,
+                            geocercas = uiState.geocercas,
                             onCheckIn = { lat, lon ->
                                 val hayRed = isInternetAvailable(context)
                                 serviceViewModel.registrarCheckIn(servicioId, lat, lon, hayRed)

@@ -75,3 +75,27 @@ data class ConfirmacionResponseDto(
     @SerializedName("motivo") val motivo: String? = null,
     @SerializedName("fechaHora") val fechaHora: String? = null
 )
+// --- Geocercas y Hitos (Coordinación y Validación Doble) ---
+data class GeocercaDto(
+    @SerializedName("id") val id: Long? = null,
+    @SerializedName("puntoReferencia") val puntoReferencia: String? = null,
+    @SerializedName("latitudCentro") val latitudCentro: Double? = null,
+    @SerializedName("longitudCentro") val longitudCentro: Double? = null,
+    @SerializedName("radioMetros") val radioMetros: Int? = 150
+)
+
+data class UsuarioResumenDto(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("nombre") val nombre: String? = null,
+    @SerializedName("rol") val rol: String? = null
+)
+
+data class HitoDto(
+    @SerializedName("id") val id: Long? = null,
+    @SerializedName("servicioId") val servicioId: String? = null,
+    @SerializedName("usuario") val usuario: UsuarioResumenDto? = null,
+    @SerializedName("tipo") val tipo: String? = null,
+    @SerializedName("timestampRegistro") val timestampRegistro: String? = null,
+    @SerializedName("latitudMarcaje") val latitudMarcaje: Double? = null,
+    @SerializedName("longitudMarcaje") val longitudMarcaje: Double? = null
+)
