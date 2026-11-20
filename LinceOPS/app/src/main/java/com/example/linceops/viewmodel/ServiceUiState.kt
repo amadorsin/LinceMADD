@@ -3,6 +3,9 @@ package com.example.linceops.viewmodel
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
 import com.example.linceops.model.Usuario
+import com.example.linceops.network.dto.GuiaDto
+import com.example.linceops.network.dto.ResumenDto
+import com.example.linceops.network.dto.TransportistaDto
 
 data class ServiceUiState(
     val usuarioLogueado: Usuario? = null,
@@ -18,5 +21,8 @@ data class ServiceUiState(
     val mensaje: String? = null,
     val error: String? = null,
     val diasBloqueados: List<String> = emptyList(),
+    val resumenOperativo: ResumenDto? = null,
+    val guiasSouthbound: List<GuiaDto> = emptyList(),
+    val transportistasSouthbound: List<TransportistaDto> = emptyList()
 
 )

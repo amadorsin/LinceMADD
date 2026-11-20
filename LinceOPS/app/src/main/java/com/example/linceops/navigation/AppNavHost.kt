@@ -177,7 +177,9 @@ fun AppNavHost(
                     ) { backStackEntry ->
                         val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
                         val servicio = serviceViewModel.obtenerServicio(servicioId)
-
+                        LaunchedEffect(servicioId) {
+                            serviceViewModel.refrescarDetalleServicio(servicioId)
+                        }
                         if (servicio != null) {
                             DetalleScreen(
                                 servicio = servicio,

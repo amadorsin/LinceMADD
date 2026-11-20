@@ -16,6 +16,7 @@ import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.UUID
+import com.example.linceops.model.RolUsuario
 
 class ServiceViewModel(
     private val dao: ServicioDao
@@ -39,6 +40,9 @@ class ServiceViewModel(
                         _uiState.value = ServiceUiState(usuarioLogueado = usuario)
                         cargarServicios()
                         cargarBloqueos()
+                        if (usuario.rol == RolUsuario.ADMINISTRADOR) {
+                            cargarDatosCoordinacion()
+                        }
                     },
                     onFailure = { err ->
                         _uiState.value = ServiceUiState(errorLogin = err.message ?: "Error al iniciar sesión.")
@@ -202,7 +206,34 @@ class ServiceViewModel(
         return _uiState.value.serviciosTotales.find { it.id == servicioId }
             ?: _uiState.value.servicios.find { it.id == servicioId }
     }
+    fun refrescarDetalleServicio(servicioId: String) {
+        viewModelScope.launch {
+            repository.refrescarServicioPorId(servicioId).onSuccess { actualizado ->
+                _uiState.value = _uiState.value.copy(
+                    serviciosTotales = _uiState.value.serviciosTotales.map {
+                        if (it.id == actualizado.id) actualizado else it
+                    },
+                    servicios = _uiState.value.servicios.map {
+                        if (it.id == actualizado.id) actualizado else it
+                    }
+                )
+            }
+        }
+    }
 
+    fun cargarDatosCoordinacion() {
+        viewModelScope.launch {
+            repository.obtenerResumenOperativo().onSuccess { resumen ->
+                _uiState.value = _uiState.value.copy(resumenOperativo = resumen)
+            }
+            repository.obtenerGuiasActivos().onSuccess { guias ->
+                _uiState.value = _uiState.value.copy(guiasSouthbound = guias)
+            }
+            repository.obtenerTransportistasActivos().onSuccess { transportistas ->
+                _uiState.value = _uiState.value.copy(transportistasSouthbound = transportistas)
+            }
+        }
+    }
     fun cambiarEstadoServicio(
         servicioId: String,
         nuevoEstado: EstadoServicio,

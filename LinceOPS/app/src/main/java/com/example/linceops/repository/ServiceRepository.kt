@@ -71,7 +71,69 @@ class ServiceRepository(
 
     suspend fun obtenerServicioPorId(servicioId: String): Servicio? =
         dao.obtenerServicioPorId(servicioId)
+    suspend fun refrescarServicioPorId(servicioId: String): Result<Servicio> {
+        val idNumerico = servicioId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException("ID de servicio local no numérico."))
+        return try {
+            val response = RetrofitClient.api.obtenerServicioPorId(idNumerico)
+            if (response.isSuccessful) {
+                val dto = response.body()?.data
+                    ?: return Result.failure(IllegalStateException("Servicio sin datos en Southbound."))
+                val existente = dao.obtenerServicioPorId(servicioId)
+                val actualizado = dto.aEntidadLocal(existente)
+                dao.guardarServicio(actualizado)
+                Result.success(actualizado)
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} al consultar detalle."))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "No se pudo refrescar detalle de servicio $servicioId", e)
+            Result.failure(e)
+        }
+    }
 
+    suspend fun obtenerResumenOperativo(): Result<ResumenDto> {
+        return try {
+            val response = RetrofitClient.api.obtenerResumen()
+            val data = response.body()?.data
+            if (response.isSuccessful && data != null) {
+                Result.success(data)
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} en /resumen"))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "Fallo al obtener resumen de Southbound", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerGuiasActivos(): Result<List<GuiaDto>> {
+        return try {
+            val response = RetrofitClient.api.obtenerGuias(activo = true, page = 1, pageSize = 20)
+            if (response.isSuccessful) {
+                Result.success(response.body()?.data ?: emptyList())
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} en /guias"))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "Fallo al obtener guías de Southbound", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerTransportistasActivos(): Result<List<TransportistaDto>> {
+        return try {
+            val response = RetrofitClient.api.obtenerTransportistas(activo = true, page = 1, pageSize = 20)
+            if (response.isSuccessful) {
+                Result.success(response.body()?.data ?: emptyList())
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} en /transportistas"))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "Fallo al obtener transportistas de Southbound", e)
+            Result.failure(e)
+        }
+    }
     suspend fun obtenerServicios(
         usuarioId: String,
         fechaDesde: String? = null,

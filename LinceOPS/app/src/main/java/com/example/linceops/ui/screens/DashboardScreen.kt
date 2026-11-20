@@ -371,7 +371,81 @@ private fun DashboardManagerView(
                     )
                 }
             }
+            uiState.resumenOperativo?.let { resumen ->
+                Surface(
+                    color = LinceSurfaceContainerLow,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "RESUMEN SOUTHBOUND (${resumen.totalServicios} servicios · ${resumen.totalPax} pax)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LinceGreenDark,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (resumen.porOficina.isNotEmpty()) {
+                            val textoOficinas = resumen.porOficina.joinToString("  •  ") {
+                                "${it.clave ?: "-"}: ${it.servicios}"
+                            }
+                            Text(
+                                text = "Por oficina: $textoOficinas",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = LinceTextSecondary
+                            )
+                        }
+                    }
+                }
+            }
 
+            if (uiState.guiasSouthbound.isNotEmpty() || uiState.transportistasSouthbound.isNotEmpty()) {
+                Surface(
+                    color = LinceSurfaceContainerLow,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "RECURSOS ACTIVOS (SOUTHBOUND)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LinceGreenDark,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Guías activos: ${uiState.guiasSouthbound.size}  •  Transportistas: ${uiState.transportistasSouthbound.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        uiState.guiasSouthbound.take(2).forEach { guia ->
+                            val idiomas = guia.idiomas.mapNotNull { it.codigo }.joinToString(", ")
+                            Text(
+                                text = "Guía: ${guia.nombre ?: "-"} (${guia.oficina?.codigo ?: "-"})${if (idiomas.isNotBlank()) " · $idiomas" else ""}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        uiState.transportistasSouthbound.take(2).forEach { trans ->
+                            val patente = trans.vehiculos.firstOrNull()?.patente ?: "Sin vehículo"
+                            Text(
+                                text = "Driver: ${trans.nombre ?: "-"} (${trans.oficina?.codigo ?: "-"}) · $patente",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
             Button(
                 onClick = onCrearServicio,
                 modifier = Modifier
@@ -386,6 +460,7 @@ private fun DashboardManagerView(
                     tint = LinceCardSurface,
                     modifier = Modifier.size(18.dp)
                 )
+
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Asignación Local (Contingencia)",
