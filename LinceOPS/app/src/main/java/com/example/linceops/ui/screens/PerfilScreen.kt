@@ -53,9 +53,12 @@ fun PerfilScreen(
     modifier: Modifier = Modifier,
     usuario: Usuario? = null,
     servicios: List<Servicio> = emptyList(),
+    diasBloqueadosRemotos: List<String> = emptyList(),
+    onBloquearFecha: ((String) -> Unit)? = null,
+    onDesbloquearFecha: ((String) -> Unit)? = null,
     onCerrarSesion: () -> Unit = {},
     onScrollBarra: (Boolean) -> Unit = {}
-) {
+){
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val idUsuario = usuario?.id ?: "invitado"
@@ -105,6 +108,12 @@ fun PerfilScreen(
 
     var diasBloqueados by remember(idUsuario) {
         mutableStateOf(cargarDiasBloqueados(prefs, idUsuario, fechasServicio))
+    }
+    LaunchedEffect(diasBloqueadosRemotos) {
+        if (onBloquearFecha != null) {
+            diasBloqueados = diasBloqueadosRemotos.toSet()
+            guardarDiasBloqueados(prefs, idUsuario, diasBloqueados)
+        }
     }
     var mensajeDisponibilidad by remember { mutableStateOf<String?>(null) }
     var disponibilidadError by remember { mutableStateOf(false) }
@@ -351,11 +360,15 @@ fun PerfilScreen(
                                 fondo = StatusRejectedBg,
                                 colorTexto = StatusRejectedText,
                                 onQuitar = {
-                                    val actualizados = diasBloqueados - fecha
-                                    diasBloqueados = actualizados
-                                    guardarDiasBloqueados(prefs, idUsuario, actualizados)
-                                    mensajeDisponibilidad = "Fecha $fecha desbloqueada."
-                                    disponibilidadError = false
+                                    if (onDesbloquearFecha != null) {
+                                        onDesbloquearFecha(fecha)
+                                    } else {
+                                        val actualizados = diasBloqueados - fecha
+                                        diasBloqueados = actualizados
+                                        guardarDiasBloqueados(prefs, idUsuario, actualizados)
+                                        mensajeDisponibilidad = "Fecha $fecha desbloqueada."
+                                        disponibilidadError = false
+                                    }
                                 }
                             )
                         }
@@ -395,11 +408,17 @@ fun PerfilScreen(
                                     }
 
                                     else -> {
-                                        val actualizados = diasBloqueados + fecha
-                                        diasBloqueados = actualizados
-                                        guardarDiasBloqueados(prefs, idUsuario, actualizados)
-                                        mensajeDisponibilidad = "Fecha $fecha bloqueada correctamente."
-                                        disponibilidadError = false
+                                        if (onBloquearFecha != null) {
+                                            onBloquearFecha(fecha)
+                                            mensajeDisponibilidad = null
+                                            disponibilidadError = false
+                                        } else {
+                                            val actualizados = diasBloqueados + fecha
+                                            diasBloqueados = actualizados
+                                            guardarDiasBloqueados(prefs, idUsuario, actualizados)
+                                            mensajeDisponibilidad = "Fecha $fecha bloqueada correctamente."
+                                            disponibilidadError = false
+                                        }
                                     }
                                 }
                             },

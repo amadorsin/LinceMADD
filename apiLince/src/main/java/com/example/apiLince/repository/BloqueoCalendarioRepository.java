@@ -13,4 +13,5 @@ public interface BloqueoCalendarioRepository extends JpaRepository<BloqueoCalend
 
     // Para evitar que el usuario bloquee el mismo día dos veces
     boolean existsByUsuarioIdAndFechaBloqueada(String usuarioId, LocalDate fechaBloqueada);
+    java.util.Optional<BloqueoCalendario> findByUsuarioIdAndFechaBloqueada(String usuarioId, java.time.LocalDate fechaBloqueada);
 }

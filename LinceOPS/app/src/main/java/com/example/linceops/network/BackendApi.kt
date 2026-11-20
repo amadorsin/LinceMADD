@@ -19,14 +19,6 @@ interface BackendApi {
         @Query("horaPickup") horaPickup: String?
     ): Response<MensajeResponseDto>
 
-    @POST("api/disponibilidad/bloquear")
-    suspend fun bloquearFecha(
-        @Body request: BloqueoRequestDto
-    ): Response<BloqueoCalendarioDto>
-
-    @GET("api/disponibilidad/mis-bloqueos")
-    suspend fun obtenerMisBloqueos(): Response<List<BloqueoCalendarioDto>>
-
     @POST("api/incidencias/registrar")
     suspend fun registrarIncidencia(
         @Body request: IncidenciaRequestDto
@@ -36,4 +28,12 @@ interface BackendApi {
     suspend fun obtenerIncidenciasPorServicio(
         @Path("servicioId") servicioId: String
     ): Response<List<IncidenciaDto>>
+    @POST("api/disponibilidad/bloquear")
+    suspend fun bloquearFecha(@Body request: BloqueoRequestDto): Response<BloqueoCalendarioDto>
+
+    @GET("api/disponibilidad/mis-bloqueos")
+    suspend fun obtenerMisBloqueos(): Response<List<BloqueoCalendarioDto>>
+
+    @DELETE("api/disponibilidad/desbloquear/{fecha}")
+    suspend fun desbloquearFecha(@Path("fecha") fechaIso: String): Response<Unit>
 }

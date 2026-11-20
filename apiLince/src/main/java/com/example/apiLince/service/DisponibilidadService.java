@@ -53,4 +53,12 @@ public class DisponibilidadService {
     public List<BloqueoCalendario> obtenerBloqueosUsuario(String usuarioId) {
         return bloqueoCalendarioRepository.findByUsuarioId(usuarioId);
     }
+    @Transactional
+    public void desbloquearFecha(LocalDate fechaBloqueada, String usuarioId) {
+        BloqueoCalendario bloqueo = bloqueoCalendarioRepository
+                .findByUsuarioIdAndFechaBloqueada(usuarioId, fechaBloqueada)
+                .orElseThrow(() -> new IllegalArgumentException("No existe un bloqueo registrado para la fecha " + fechaBloqueada));
+
+        bloqueoCalendarioRepository.delete(bloqueo);
+    }
 }

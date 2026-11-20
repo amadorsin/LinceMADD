@@ -268,6 +268,36 @@ class ServiceRepository(
             Result.failure(IllegalStateException("Sin conexión con el servidor para bloquear la fecha."))
         }
     }
+    suspend fun obtenerMisBloqueos(): Result<List<BloqueoCalendarioDto>> {
+        return try {
+            val response = BackendRetrofitClient.api.obtenerMisBloqueos()
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "No se pudieron cargar los bloqueos (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Log.w("API_BACKEND", "Sin conexión para obtener bloqueos", e)
+            Result.failure(IllegalStateException("Sin conexión con el servidor para cargar bloqueos."))
+        }
+    }
+
+    suspend fun desbloquearFecha(fechaIso: String): Result<Unit> {
+        return try {
+            val response = BackendRetrofitClient.api.desbloquearFecha(fechaIso)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "No se pudo desbloquear la fecha (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("Sin conexión con el servidor para desbloquear la fecha."))
+        }
+    }
 
     suspend fun registrarIncidencia(servicioId: String, motivo: String, detalle: String? = null): Result<IncidenciaDto> {
         return try {

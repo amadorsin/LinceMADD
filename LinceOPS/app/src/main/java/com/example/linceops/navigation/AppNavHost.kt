@@ -158,6 +158,9 @@ fun AppNavHost(
                         PerfilScreen(
                             usuario = uiState.usuarioLogueado,
                             servicios = uiState.serviciosTotales,
+                            diasBloqueadosRemotos = uiState.diasBloqueados,
+                            onBloquearFecha = { fecha -> serviceViewModel.bloquearFecha(fecha) },
+                            onDesbloquearFecha = { fecha -> serviceViewModel.desbloquearFecha(fecha) },
                             onScrollBarra = { barraVisible = it },
                             onCerrarSesion = {
                                 serviceViewModel.cerrarSesion()

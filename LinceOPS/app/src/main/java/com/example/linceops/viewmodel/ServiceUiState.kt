@@ -16,5 +16,7 @@ data class ServiceUiState(
     val filtroOficina: String? = null,
     val filtroStatusPL: String? = null,
     val mensaje: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val diasBloqueados: List<String> = emptyList(),
+
 )

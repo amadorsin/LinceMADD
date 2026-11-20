@@ -11,7 +11,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
 import java.security.Principal;
 import java.util.List;
 
@@ -46,5 +47,16 @@ public class DisponibilidadController {
 
         List<BloqueoCalendario> lista = disponibilidadService.obtenerBloqueosUsuario(usuario.getId());
         return ResponseEntity.ok(lista);
+    }
+    @DeleteMapping("/desbloquear/{fecha}")
+    @Operation(summary = "Desbloquear fecha", description = "Elimina un bloqueo de calendario existente del usuario autenticado")
+    public ResponseEntity<Void> desbloquearFecha(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            Principal principal) {
+        UsuarioLocal usuario = usuarioLocalRepository.findByCorreo(principal.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        disponibilidadService.desbloquearFecha(fecha, usuario.getId());
+        return ResponseEntity.noContent().build();
     }
 }

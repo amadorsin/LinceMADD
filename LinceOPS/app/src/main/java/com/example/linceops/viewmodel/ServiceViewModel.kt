@@ -38,6 +38,7 @@ class ServiceViewModel(
                     onSuccess = { usuario ->
                         _uiState.value = ServiceUiState(usuarioLogueado = usuario)
                         cargarServicios()
+                        cargarBloqueos()
                     },
                     onFailure = { err ->
                         _uiState.value = ServiceUiState(errorLogin = err.message ?: "Error al iniciar sesión.")
@@ -91,6 +92,72 @@ class ServiceViewModel(
                 error = if (esOffline) "Sin conexión con el servidor. Trabajando en Modo Offline." else null,
                 mensaje = null
             )
+        }
+    }
+    fun cargarBloqueos() {
+        if (_uiState.value.usuarioLogueado == null) return
+        viewModelScope.launch {
+            repository.obtenerMisBloqueos().onSuccess { lista ->
+                val fechasLatam = lista.mapNotNull { dto ->
+                    dto.fechaBloqueada?.let { convertirIsoALatam(it) }
+                }
+                _uiState.value = _uiState.value.copy(diasBloqueados = fechasLatam)
+            }
+        }
+    }
+
+    fun bloquearFecha(fechaLatam: String, motivo: String = "Día libre solicitado") {
+        val fechaIso = convertirAFechaIso(fechaLatam)
+        viewModelScope.launch {
+            repository.bloquearFecha(fechaIso, motivo).fold(
+                onSuccess = {
+                    val actualizados = (_uiState.value.diasBloqueados + fechaLatam).distinct()
+                    _uiState.value = _uiState.value.copy(
+                        diasBloqueados = actualizados,
+                        mensaje = "Fecha $fechaLatam bloqueada en el servidor.",
+                        error = null
+                    )
+                },
+                onFailure = { err ->
+                    _uiState.value = _uiState.value.copy(
+                        error = err.message ?: "No se pudo bloquear la fecha.",
+                        mensaje = null
+                    )
+                }
+            )
+        }
+    }
+
+    fun desbloquearFecha(fechaLatam: String) {
+        val fechaIso = convertirAFechaIso(fechaLatam)
+        viewModelScope.launch {
+            repository.desbloquearFecha(fechaIso).fold(
+                onSuccess = {
+                    val actualizados = _uiState.value.diasBloqueados.filterNot { it == fechaLatam }
+                    _uiState.value = _uiState.value.copy(
+                        diasBloqueados = actualizados,
+                        mensaje = "Fecha $fechaLatam desbloqueada en el servidor.",
+                        error = null
+                    )
+                },
+                onFailure = { err ->
+                    _uiState.value = _uiState.value.copy(
+                        error = err.message ?: "No se pudo desbloquear la fecha.",
+                        mensaje = null
+                    )
+                }
+            )
+        }
+    }
+
+    private fun convertirIsoALatam(fechaIso: String): String {
+        return try {
+            val entrada = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { isLenient = false }
+            val salida = SimpleDateFormat("dd/MM/yyyy", Locale.ROOT)
+            val date = entrada.parse(fechaIso)
+            if (date != null) salida.format(date) else fechaIso
+        } catch (_: Exception) {
+            fechaIso
         }
     }
 
