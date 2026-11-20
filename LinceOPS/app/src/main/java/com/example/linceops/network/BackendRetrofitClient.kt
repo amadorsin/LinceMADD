@@ -1,5 +1,6 @@
 package com.example.linceops.network
 
+import android.content.Context
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -7,12 +8,27 @@ import java.util.concurrent.TimeUnit
 
 object BackendRetrofitClient {
 
-    // 10.0.2.2 apunta al localhost de tu PC desde el emulador de Android.
-    // Si pruebas en teléfono físico o despliegas en la nube, cambia esta URL.
     const val BASE_URL = "http://127.0.0.1:8080/"
+    private const val PREFS_NAME = "linceops_auth_prefs"
+    private const val KEY_JWT = "jwt_token"
 
     @Volatile
     var jwtToken: String? = null
+
+    fun cargarTokenPersistido(context: Context) {
+        if (jwtToken.isNullOrBlank()) {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            jwtToken = prefs.getString(KEY_JWT, null)
+        }
+    }
+
+    fun guardarToken(context: Context, token: String?) {
+        jwtToken = token
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            if (token.isNullOrBlank()) remove(KEY_JWT) else putString(KEY_JWT, token)
+        }.apply()
+    }
 
     private val clienteHttp: OkHttpClient by lazy {
         OkHttpClient.Builder()

@@ -48,10 +48,15 @@ fun MarcajeScreen(
     servicioId: String,
     servicio: Servicio? = null,
     geocercas: List<GeocercaDto> = emptyList(),
+    hitosPendientesSync: Int = 0,
+    sincronizandoOffline: Boolean = false,
+    errorSyncOffline: String? = null,
+    onSincronizarAhora: () -> Unit = {},
+    onDescartarErrorSync: () -> Unit = {},
     onCheckIn: (Double, Double) -> Unit,
     onCheckOut: (Double, Double) -> Unit,
     modifier: Modifier = Modifier
-){
+) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var mensajeEstado by remember { mutableStateOf("Esperando inicio de ruta...") }
@@ -239,6 +244,55 @@ fun MarcajeScreen(
                     color = LinceGreenDark,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+        }
+
+        if (hitosPendientesSync > 0 || sincronizandoOffline || errorSyncOffline != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            val esError = errorSyncOffline != null
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = if (esError) StatusRejectedBg else LinceSurfaceContainerHigh,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (esError) LinceDangerRed.copy(alpha = 0.4f) else LinceGreenPrimary.copy(alpha = 0.35f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = when {
+                                sincronizandoOffline -> "Sincronizando con el servidor..."
+                                esError -> "Error al sincronizar hito offline"
+                                else -> "Cola Offline: $hitosPendientesSync hito(s) pendiente(s)"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (esError) LinceDangerRed else LinceGreenDark,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = errorSyncOffline
+                                ?: "Se enviarán automáticamente al recuperar conexión.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTextSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    if (esError) {
+                        TextButton(onClick = onDescartarErrorSync) {
+                            Text("Cerrar", color = LinceDangerRed)
+                        }
+                    } else if (!sincronizandoOffline) {
+                        TextButton(onClick = onSincronizarAhora) {
+                            Text("Reintentar", color = LinceGreenPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
 
@@ -488,8 +542,8 @@ fun MarcajeScreen(
             )
         }
     }
-
 }
+
 private fun calcularHaversineMetros(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
     val r = 6371000.0
     val dLat = Math.toRadians(lat2 - lat1)

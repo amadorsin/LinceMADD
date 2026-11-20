@@ -30,4 +30,8 @@ data class ServiceUiState(
     val geocercas: List<GeocercaDto> = emptyList(),
     val hitosCoordinacion: List<HitoDto> = emptyList(),
     val incidenciasCoordinacion: List<IncidenciaDto> = emptyList()
+
+    val hitosPendientesSync: Int = 0,
+    val sincronizandoOffline: Boolean = false,
+    val errorSyncOffline: String? = null
 )
