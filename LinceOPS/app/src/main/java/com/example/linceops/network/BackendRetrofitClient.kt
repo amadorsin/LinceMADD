@@ -9,16 +9,16 @@ object BackendRetrofitClient {
 
     // 10.0.2.2 apunta al localhost de tu PC desde el emulador de Android.
     // Si pruebas en teléfono físico o despliegas en la nube, cambia esta URL.
-    const val BASE_URL = "http://127.0.0.1:8080/"
+    const val BASE_URL = "https://lincemadd.onrender.com/"
 
     @Volatile
     var jwtToken: String? = null
 
     private val clienteHttp: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(45, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(45, TimeUnit.SECONDS)
             .addInterceptor { cadena ->
                 val solicitud = cadena.request()
                     .newBuilder()
