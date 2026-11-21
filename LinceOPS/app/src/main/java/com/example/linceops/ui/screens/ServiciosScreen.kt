@@ -1,5 +1,6 @@
 package com.example.linceops.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,15 +18,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.linceops.R
+import com.example.linceops.model.CodigoIdioma
 import com.example.linceops.model.EstadoServicio
+import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
+import com.example.linceops.model.TipoServicio
+import com.example.linceops.model.TipoVehiculo
 import com.example.linceops.ui.components.CampoFecha
 import com.example.linceops.ui.components.EfectoScrollBarraInferior
+import com.example.linceops.ui.components.ServiciosListSkeleton
 import com.example.linceops.ui.components.esFechaCompleta
 import com.example.linceops.ui.theme.*
 
@@ -38,8 +47,17 @@ fun ServiciosScreen(
     onFiltrarPorEstado: (EstadoServicio?) -> Unit,
     onFiltrarPorFecha: (String) -> Unit,
     onLimpiarFiltros: () -> Unit,
-    onScrollBarra: (Boolean) -> Unit = {}
+    onScrollBarra: (Boolean) -> Unit = {},
+    isLoading: Boolean = false,
+    servicioEnfocadoId: String? = null,
+    abrirDetallePendienteId: String? = null,
+    onDetallePendienteAbierto: (String) -> Unit = {}
 ) {
+    if (isLoading && servicios.isEmpty()) {
+        ServiciosListSkeleton()
+        return
+    }
+
     val listState = rememberLazyListState()
     EfectoScrollBarraInferior(listState = listState, onVisibleChange = onScrollBarra)
 
@@ -50,6 +68,19 @@ fun ServiciosScreen(
             if (!filtroFecha.isNullOrBlank()) onFiltrarPorFecha("")
         } else if (esFechaCompleta(textoFecha) && textoFecha != filtroFecha) {
             onFiltrarPorFecha(textoFecha)
+        }
+    }
+
+    LaunchedEffect(servicioEnfocadoId, abrirDetallePendienteId, servicios) {
+        val idObjetivo = abrirDetallePendienteId ?: servicioEnfocadoId
+        if (idObjetivo != null) {
+            val indice = servicios.indexOfFirst { it.id == idObjetivo }
+            if (indice >= 0) {
+                listState.scrollToItem(indice + 2)
+                if (abrirDetallePendienteId == idObjetivo) {
+                    onDetallePendienteAbierto(idObjetivo)
+                }
+            }
         }
     }
 
@@ -107,13 +138,13 @@ fun ServiciosScreen(
                             }
                         }
                         Text(
-                            text = "Sin resultados",
+                            text = stringResource(R.string.servicios_sin_resultados),
                             style = MaterialTheme.typography.titleMedium,
                             color = LinceTextPrimary,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "No hay servicios que coincidan con los filtros.",
+                            text = stringResource(R.string.servicios_sin_coincidencias),
                             style = MaterialTheme.typography.bodyMedium,
                             color = LinceTextSecondary,
                             textAlign = TextAlign.Center
@@ -122,10 +153,14 @@ fun ServiciosScreen(
                 }
             }
         } else {
-            items(servicios) { servicio ->
+            items(
+                items = servicios,
+                key = { it.id }
+            ) { servicio ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     ServicioItem(
                         servicio = servicio,
+                        esEnfocado = servicio.id == servicioEnfocadoId,
                         onClickDetalle = { onVerDetalle(servicio.id) }
                     )
                 }
@@ -144,7 +179,7 @@ private fun EncabezadoServicios(cantidad: Int) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "DESPACHO DE SERVICIOS",
+            text = stringResource(R.string.servicios_despacho),
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary,
             fontWeight = FontWeight.Bold,
@@ -152,7 +187,7 @@ private fun EncabezadoServicios(cantidad: Int) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Servicios Asignados",
+            text = stringResource(R.string.servicios_asignados),
             style = MaterialTheme.typography.headlineSmall,
             color = LinceGreenPrimary,
             fontWeight = FontWeight.Bold,
@@ -163,7 +198,8 @@ private fun EncabezadoServicios(cantidad: Int) {
         Spacer(modifier = Modifier.height(10.dp))
         Surface(
             color = LinceGreenSageLight,
-            shape = RoundedCornerShape(50)
+            shape = RoundedCornerShape(50),
+            border = BorderStroke(1.dp, LinceGreenBorder)
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
@@ -176,7 +212,11 @@ private fun EncabezadoServicios(cantidad: Int) {
                 )
                 Spacer(modifier = Modifier.width(7.dp))
                 Text(
-                    text = "$cantidad ${if (cantidad == 1) "servicio" else "servicios"}",
+                    text = if (cantidad == 1) {
+                        stringResource(R.string.servicios_cantidad_uno, cantidad)
+                    } else {
+                        stringResource(R.string.servicios_cantidad_varios, cantidad)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.Bold,
@@ -195,6 +235,7 @@ fun FiltrosSection(
     onFiltrarPorEstado: (EstadoServicio?) -> Unit,
     onLimpiarFiltros: () -> Unit
 ) {
+    val context = LocalContext.current
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = LinceCardSurface,
@@ -214,7 +255,7 @@ fun FiltrosSection(
                     FilterChip(
                         selected = filtroEstado == null,
                         onClick = { onFiltrarPorEstado(null) },
-                        label = { Text("Todos") },
+                        label = { Text(stringResource(R.string.dashboard_todos)) },
                         shape = RoundedCornerShape(50),
                         colors = filterChipColors()
                     )
@@ -224,7 +265,7 @@ fun FiltrosSection(
                     FilterChip(
                         selected = filtroEstado == estado,
                         onClick = { onFiltrarPorEstado(estado) },
-                        label = { Text(nombreEstado(estado)) },
+                        label = { Text(nombreEstado(context, estado)) },
                         shape = RoundedCornerShape(50),
                         colors = filterChipColors()
                     )
@@ -236,7 +277,7 @@ fun FiltrosSection(
             CampoFecha(
                 valor = textoFecha,
                 onValorChange = onTextoFechaChange,
-                etiqueta = "Filtrar por fecha",
+                etiqueta = stringResource(R.string.servicios_filtrar_fecha),
                 placeholder = "dd/MM/yyyy"
             )
 
@@ -252,7 +293,7 @@ fun FiltrosSection(
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "Limpiar filtros",
+                        text = stringResource(R.string.servicios_limpiar_filtros),
                         color = LinceGreenPrimary,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold
@@ -268,7 +309,7 @@ internal fun filterChipColors() = FilterChipDefaults.filterChipColors(
     containerColor = LinceSurfaceContainerHigh,
     labelColor = LinceTextSecondary,
     selectedContainerColor = LinceGreenPrimary,
-    selectedLabelColor = LinceCardSurface
+    selectedLabelColor = LinceOnPrimary
 )
 
 internal val estadosOrdenados = listOf(
@@ -279,23 +320,55 @@ internal val estadosOrdenados = listOf(
     EstadoServicio.RECHAZADO
 )
 
-internal fun nombreEstado(estado: EstadoServicio): String = when (estado) {
-    EstadoServicio.PENDIENTE -> "Pendiente"
-    EstadoServicio.CONFIRMADO -> "Confirmado"
-    EstadoServicio.RECHAZADO -> "Rechazado"
-    EstadoServicio.EN_CURSO -> "En Curso"
-    EstadoServicio.FINALIZADO -> "Finalizado"
+internal fun nombreEstado(context: Context, estado: EstadoServicio): String = when (estado) {
+    EstadoServicio.PENDIENTE -> context.getString(R.string.estado_pendiente)
+    EstadoServicio.CONFIRMADO -> context.getString(R.string.estado_confirmado)
+    EstadoServicio.RECHAZADO -> context.getString(R.string.estado_rechazado)
+    EstadoServicio.EN_CURSO -> context.getString(R.string.estado_en_curso)
+    EstadoServicio.FINALIZADO -> context.getString(R.string.estado_finalizado)
+}
+
+internal fun nombreRol(context: Context, rol: RolUsuario): String = when (rol) {
+    RolUsuario.CONDUCTOR -> context.getString(R.string.rol_conductor)
+    RolUsuario.GUIA -> context.getString(R.string.rol_guia)
+    RolUsuario.ADMINISTRADOR -> context.getString(R.string.rol_administrador)
+}
+
+internal fun nombreTipo(context: Context, tipo: TipoServicio): String = when (tipo) {
+    TipoServicio.TRANSFER -> context.getString(R.string.tipo_srv_transfer)
+    TipoServicio.GUIDED_SERVICE -> context.getString(R.string.tipo_srv_guiado)
+    TipoServicio.EXCURSION -> context.getString(R.string.tipo_srv_excursion)
+}
+
+internal fun nombreTipoVehiculo(context: Context, tipo: TipoVehiculo): String = when (tipo) {
+    TipoVehiculo.SEDAN -> context.getString(R.string.vehiculo_sedan)
+    TipoVehiculo.VAN -> context.getString(R.string.vehiculo_van)
+    TipoVehiculo.MINIBUS -> context.getString(R.string.vehiculo_minibus)
+    TipoVehiculo.BUS -> context.getString(R.string.vehiculo_bus)
+}
+
+internal fun nombreIdioma(context: Context, idioma: CodigoIdioma): String = when (idioma) {
+    CodigoIdioma.ES -> context.getString(R.string.idioma_es)
+    CodigoIdioma.EN -> context.getString(R.string.idioma_en)
+    CodigoIdioma.PT -> context.getString(R.string.idioma_pt)
+    CodigoIdioma.DE -> context.getString(R.string.idioma_de)
+    CodigoIdioma.FR -> context.getString(R.string.idioma_fr)
 }
 
 @Composable
 fun ServicioItem(
     servicio: Servicio,
+    esEnfocado: Boolean = false,
     onClickDetalle: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = LinceSurfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(
+            width = if (esEnfocado) 1.8.dp else 1.dp,
+            color = if (esEnfocado) LinceGreenPrimary else LinceOutlineVariant.copy(alpha = 0.5f)
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -320,16 +393,16 @@ fun ServicioItem(
                         Text(
                             text = servicio.hora,
                             style = MaterialTheme.typography.labelLarge,
-                            color = LinceCardSurface,
+                            color = LinceOnPrimary,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
 
-                    // Oficina (ej. SCL) y statusPL de Tourplan
                     Surface(
                         color = LinceGreenSageLight,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, LinceGreenBorder)
                     ) {
                         val tagOficina = if (servicio.statusPL != null) {
                             "${servicio.oficina.name} • ${servicio.statusPL.name}"
@@ -369,7 +442,7 @@ fun ServicioItem(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Ruta",
+                            contentDescription = stringResource(R.string.comun_ruta),
                             tint = LinceGreenPrimary,
                             modifier = Modifier.size(16.dp)
                         )
@@ -384,7 +457,7 @@ fun ServicioItem(
                     }
                     if (servicio.dropoff.isNotBlank()) {
                         Text(
-                            text = "Dropoff: ${servicio.dropoff}",
+                            text = stringResource(R.string.servicios_dropoff, servicio.dropoff),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             maxLines = 1,
@@ -401,15 +474,15 @@ fun ServicioItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Pasajeros",
+                    contentDescription = stringResource(R.string.comun_pasajeros),
                     tint = LinceGreenPrimary,
                     modifier = Modifier.size(15.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 val textoPax = if (servicio.capacidadVehiculo > 0) {
-                    "${servicio.pasajeros}/${servicio.capacidadVehiculo} Pax"
+                    stringResource(R.string.servicios_pax_capacidad, servicio.pasajeros, servicio.capacidadVehiculo)
                 } else {
-                    "${servicio.pasajeros} Pax"
+                    stringResource(R.string.servicios_pax, servicio.pasajeros)
                 }
                 Text(
                     text = textoPax,
@@ -432,13 +505,13 @@ fun ServicioItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Pickup",
+                    contentDescription = stringResource(R.string.comun_pickup),
                     tint = LinceTertiary,
                     modifier = Modifier.size(15.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Pickup: ${servicio.pickup}",
+                    text = stringResource(R.string.servicios_pickup, servicio.pickup),
                     style = MaterialTheme.typography.labelMedium,
                     color = LinceTextSecondary,
                     maxLines = 1,
@@ -456,8 +529,8 @@ fun ServicioItem(
                 contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
                 Text(
-                    text = "Ver Detalle del Servicio",
-                    color = LinceCardSurface,
+                    text = stringResource(R.string.servicios_ver_detalle),
+                    color = LinceOnPrimary,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -472,11 +545,11 @@ fun EstadoBadge(
     modifier: Modifier = Modifier
 ) {
     val (bgColor, textColor, texto) = when (estado) {
-        EstadoServicio.PENDIENTE -> Triple(StatusPendingBg, StatusPendingText, "Pendiente")
-        EstadoServicio.CONFIRMADO -> Triple(StatusConfirmedBg, StatusConfirmedText, "Confirmado")
-        EstadoServicio.EN_CURSO -> Triple(StatusInProgressBg, StatusInProgressText, "En Curso")
-        EstadoServicio.FINALIZADO -> Triple(StatusCompletedBg, StatusCompletedText, "Finalizado")
-        EstadoServicio.RECHAZADO -> Triple(StatusRejectedBg, StatusRejectedText, "Rechazado")
+        EstadoServicio.PENDIENTE -> Triple(StatusPendingBg, StatusPendingText, stringResource(R.string.estado_pendiente))
+        EstadoServicio.CONFIRMADO -> Triple(StatusConfirmedBg, StatusConfirmedText, stringResource(R.string.estado_confirmado))
+        EstadoServicio.EN_CURSO -> Triple(StatusInProgressBg, StatusInProgressText, stringResource(R.string.estado_en_curso))
+        EstadoServicio.FINALIZADO -> Triple(StatusCompletedBg, StatusCompletedText, stringResource(R.string.estado_finalizado))
+        EstadoServicio.RECHAZADO -> Triple(StatusRejectedBg, StatusRejectedText, stringResource(R.string.estado_rechazado))
     }
 
     Surface(

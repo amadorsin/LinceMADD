@@ -13,6 +13,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,19 +26,28 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.linceops.R
+import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
 import com.example.linceops.network.dto.GeocercaDto
+import com.example.linceops.ui.components.MarcajeMapaDistancia
+import com.example.linceops.ui.components.MarcajeSkeleton
+import com.example.linceops.ui.components.PuntoMapa
 import com.example.linceops.ui.theme.*
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
@@ -52,18 +63,95 @@ fun MarcajeScreen(
     onCheckOut: (Double, Double) -> Unit,
     modifier: Modifier = Modifier
 ){
+    if (servicio == null) {
+        MarcajeSkeleton(modifier = modifier)
+        return
+    }
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    var mensajeEstado by remember { mutableStateOf("Esperando inicio de ruta...") }
+    var mensajeEstado by remember { mutableStateOf(context.getString(R.string.marcaje_esperando)) }
     var accionPendiente by remember { mutableStateOf<(() -> Unit)?>(null) }
     var precisionGpsMetros by remember { mutableStateOf<Float?>(null) }
     var distanciaMetros by remember { mutableStateOf<Double?>(null) }
-
-    val geocercaObjetivo = remember(servicio, geocercas) {
-        geocercas.firstOrNull { it.puntoReferencia.equals(servicio?.pickup, ignoreCase = true) }
-            ?: geocercas.firstOrNull { it.puntoReferencia.equals(servicio?.oficina?.name, ignoreCase = true) }
+    var puntoUsuarioActual by remember { mutableStateOf<PuntoMapa?>(null) }
+    var esVistaCheckOut by remember(servicio.id, servicio.estado) {
+        mutableStateOf(servicio.estado == EstadoServicio.EN_CURSO)
     }
+
+    val geocercaPickup = remember(servicio, geocercas) {
+        geocercas.firstOrNull { it.puntoReferencia.equals(servicio.pickup, ignoreCase = true) }
+            ?: geocercas.firstOrNull {
+                !it.puntoReferencia.isNullOrBlank() &&
+                        servicio.pickup.contains(it.puntoReferencia, ignoreCase = true)
+            }
+            ?: geocercas.firstOrNull { it.puntoReferencia.equals(servicio.oficina.name, ignoreCase = true) }
+    }
+
+    val geocercaTermino = remember(servicio, geocercas, geocercaPickup) {
+        val destino = servicio.dropoff.takeIf { it.isNotBlank() } ?: servicio.origenDestino
+        geocercas.firstOrNull { it.puntoReferencia.equals(destino, ignoreCase = true) }
+            ?: geocercas.firstOrNull {
+                !it.puntoReferencia.isNullOrBlank() &&
+                        destino.contains(it.puntoReferencia, ignoreCase = true)
+            }
+            ?: geocercaPickup
+    }
+
+    val geocercaObjetivo = if (esVistaCheckOut) geocercaTermino else geocercaPickup
     val radioPermitido = geocercaObjetivo?.radioMetros ?: 150
+
+    val puntoObjetivoMapa = remember(geocercaObjetivo) {
+        val lat = geocercaObjetivo?.latitudCentro
+        val lon = geocercaObjetivo?.longitudCentro
+        if (lat != null && lon != null && (abs(lat) > 1e-5 || abs(lon) > 1e-5)) {
+            PuntoMapa(lat, lon)
+        } else {
+            null
+        }
+    }
+
+    LaunchedEffect(puntoObjetivoMapa, puntoUsuarioActual) {
+        val obj = puntoObjetivoMapa
+        val usr = puntoUsuarioActual
+        if (obj != null && usr != null) {
+            distanciaMetros = calcularHaversineMetros(
+                obj.latitud,
+                obj.longitud,
+                usr.latitud,
+                usr.longitud
+            )
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    LaunchedEffect(servicio.id, puntoObjetivoMapa) {
+        val tienePermiso = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+        if (tienePermiso) {
+            runCatching {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        puntoUsuarioActual = PuntoMapa(location.latitude, location.longitude)
+                        precisionGpsMetros = location.accuracy
+                        puntoObjetivoMapa?.let { obj ->
+                            distanciaMetros = calcularHaversineMetros(
+                                obj.latitud,
+                                obj.longitud,
+                                location.latitude,
+                                location.longitude
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val concedido = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
@@ -71,7 +159,7 @@ fun MarcajeScreen(
         if (concedido) {
             accionPendiente?.invoke()
         } else {
-            mensajeEstado = "Permiso de ubicación denegado."
+            mensajeEstado = context.getString(R.string.marcaje_permiso_denegado)
         }
         accionPendiente = null
     }
@@ -81,35 +169,37 @@ fun MarcajeScreen(
         esCheckIn: Boolean,
         onSuccess: (Double, Double) -> Unit
     ) {
+        esVistaCheckOut = !esCheckIn
+        val geocercaPaso = if (esCheckIn) geocercaPickup else geocercaTermino
+        puntoUsuarioActual = PuntoMapa(location.latitude, location.longitude)
         precisionGpsMetros = location.accuracy
-        val dist = if (geocercaObjetivo?.latitudCentro != null && geocercaObjetivo.longitudCentro != null) {
+        val dist = if (geocercaPaso?.latitudCentro != null && geocercaPaso.longitudCentro != null) {
             calcularHaversineMetros(
-                geocercaObjetivo.latitudCentro, geocercaObjetivo.longitudCentro,
+                geocercaPaso.latitudCentro, geocercaPaso.longitudCentro,
                 location.latitude, location.longitude
             )
         } else null
         distanciaMetros = dist
 
         if (esCheckIn && location.accuracy > 50f) {
-            mensajeEstado = String.format(
-                Locale.ROOT,
-                "GPS impreciso (±%.0f m). Espera mejor señal.",
-                location.accuracy
+            mensajeEstado = context.getString(
+                R.string.marcaje_gps_impreciso,
+                String.format(Locale.ROOT, "%.0f", location.accuracy)
             )
             return
         }
-        mensajeEstado = String.format(
-            Locale.ROOT,
-            "Ubicación: %.5f, %.5f (±%.0f m)",
-            location.latitude,
-            location.longitude,
-            location.accuracy
+        mensajeEstado = context.getString(
+            R.string.marcaje_ubicacion,
+            String.format(Locale.ROOT, "%.5f", location.latitude),
+            String.format(Locale.ROOT, "%.5f", location.longitude),
+            String.format(Locale.ROOT, "%.0f", location.accuracy)
         )
         onSuccess(location.latitude, location.longitude)
     }
 
     @SuppressLint("MissingPermission")
     fun obtenerUbicacion(esCheckIn: Boolean, onSuccess: (Double, Double) -> Unit) {
+        esVistaCheckOut = !esCheckIn
         val tieneFine = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
@@ -120,7 +210,7 @@ fun MarcajeScreen(
         ) == PackageManager.PERMISSION_GRANTED
 
         if (tieneFine || tieneCoarse) {
-            mensajeEstado = "Obteniendo coordenadas satelitales..."
+            mensajeEstado = context.getString(R.string.marcaje_obteniendo_coords)
             try {
                 fusedLocationClient.lastLocation
                     .addOnSuccessListener { location ->
@@ -138,21 +228,21 @@ fun MarcajeScreen(
                                     if (ubicacionActual != null) {
                                         procesarUbicacion(ubicacionActual, esCheckIn, onSuccess)
                                     } else {
-                                        mensajeEstado = "No se pudo obtener la ubicación. Verifica que el GPS esté activo."
+                                        mensajeEstado = context.getString(R.string.marcaje_no_ubicacion_activa)
                                     }
                                 }
                                 .addOnFailureListener {
-                                    mensajeEstado = "No se pudo obtener la ubicación satelital."
+                                    mensajeEstado = context.getString(R.string.marcaje_no_ubicacion_satelital)
                                 }
                         }
                     }
                     .addOnFailureListener {
-                        mensajeEstado = "Error al leer el sensor GPS del dispositivo."
+                        mensajeEstado = context.getString(R.string.marcaje_error_sensor)
                     }
             } catch (e: SecurityException) {
-                mensajeEstado = "Permiso de ubicación insuficiente."
+                mensajeEstado = context.getString(R.string.marcaje_permiso_insuficiente)
             } catch (e: Exception) {
-                mensajeEstado = "Error inesperado al capturar GPS en modo local."
+                mensajeEstado = context.getString(R.string.marcaje_error_inesperado)
             }
         } else {
             accionPendiente = { obtenerUbicacion(esCheckIn, onSuccess) }
@@ -187,14 +277,14 @@ fun MarcajeScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "CONTROL DE RUTA GPS",
+                    text = stringResource(R.string.marcaje_control_ruta),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = "Marcaje Operativo",
+                    text = stringResource(R.string.marcaje_titulo),
                     style = MaterialTheme.typography.headlineSmall,
                     color = LinceGreenPrimary,
                     fontWeight = FontWeight.Bold
@@ -206,7 +296,7 @@ fun MarcajeScreen(
                 shape = RoundedCornerShape(50)
             ) {
                 Text(
-                    text = "ID: $servicioId",
+                    text = stringResource(R.string.marcaje_id, servicioId),
                     style = MaterialTheme.typography.labelMedium,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.Bold,
@@ -215,7 +305,7 @@ fun MarcajeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -234,7 +324,7 @@ fun MarcajeScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Recuerda registrar tu Check-In 15 min antes del horario de pickup.",
+                    text = stringResource(R.string.marcaje_recordatorio),
                     style = MaterialTheme.typography.bodySmall,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.SemiBold
@@ -242,7 +332,7 @@ fun MarcajeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -258,17 +348,20 @@ fun MarcajeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Geolocalización satelital",
+                        text = stringResource(R.string.marcaje_geo_titulo),
                         style = MaterialTheme.typography.titleMedium,
                         color = LinceGreenDark,
                         fontWeight = FontWeight.Bold
                     )
                     Surface(
                         color = LinceGreenSageLight,
-                        shape = RoundedCornerShape(50)
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(1.dp, LinceGreenBorder)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .clickable { esVistaCheckOut = !esVistaCheckOut }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -278,11 +371,15 @@ fun MarcajeScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "GPS",
+                                text = if (esVistaCheckOut) {
+                                    stringResource(R.string.marcaje_mapa_punto_termino)
+                                } else {
+                                    stringResource(R.string.marcaje_mapa_punto_recogida)
+                                },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceGreenDark,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.6.sp
+                                letterSpacing = 0.4.sp
                             )
                         }
                     }
@@ -290,74 +387,199 @@ fun MarcajeScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .background(LinceSurfaceContainerLow, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Surface(
-                        modifier = Modifier.size(184.dp),
-                        shape = CircleShape,
-                        color = LinceGreenPrimary.copy(alpha = 0.04f + (0.07f * pulsoRadar))
-                    ) {}
-                    Surface(
-                        modifier = Modifier.size(132.dp),
-                        shape = CircleShape,
-                        color = LinceGreenPrimary.copy(alpha = 0.09f)
-                    ) {}
-                    Surface(
-                        modifier = Modifier.size(84.dp),
-                        shape = CircleShape,
-                        color = LinceGreenSageLight
-                    ) {}
-                    Surface(
-                        modifier = Modifier.size(56.dp),
-                        shape = CircleShape,
-                        color = LinceGreenPrimary,
-                        shadowElevation = 4.dp
+                val etiquetaObjetivoActual = if (esVistaCheckOut) {
+                    stringResource(R.string.marcaje_mapa_punto_termino)
+                } else {
+                    stringResource(R.string.marcaje_mapa_punto_recogida)
+                }
+
+                val textoDistanciaActual = distanciaMetros?.let { metros ->
+                    if (metros >= 1000.0) {
+                        stringResource(
+                            R.string.marcaje_distancia_km,
+                            String.format(Locale.US, "%.2f", metros / 1000.0)
+                        )
+                    } else {
+                        stringResource(R.string.marcaje_distancia_valor, metros.toInt())
+                    }
+                }
+
+                if (puntoObjetivoMapa != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(LinceSurfaceContainerLow, RoundedCornerShape(16.dp))
+                            .border(1.dp, LinceOutlineVariant, RoundedCornerShape(16.dp))
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = "Ubicación GPS",
-                                tint = LinceCardSurface,
-                                modifier = Modifier.size(28.dp)
-                            )
+                        MarcajeMapaDistancia(
+                            puntoObjetivo = puntoObjetivoMapa,
+                            puntoUsuario = puntoUsuarioActual,
+                            radioMetros = radioPermitido,
+                            modifier = Modifier.fillMaxSize()
+                        )
+
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(10.dp),
+                            color = LinceCardSurface.copy(alpha = 0.92f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
+                                Text(
+                                    text = stringResource(R.string.marcaje_margen),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceTextSecondary,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = buildString {
+                                        append(context.getString(R.string.marcaje_radio_valor, radioPermitido))
+                                        textoDistanciaActual?.let {
+                                            append(" · ")
+                                            append(it)
+                                        }
+                                        precisionGpsMetros?.let {
+                                            append(" · ")
+                                            append(context.getString(R.string.marcaje_gps_valor, it.toInt()))
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = LinceTextPrimary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(10.dp),
+                            color = LinceCardSurface.copy(alpha = 0.92f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(LinceGreenPrimary, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = etiquetaObjetivoActual,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = LinceTextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (puntoUsuarioActual != null) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .background(LinceTheme.colors.mapGpsBlue, CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = stringResource(R.string.marcaje_mapa_tu_ubicacion),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = LinceTextSecondary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    Surface(
+                } else {
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(10.dp),
-                        color = LinceCardSurface.copy(alpha = 0.9f),
-                        shape = RoundedCornerShape(8.dp)
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .background(LinceSurfaceContainerLow, RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
-                            Text(
-                                text = "MARGEN OPERATIVO",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceTextSecondary,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                            Text(
-                                text = buildString {
-                                    append("Radio: $radioPermitido m")
-                                    distanciaMetros?.let { append(" · Dist: ${it.toInt()} m") }
-                                    precisionGpsMetros?.let { append(" · GPS ±${it.toInt()} m") }
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = LinceTextPrimary,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        Surface(
+                            modifier = Modifier.size(184.dp),
+                            shape = CircleShape,
+                            color = LinceGreenPrimary.copy(alpha = 0.04f + (0.07f * pulsoRadar))
+                        ) {}
+                        Surface(
+                            modifier = Modifier.size(132.dp),
+                            shape = CircleShape,
+                            color = LinceGreenPrimary.copy(alpha = 0.09f)
+                        ) {}
+                        Surface(
+                            modifier = Modifier.size(84.dp),
+                            shape = CircleShape,
+                            color = LinceGreenSageLight
+                        ) {}
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = CircleShape,
+                            color = LinceGreenPrimary,
+                            shadowElevation = 4.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = stringResource(R.string.marcaje_ubicacion_gps),
+                                    tint = LinceOnPrimary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(10.dp),
+                            color = LinceCardSurface.copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
+                                Text(
+                                    text = stringResource(R.string.marcaje_margen),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceTextSecondary,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = buildString {
+                                        append(context.getString(R.string.marcaje_radio_valor, radioPermitido))
+                                        textoDistanciaActual?.let {
+                                            append(" · ")
+                                            append(it)
+                                        }
+                                        precisionGpsMetros?.let {
+                                            append(" · ")
+                                            append(context.getString(R.string.marcaje_gps_valor, it.toInt()))
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = LinceTextPrimary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -385,7 +607,7 @@ fun MarcajeScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "ESTADO DE GEOLOCALIZACIÓN",
+                                text = stringResource(R.string.marcaje_estado_geo),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LinceTextSecondary,
                                 fontWeight = FontWeight.Bold,
@@ -414,7 +636,7 @@ fun MarcajeScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Tu ubicación se adjuntará automáticamente al registrar el inicio o término del recorrido.",
+                        text = stringResource(R.string.marcaje_info_adjunta),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary,
                         textAlign = TextAlign.Start
@@ -440,14 +662,14 @@ fun MarcajeScreen(
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = null,
-                    tint = LinceCardSurface,
+                    tint = LinceOnPrimary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Registrar Check-In",
+                    text = stringResource(R.string.marcaje_registrar_checkin),
                     style = MaterialTheme.typography.titleMedium,
-                    color = LinceCardSurface,
+                    color = LinceOnPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -472,7 +694,7 @@ fun MarcajeScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Registrar Check-Out",
+                    text = stringResource(R.string.marcaje_checkout),
                     style = MaterialTheme.typography.titleMedium,
                     color = LinceGreenDark,
                     fontWeight = FontWeight.SemiBold
@@ -480,7 +702,7 @@ fun MarcajeScreen(
             }
 
             Text(
-                text = "Verificación satelital automática al confirmar el marcaje.",
+                text = stringResource(R.string.marcaje_verificacion),
                 style = MaterialTheme.typography.labelSmall,
                 color = LinceTextSecondary,
                 textAlign = TextAlign.Center,
@@ -488,8 +710,8 @@ fun MarcajeScreen(
             )
         }
     }
-
 }
+
 private fun calcularHaversineMetros(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
     val r = 6371000.0
     val dLat = Math.toRadians(lat2 - lat1)

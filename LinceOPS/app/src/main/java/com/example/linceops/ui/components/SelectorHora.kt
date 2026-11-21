@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -43,12 +44,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.linceops.R
 import com.example.linceops.ui.theme.LinceCardSurface
 import com.example.linceops.ui.theme.LinceCreamBackground
 import com.example.linceops.ui.theme.LinceGreenBorder
 import com.example.linceops.ui.theme.LinceGreenDark
 import com.example.linceops.ui.theme.LinceGreenPrimary
 import com.example.linceops.ui.theme.LinceGreenSageLight
+import com.example.linceops.ui.theme.LinceOnPrimary
 import com.example.linceops.ui.theme.LinceTextPrimary
 import com.example.linceops.ui.theme.LinceTextSecondary
 import java.util.Calendar
@@ -92,7 +95,7 @@ fun SelectorHoraDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "HORA DE SALIDA",
+                    text = stringResource(R.string.hora_titulo),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -102,7 +105,7 @@ fun SelectorHoraDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Desliza hacia arriba o abajo para ajustar",
+                    text = stringResource(R.string.hora_instruccion),
                     style = MaterialTheme.typography.bodySmall,
                     color = LinceTextSecondary
                 )
@@ -178,7 +181,7 @@ fun SelectorHoraDialog(
                         border = BorderStroke(1.dp, LinceGreenBorder)
                     ) {
                         Text(
-                            text = "Cancelar",
+                            text = stringResource(R.string.accion_cancelar),
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -202,8 +205,8 @@ fun SelectorHoraDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                     ) {
                         Text(
-                            text = "Aceptar",
-                            color = LinceCardSurface,
+                            text = stringResource(R.string.accion_aceptar),
+                            color = LinceOnPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     }

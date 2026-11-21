@@ -1,5 +1,6 @@
 package com.example.linceops.ui.components
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -34,14 +35,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.linceops.R
 import com.example.linceops.ui.theme.LinceGlassBorder
+import com.example.linceops.ui.theme.LinceGlassSurface
 import com.example.linceops.ui.theme.LinceGreenDark
 import com.example.linceops.ui.theme.LinceGreenSageLight
 import com.example.linceops.ui.theme.LinceOutlineVariant
 import com.example.linceops.ui.theme.LinceTextSecondary
+import com.example.linceops.ui.theme.LinceTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeChild
@@ -49,13 +54,13 @@ import dev.chrisbanes.haze.hazeChild
 private data class ItemBarra(
     val id: String,
     val icono: ImageVector,
-    val etiqueta: String
+    @StringRes val etiquetaRes: Int
 )
 
 private val ITEMS_BARRA = listOf(
-    ItemBarra("inicio", Icons.Filled.Home, "Inicio"),
-    ItemBarra("servicios", Icons.AutoMirrored.Filled.List, "Servicios"),
-    ItemBarra("perfil", Icons.Filled.Person, "Perfil")
+    ItemBarra("inicio", Icons.Filled.Home, R.string.nav_inicio),
+    ItemBarra("servicios", Icons.AutoMirrored.Filled.List, R.string.nav_servicios),
+    ItemBarra("perfil", Icons.Filled.Person, R.string.nav_perfil)
 )
 
 @Composable
@@ -133,13 +138,17 @@ fun BarraInferiorGlass(
                         state = hazeState,
                         shape = formaPildora,
                         style = HazeStyle(
-                            tint = Color(0xFFFDFBF7).copy(alpha = 0.52f),
+                            tint = LinceGlassSurface.copy(
+                                alpha = if (LinceTheme.colors.isDark) 0.72f else 0.52f
+                            ),
                             blurRadius = 26.dp,
                             noiseFactor = 0.04f
                         )
                     )
                     .background(
-                        color = Color(0xFFFDFBF7).copy(alpha = 0.18f),
+                        color = LinceGlassSurface.copy(
+                            alpha = if (LinceTheme.colors.isDark) 0.42f else 0.18f
+                        ),
                         shape = formaPildora
                     )
                     .border(
@@ -173,6 +182,7 @@ fun BarraInferiorGlass(
                     ITEMS_BARRA.forEach { item ->
                         val seleccionado = cuandoSeleccionado(rutaActual, item.id)
                         val interactionSource = remember { MutableInteractionSource() }
+                        val etiquetaItem = stringResource(item.etiquetaRes)
 
                         Box(
                             modifier = Modifier
@@ -182,7 +192,7 @@ fun BarraInferiorGlass(
                                     interactionSource = interactionSource,
                                     indication = null
                                 ) { onNavegar(item.id) }
-                                .semantics { contentDescription = item.etiqueta },
+                                .semantics { contentDescription = etiquetaItem },
                             contentAlignment = Alignment.Center
                         ) {
                             if (seleccionado) {

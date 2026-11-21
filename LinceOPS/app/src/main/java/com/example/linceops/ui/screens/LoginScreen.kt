@@ -14,12 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.linceops.R
 import com.example.linceops.ui.theme.*
 
 @Composable
@@ -33,6 +35,7 @@ fun LoginScreen(
     var mensajeErrorLocal by remember { mutableStateOf("") }
 
     val errorVisible = mensajeErrorLocal.ifBlank { errorLogin.orEmpty() }
+    val errorCampos = stringResource(R.string.login_error_campos)
 
     Column(
         modifier = modifier
@@ -54,7 +57,7 @@ fun LoginScreen(
                 Text(
                     text = "L",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = LinceCardSurface,
+                    color = LinceOnPrimary,
                     fontWeight = FontWeight.ExtraBold
                 )
             }
@@ -71,7 +74,7 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(3.dp))
         Text(
-            text = "OPERACIONES EN TERRENO",
+            text = stringResource(R.string.login_operaciones_terreno),
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary,
             fontWeight = FontWeight.Bold,
@@ -94,7 +97,7 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    text = "ACCESO OPERATIVO",
+                    text = stringResource(R.string.login_acceso_operativo),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -107,12 +110,12 @@ fun LoginScreen(
                         usuario = it
                         mensajeErrorLocal = ""
                     },
-                    label = { Text("Correo o usuario") },
-                    placeholder = { Text("Ej: driver@linceops.cl") },
+                    label = { Text(stringResource(R.string.login_correo_usuario)) },
+                    placeholder = { Text(stringResource(R.string.login_correo_placeholder)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Person,
-                            contentDescription = "Usuario",
+                            contentDescription = stringResource(R.string.login_usuario),
                             tint = LinceGreenPrimary
                         )
                     },
@@ -129,11 +132,11 @@ fun LoginScreen(
                         password = it
                         mensajeErrorLocal = ""
                     },
-                    label = { Text("Contraseña") },
+                    label = { Text(stringResource(R.string.login_contrasena)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "Contraseña",
+                            contentDescription = stringResource(R.string.login_contrasena),
                             tint = LinceGreenPrimary
                         )
                     },
@@ -169,7 +172,7 @@ fun LoginScreen(
             onClick = {
                 val correoResuelto = resolverCorreo(usuario)
                 if (correoResuelto.isBlank() || password.isBlank()) {
-                    mensajeErrorLocal = "Por favor ingresa tu correo y contraseña."
+                    mensajeErrorLocal = errorCampos
                 } else {
                     mensajeErrorLocal = ""
                     onLogin(correoResuelto, password)
@@ -182,9 +185,9 @@ fun LoginScreen(
             colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
         ) {
             Text(
-                text = "Ingresar",
+                text = stringResource(R.string.login_ingresar),
                 style = MaterialTheme.typography.titleMedium,
-                color = LinceCardSurface,
+                color = LinceOnPrimary,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -202,7 +205,7 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "ATAJOS DE DESARROLLADOR (TESTING)",
+                    text = stringResource(R.string.login_atajos),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -214,17 +217,17 @@ fun LoginScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     AtajoRol(
-                        texto = "Manager",
+                        texto = stringResource(R.string.login_atajo_manager),
                         modifier = Modifier.weight(1f),
                         onClick = { onLogin("admin@linceops.cl", "123456") }
                     )
                     AtajoRol(
-                        texto = "Driver",
+                        texto = stringResource(R.string.login_atajo_driver),
                         modifier = Modifier.weight(1f),
                         onClick = { onLogin("driver@linceops.cl", "123456") }
                     )
                     AtajoRol(
-                        texto = "Guía",
+                        texto = stringResource(R.string.login_atajo_guia),
                         modifier = Modifier.weight(1f),
                         onClick = { onLogin("guia@linceops.cl", "123456") }
                     )
@@ -235,7 +238,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "LINCE OPS Mobile",
+            text = stringResource(R.string.login_footer),
             style = MaterialTheme.typography.labelSmall,
             color = LinceTextSecondary
         )
@@ -284,5 +287,9 @@ private fun loginFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedBorderColor = LinceOutlineVariant,
     focusedContainerColor = LinceCardSurface,
     unfocusedContainerColor = LinceSurfaceContainerLow,
-    focusedLabelColor = LinceGreenPrimary
+    focusedLabelColor = LinceGreenPrimary,
+    unfocusedLabelColor = LinceTextSecondary,
+    focusedTextColor = LinceTextPrimary,
+    unfocusedTextColor = LinceTextPrimary,
+    cursorColor = LinceGreenPrimary
 )

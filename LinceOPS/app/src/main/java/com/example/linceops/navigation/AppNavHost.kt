@@ -1,6 +1,8 @@
 package com.example.linceops.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -19,10 +21,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.example.linceops.R
 import com.example.linceops.data.local.LinceOpsDatabase
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.ui.components.BarraInferiorGlass
+import com.example.linceops.ui.components.DetalleSkeleton
 import com.example.linceops.ui.components.NotificacionFlotante
 import com.example.linceops.ui.screens.*
 import com.example.linceops.utils.isInternetAvailable
@@ -35,7 +39,6 @@ import kotlinx.coroutines.delay
 fun AppNavHost(
     navController: NavHostController = rememberNavController()
 ) {
-
     val context = LocalContext.current
 
     val database = remember { LinceOpsDatabase.getDatabase(context) }
@@ -53,6 +56,9 @@ fun AppNavHost(
     var avisoError by remember { mutableStateOf(false) }
     var avisoVisible by remember { mutableStateOf(false) }
     var avisoId by remember { mutableStateOf(0) }
+
+    var servicioEnfocadoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var abrirDetallePendienteId by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.mensaje, uiState.error) {
         val texto = uiState.mensaje ?: uiState.error
@@ -93,10 +99,20 @@ fun AppNavHost(
                 NavHost(
                     navController = navController,
                     startDestination = Destino.Login.ruta,
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = Modifier.padding(paddingValues),
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None }
                 ) {
 
-                    composable(Destino.Login.ruta) {
+                    composable(
+                        route = Destino.Login.ruta,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         val usuarioLogueado = uiState.usuarioLogueado
                         LaunchedEffect(usuarioLogueado) {
                             if (usuarioLogueado != null) {
@@ -116,7 +132,11 @@ fun AppNavHost(
 
                     composable(
                         route = Destino.Dashboard.ruta,
-                        arguments = listOf(navArgument("rol") { type = NavType.StringType })
+                        arguments = listOf(navArgument("rol") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
                     ) { backStackEntry ->
                         val rolString =
                             backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
@@ -135,26 +155,65 @@ fun AppNavHost(
                             onCrearServicio = {
                                 navController.navigate("crear_servicio")
                             },
+                            onVerDetalleServicio = { servicioId ->
+                                if (uiState.servicios.none { it.id == servicioId }) {
+                                    serviceViewModel.limpiarFiltros()
+                                }
+                                servicioEnfocadoId = servicioId
+                                abrirDetallePendienteId = servicioId
+                                barraVisible = true
+                                navController.navigate(Destino.Feed.ruta) {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
                             onScrollBarra = { barraVisible = it }
                         )
                     }
 
-                    composable(Destino.Feed.ruta) {
+                    composable(
+                        route = Destino.Feed.ruta,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         ServiciosScreen(
                             servicios = uiState.servicios,
                             onVerDetalle = { servicioId ->
-                                navController.navigate(Destino.Detalle.createRoute(servicioId))
+                                servicioEnfocadoId = servicioId
+                                navController.navigate(Destino.Detalle.createRoute(servicioId)) {
+                                    launchSingleTop = true
+                                }
                             },
                             filtroEstado = uiState.filtroEstado,
                             filtroFecha = uiState.filtroFecha,
                             onFiltrarPorEstado = { estado -> serviceViewModel.filtrarPorEstado(estado) },
                             onFiltrarPorFecha = { fecha -> serviceViewModel.filtrarPorFecha(fecha) },
                             onLimpiarFiltros = { serviceViewModel.limpiarFiltros() },
-                            onScrollBarra = { barraVisible = it }
+                            onScrollBarra = { barraVisible = it },
+                            isLoading = uiState.isLoading,
+                            servicioEnfocadoId = servicioEnfocadoId,
+                            abrirDetallePendienteId = abrirDetallePendienteId,
+                            onDetallePendienteAbierto = { servicioId ->
+                                abrirDetallePendienteId = null
+                                navController.navigate(Destino.Detalle.createRoute(servicioId)) {
+                                    launchSingleTop = true
+                                }
+                            }
                         )
                     }
 
-                    composable(Destino.Perfil.ruta) {
+                    composable(
+                        route = Destino.Perfil.ruta,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         PerfilScreen(
                             usuario = uiState.usuarioLogueado,
                             servicios = uiState.serviciosTotales,
@@ -163,6 +222,8 @@ fun AppNavHost(
                             onDesbloquearFecha = { fecha -> serviceViewModel.desbloquearFecha(fecha) },
                             onScrollBarra = { barraVisible = it },
                             onCerrarSesion = {
+                                servicioEnfocadoId = null
+                                abrirDetallePendienteId = null
                                 serviceViewModel.cerrarSesion()
                                 navController.navigate(Destino.Login.ruta) {
                                     popUpTo(0) { inclusive = true }
@@ -173,7 +234,11 @@ fun AppNavHost(
 
                     composable(
                         route = Destino.Detalle.ruta,
-                        arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
+                        arguments = listOf(navArgument("servicioId") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
                     ) { backStackEntry ->
                         val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
                         val servicio = serviceViewModel.obtenerServicio(servicioId)
@@ -197,7 +262,10 @@ fun AppNavHost(
                                     navController.popBackStack()
                                 },
                                 onRechazar = {
-                                    serviceViewModel.rechazarServicio(servicio.id, "Motivo no especificado")
+                                    serviceViewModel.rechazarServicio(
+                                        servicio.id,
+                                        context.getString(R.string.detalle_motivo_no_especificado)
+                                    )
                                     navController.popBackStack()
                                 },
                                 onReasignar = {
@@ -207,12 +275,18 @@ fun AppNavHost(
                                     navController.navigate(Destino.Marcaje.createRoute(servicio.id))
                                 }
                             )
+                        } else {
+                            DetalleSkeleton()
                         }
                     }
 
                     composable(
                         route = Destino.Marcaje.ruta,
-                        arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
+                        arguments = listOf(navArgument("servicioId") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
                     ) { backStackEntry ->
                         val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
 
@@ -232,7 +306,13 @@ fun AppNavHost(
                         )
                     }
 
-                    composable("crear_servicio") {
+                    composable(
+                        route = "crear_servicio",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         CrearServicioScreen(
                             onGuardar = { titulo, ruta, fecha, hora, tipo, pax ->
                                 serviceViewModel.crearNuevoServicio(
