@@ -22,7 +22,7 @@ val secretos = Properties().apply {
 
 val maptilerKey = (secretos.getProperty("MAPTILER_KEY")
     ?: System.getenv("MAPTILER_KEY")
-    ?: "").trim()
+    ?: "").trim().trim('"', '\'').trim()
 
 val southboundApiKey = (System.getenv("SOUTHBOUND_API_KEY")
     ?: secretos.getProperty("SOUTHBOUND_API_KEY")

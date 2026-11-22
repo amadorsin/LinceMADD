@@ -203,6 +203,7 @@ fun MapaRutaMarcaje(
                         false
                     }
                 }
+                registrarFallbackTeselas(mapView, fuente)
 
                 val circle = Polygon(mapView).apply {
                     fillPaint.color = colores.greenPrimary.copy(alpha = 0.12f).toArgb()

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -362,6 +363,9 @@ fun SelectorUbicacionDialog(
     var ubicacionGps by remember { mutableStateOf<PuntoMapa?>(null) }
     var moviendoMapa by remember { mutableStateOf(false) }
     var errorTeselas by remember { mutableStateOf(false) }
+    var atribucionMapa by remember {
+        mutableStateOf("\u00A9 MapTiler \u2022 \u00A9 OpenStreetMap contributors")
+    }
     var editandoDireccion by remember { mutableStateOf(false) }
 
     var consulta by remember { mutableStateOf("") }
@@ -673,11 +677,12 @@ fun SelectorUbicacionDialog(
                                 centro = nuevo
                             },
                             onZoomChange = { nuevoZoom ->
-                                zoomOsm = nuevoZoom.coerceIn(3, 20)
+                                zoomOsm = nuevoZoom.coerceIn(3, 19)
                             },
                             puntoGps = ubicacionGps,
                             onMapMovingChange = { moviendoMapa = it },
                             onTileError = { errorTeselas = true },
+                            onFuenteChange = { atribucionMapa = it },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -685,8 +690,8 @@ fun SelectorUbicacionDialog(
                     if (!hayRed || errorTeselas) {
                         Surface(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(8.dp)
+                                .align(Alignment.TopCenter)
+                                .padding(top = 12.dp, start = 16.dp, end = 16.dp)
                                 .clickable(enabled = errorTeselas) { errorTeselas = false },
                             shape = RoundedCornerShape(50),
                             color = LinceCardSurface.copy(alpha = 0.94f),
@@ -859,7 +864,7 @@ fun SelectorUbicacionDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         BotonMapa(texto = "+") {
-                            zoomOsm = (zoomOsm + 1).coerceAtMost(20)
+                            zoomOsm = (zoomOsm + 1).coerceAtMost(19)
                         }
                         BotonMapa(texto = "-") {
                             zoomOsm = (zoomOsm - 1).coerceAtLeast(3)
@@ -869,14 +874,17 @@ fun SelectorUbicacionDialog(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(8.dp),
+                            .padding(start = 8.dp, top = 8.dp, bottom = 8.dp, end = 64.dp)
+                            .widthIn(max = 240.dp),
                         shape = RoundedCornerShape(6.dp),
                         color = LinceCardSurface.copy(alpha = 0.88f)
                     ) {
                         Text(
-                            text = "\u00A9 MapTiler \u2022 \u00A9 OpenStreetMap contributors",
+                            text = atribucionMapa,
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(
                                 start = LinceSpacing.xSmall + 2.dp,
                                 end = LinceSpacing.xSmall + 2.dp,

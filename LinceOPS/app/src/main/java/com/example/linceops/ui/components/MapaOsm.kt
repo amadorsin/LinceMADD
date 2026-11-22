@@ -74,9 +74,16 @@ private class MapTilerStreetsSource(apiKey: String) : OnlineTileSourceBase(
 }
 
 private fun fuenteCartografica(): OnlineTileSourceBase {
-    val clave = BuildConfig.MAPTILER_KEY.trim()
+    val clave = BuildConfig.MAPTILER_KEY.trim().trim('"', '\'').trim()
     return if (clave.isEmpty()) FUENTE_ESRI else MapTilerStreetsSource(clave)
 }
+
+private fun atribucionFuente(fuente: OnlineTileSourceBase): String =
+    if (fuente is MapTilerStreetsSource) {
+        "\u00A9 MapTiler \u2022 \u00A9 OpenStreetMap contributors"
+    } else {
+        "\u00A9 Esri"
+    }
 
 internal fun configurarFuenteCartografica(contexto: Context): OnlineTileSourceBase {
     val fuente = fuenteCartografica()
@@ -94,6 +101,55 @@ internal fun configurarFuenteCartografica(contexto: Context): OnlineTileSourceBa
     return fuente
 }
 
+internal fun registrarFallbackTeselas(
+    mapa: MapView,
+    fuenteInicial: OnlineTileSourceBase,
+    onFuenteChange: (String) -> Unit = {},
+    onErrorFuenteRespaldo: () -> Unit = {}
+) {
+    var fuenteActual = fuenteInicial
+    var exitosTesela = 0
+    var fallosTesela = 0
+    var errorRespaldoNotificado = false
+
+    val handlerTeselas = object : Handler(Looper.getMainLooper()) {
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                MapTileProviderBase.MAPTILE_SUCCESS_ID -> {
+                    exitosTesela++
+                    fallosTesela = 0
+                }
+
+                MapTileProviderBase.MAPTILE_FAIL_ID -> {
+                    fallosTesela++
+                    if (fuenteActual is MapTilerStreetsSource &&
+                        exitosTesela == 0 &&
+                        fallosTesela >= 4
+                    ) {
+                        fuenteActual = FUENTE_ESRI
+                        exitosTesela = 0
+                        fallosTesela = 0
+                        errorRespaldoNotificado = false
+                        Configuration.getInstance().userAgentValue = USER_AGENT_OSM
+                        mapa.setTileSource(FUENTE_ESRI)
+                        mapa.tileProvider.clearTileCache()
+                        onFuenteChange(atribucionFuente(FUENTE_ESRI))
+                        mapa.invalidate()
+                    } else if (fuenteActual === FUENTE_ESRI &&
+                        exitosTesela == 0 &&
+                        fallosTesela >= 4 &&
+                        !errorRespaldoNotificado
+                    ) {
+                        errorRespaldoNotificado = true
+                        onErrorFuenteRespaldo()
+                    }
+                }
+            }
+        }
+    }
+    mapa.tileProvider.tileRequestCompleteHandlers.add(handlerTeselas)
+}
+
 private class EstadoMapaOsm {
     var mapa: MapView? = null
     var marcadorGps: Marker? = null
@@ -103,9 +159,6 @@ private class EstadoMapaOsm {
     var animandoHasta = 0L
     var ultimoCentroNotificado: PuntoMapa? = null
     var ultimoZoomNotificado: Int? = null
-    var exitosTesela = 0
-    var fallosTesela = 0
-    var errorTeselasNotificado = false
 }
 
 @Composable
@@ -117,12 +170,14 @@ fun MapaOsm(
     modifier: Modifier = Modifier,
     puntoGps: PuntoMapa? = null,
     onMapMovingChange: (Boolean) -> Unit = {},
-    onTileError: () -> Unit = {}
+    onTileError: () -> Unit = {},
+    onFuenteChange: (String) -> Unit = {}
 ) {
     val centroCallback by rememberUpdatedState(onCentroChange)
     val zoomCallback by rememberUpdatedState(onZoomChange)
     val movingCallback by rememberUpdatedState(onMapMovingChange)
     val tileErrorCallback by rememberUpdatedState(onTileError)
+    val fuenteCallback by rememberUpdatedState(onFuenteChange)
     val estado = remember { EstadoMapaOsm() }
 
     AndroidView(
@@ -156,28 +211,12 @@ fun MapaOsm(
             }
             mapa.overlays.add(marcador)
 
-            val handlerTeselas = object : Handler(Looper.getMainLooper()) {
-                override fun handleMessage(msg: Message) {
-                    when (msg.what) {
-                        MapTileProviderBase.MAPTILE_SUCCESS_ID -> {
-                            estado.exitosTesela++
-                            estado.fallosTesela = 0
-                        }
-
-                        MapTileProviderBase.MAPTILE_FAIL_ID -> {
-                            estado.fallosTesela++
-                            if (!estado.errorTeselasNotificado &&
-                                estado.exitosTesela == 0 &&
-                                estado.fallosTesela >= 6
-                            ) {
-                                estado.errorTeselasNotificado = true
-                                tileErrorCallback()
-                            }
-                        }
-                    }
-                }
-            }
-            mapa.tileProvider.tileRequestCompleteHandlers.add(handlerTeselas)
+            registrarFallbackTeselas(
+                mapa = mapa,
+                fuenteInicial = fuente,
+                onFuenteChange = fuenteCallback,
+                onErrorFuenteRespaldo = tileErrorCallback
+            )
 
             fun detenerMovimiento() {
                 estado.finMovimiento?.let { handlerUi.removeCallbacks(it) }
@@ -234,6 +273,7 @@ fun MapaOsm(
             }
 
             mapa.onResume()
+            mapa.post { fuenteCallback(atribucionFuente(fuente)) }
             estado.mapa = mapa
             estado.marcadorGps = marcador
             estado.ultimoCentroNotificado = centro
