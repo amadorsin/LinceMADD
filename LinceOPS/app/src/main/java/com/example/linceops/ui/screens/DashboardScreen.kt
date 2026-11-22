@@ -85,6 +85,7 @@ fun DashboardScreen(
     uiState: ServiceUiState,
     onIniciarMarcaje: (String) -> Unit,
     onCrearServicio: () -> Unit = {},
+    onAbrirCoordinacion: (SeccionCoordinacion) -> Unit = {},
     onVerDetalleServicio: (String) -> Unit = {},
     onScrollBarra: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
@@ -238,7 +239,8 @@ fun DashboardScreen(
             when (rolUsuario) {
                 RolUsuario.ADMINISTRADOR -> DashboardManagerView(
                     uiState = datosDashboard,
-                    onCrearServicio = onCrearServicio
+                    onCrearServicio = onCrearServicio,
+                    onAbrirCoordinacion = onAbrirCoordinacion
                 )
                 RolUsuario.CONDUCTOR -> DashboardDriverView(
                     uiState = datosDashboard,
@@ -332,8 +334,9 @@ private fun filtrosInicioColors() = FilterChipDefaults.filterChipColors(
 @Composable
 private fun DashboardManagerView(
     uiState: ServiceUiState,
-    onCrearServicio: () -> Unit
-) {
+    onCrearServicio: () -> Unit,
+    onAbrirCoordinacion: (SeccionCoordinacion) -> Unit
+){
     val usuario = uiState.usuarioLogueado
     val pendientes = uiState.servicios.count { servicio ->
         (usuario?.let { servicio.estadoPara(it) } ?: servicio.estado) == EstadoServicio.PENDIENTE
@@ -518,6 +521,12 @@ private fun DashboardManagerView(
                             guia = false
                         )
                     }
+                    LinceButton(
+                        text = "Ver equipo y vehículos",
+                        onClick = { onAbrirCoordinacion(SeccionCoordinacion.EQUIPO) },
+                        variant = LinceButtonVariant.Outline,
+                        fullWidth = true
+                    )
                 }
             }
         }
@@ -602,6 +611,12 @@ private fun DashboardManagerView(
                             incidencia = true
                         )
                     }
+                    LinceButton(
+                        text = "Ver todos los hitos e incidencias",
+                        onClick = { onAbrirCoordinacion(SeccionCoordinacion.HITOS) },
+                        variant = LinceButtonVariant.Outline,
+                        fullWidth = true
+                    )
 
                 }
             }

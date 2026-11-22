@@ -56,6 +56,10 @@ import com.example.linceops.ui.components.textoCoordenadas
 import com.example.linceops.ui.theme.*
 import java.util.Locale
 import kotlin.math.roundToInt
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import com.example.linceops.network.dto.GuiaDto
+import com.example.linceops.network.dto.TransportistaDto
 
 private enum class PosicionRuta { ORIGEN, PARADA, DESTINO }
 
@@ -222,11 +226,26 @@ private fun RutaItem(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CrearServicioScreen(
-    onGuardar: (titulo: String, ruta: String, fecha: String, hora: String, tipo: String, pax: Int) -> Unit,
+    guias: List<GuiaDto> = emptyList(),
+    transportistas: List<TransportistaDto> = emptyList(),
+    onGuardar: (
+        titulo: String,
+        ruta: String,
+        fecha: String,
+        hora: String,
+        tipo: String,
+        pax: Int,
+        pickup: String,
+        dropoff: String,
+        vehiculo: String,
+        conductorId: String?,
+        guiaId: String?,
+        observaciones: String,
+        confirmarDirecto: Boolean
+    ) -> Unit,
     onCancelar: () -> Unit
 ) {
     var titulo by remember { mutableStateOf("") }
@@ -245,7 +264,34 @@ fun CrearServicioScreen(
     var tipoSeleccionado by remember { mutableStateOf(TipoServicio.TRANSFER) }
     var motivoContingencia by remember { mutableStateOf("") }
     val context = LocalContext.current
+    var conductorIdSeleccionado by remember { mutableStateOf<String?>("20") }
+    var guiaIdSeleccionado by remember { mutableStateOf<String?>("12") }
+    var confirmarDirecto by remember { mutableStateOf(true) }
 
+    val opcionesConductores = remember(transportistas) {
+        buildList {
+            add("20" to "Matías Soto Herrera (Demo)")
+            transportistas.forEach { t ->
+                val id = t.id?.toString()
+                val nombre = t.nombre
+                if (!id.isNullOrBlank() && !nombre.isNullOrBlank() && id != "20") {
+                    add(id to nombre)
+                }
+            }
+        }
+    }
+    val opcionesGuias = remember(guias) {
+        buildList {
+            add("12" to "Camila Rojas Fuentes (Demo)")
+            guias.forEach { g ->
+                val id = g.id?.toString()
+                val nombre = g.nombre
+                if (!id.isNullOrBlank() && !nombre.isNullOrBlank() && id != "12") {
+                    add(id to nombre)
+                }
+            }
+        }
+    }
 
     val ruta = buildList {
         if (origenNombre.isNotBlank()) add(origenNombre)
@@ -609,6 +655,91 @@ fun CrearServicioScreen(
                         titulo = stringResource(R.string.crear_asignar_recurso)
                     )
                     LinceDivider()
+                    Text(
+                        text = "CONDUCTOR ASIGNADO",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LinceTheme.colors.textSecondary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = conductorIdSeleccionado == null,
+                                onClick = { conductorIdSeleccionado = null },
+                                label = { Text("Sin conductor") },
+                                shape = RoundedCornerShape(50),
+                                colors = filterChipColors()
+                            )
+                        }
+                        items(opcionesConductores) { (id, nombre) ->
+                            FilterChip(
+                                selected = conductorIdSeleccionado == id,
+                                onClick = { conductorIdSeleccionado = id },
+                                label = { Text(nombre, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                shape = RoundedCornerShape(50),
+                                colors = filterChipColors()
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "GUÍA ASIGNADO",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LinceTheme.colors.textSecondary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = guiaIdSeleccionado == null,
+                                onClick = { guiaIdSeleccionado = null },
+                                label = { Text("Sin guía") },
+                                shape = RoundedCornerShape(50),
+                                colors = filterChipColors()
+                            )
+                        }
+                        items(opcionesGuias) { (id, nombre) ->
+                            FilterChip(
+                                selected = guiaIdSeleccionado == id,
+                                onClick = { guiaIdSeleccionado = id },
+                                label = { Text(nombre, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                shape = RoundedCornerShape(50),
+                                colors = filterChipColors()
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Confirmar inmediatamente",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = LinceTheme.colors.textPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Queda listo para marcaje (si no, queda Pendiente)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LinceTheme.colors.textSecondary
+                            )
+                        }
+                        Switch(
+                            checked = confirmarDirecto,
+                            onCheckedChange = { confirmarDirecto = it }
+                        )
+                    }
                     OutlinedTextField(
                         value = vehiculoContingencia,
                         onValueChange = { vehiculoContingencia = it },
@@ -658,23 +789,25 @@ fun CrearServicioScreen(
                     LinceButton(
                         text = stringResource(R.string.crear_asignar_recurso),
                         onClick = {
-                            val tituloFinal = if (vehiculoContingencia.isNotBlank()) {
-                                "$titulo [${vehiculoContingencia.uppercase()}]"
-                            } else {
-                                titulo
-                            }
                             onGuardar(
-                                tituloFinal,
+                                titulo.trim(),
                                 ruta,
                                 fechaSeleccionada,
                                 hora,
                                 tipoSeleccionado.name,
-                                pasajeros
+                                pasajeros,
+                                origenNombre.trim(),
+                                destinoNombre.trim(),
+                                vehiculoContingencia.trim().ifBlank { "Unidad asignada" },
+                                conductorIdSeleccionado,
+                                guiaIdSeleccionado,
+                                motivoContingencia.trim(),
+                                confirmarDirecto
                             )
                         },
                         modifier = Modifier.weight(1f),
                         variant = LinceButtonVariant.Primary,
-                        enabled = formularioValido && vehiculoContingencia.isNotBlank(),
+                        enabled = formularioValido,
                         fullWidth = false
                     )
                 }

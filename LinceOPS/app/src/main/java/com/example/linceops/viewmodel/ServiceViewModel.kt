@@ -394,20 +394,45 @@ class ServiceViewModel(
     }
 
     fun crearNuevoServicio(
-        titulo: String, origenDestino: String, fecha: String, hora: String,
-        tipo: String, pasajeros: Int
+        titulo: String,
+        origenDestino: String,
+        fecha: String,
+        hora: String,
+        tipo: String,
+        pasajeros: Int,
+        pickup: String = "Por definir",
+        dropoff: String = "",
+        vehiculo: String = "Por asignar",
+        conductorId: String? = null,
+        guiaId: String? = null,
+        observaciones: String = "",
+        confirmarDirecto: Boolean = false
     ) {
+        val estadoInicial = if (confirmarDirecto) EstadoServicio.CONFIRMADO else EstadoServicio.PENDIENTE
+        val participaciones = buildList {
+            conductorId?.takeIf { it.isNotBlank() }?.let { id ->
+                add(com.example.linceops.model.ParticipacionServicio(usuarioId = id, estado = estadoInicial))
+            }
+            guiaId?.takeIf { it.isNotBlank() && it != conductorId }?.let { id ->
+                add(com.example.linceops.model.ParticipacionServicio(usuarioId = id, estado = estadoInicial))
+            }
+        }
         val nuevoServicio = Servicio(
             id = UUID.randomUUID().toString(),
             titulo = titulo,
             origenDestino = origenDestino,
-            fecha = fecha,
+            fecha = convertirAFechaIso(fecha),
             hora = hora,
-            pickup = "Por definir",
+            pickup = pickup.ifBlank { "Por definir" },
+            dropoff = dropoff,
+            vehiculo = vehiculo.ifBlank { "Por asignar" },
+            conductorId = conductorId?.takeIf { it.isNotBlank() },
+            guiaId = guiaId?.takeIf { it.isNotBlank() },
+            observaciones = observaciones,
             tipo = TipoServicio.fromApi(tipo),
             pasajeros = pasajeros,
-            estado = EstadoServicio.PENDIENTE,
-            participaciones = emptyList()
+            estado = estadoInicial,
+            participaciones = participaciones
         )
         viewModelScope.launch {
             dao.guardarServicio(nuevoServicio)

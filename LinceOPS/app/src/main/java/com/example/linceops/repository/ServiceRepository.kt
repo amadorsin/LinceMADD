@@ -129,7 +129,7 @@ class ServiceRepository(
 
     suspend fun obtenerGuiasActivos(): Result<List<GuiaDto>> {
         return try {
-            val response = southboundApi.obtenerGuias(activo = true, page = 1, pageSize = 20)
+            val response = southboundApi.obtenerGuias(activo = true, page = 1, pageSize = 50)
             if (response.isSuccessful) {
                 Result.success(response.body()?.data ?: emptyList())
             } else {
@@ -143,7 +143,7 @@ class ServiceRepository(
 
     suspend fun obtenerTransportistasActivos(): Result<List<TransportistaDto>> {
         return try {
-            val response = southboundApi.obtenerTransportistas(activo = true, page = 1, pageSize = 20)
+            val response = southboundApi.obtenerTransportistas(activo = true, page = 1, pageSize = 50)
             if (response.isSuccessful) {
                 Result.success(response.body()?.data ?: emptyList())
             } else {
@@ -234,7 +234,9 @@ class ServiceRepository(
             EstadoServicio.RECHAZADO, EstadoServicio.FINALIZADO -> false
         }
         if (!permitido) return error("Cambio de estado no permitido.")
-        if (nuevoEstado == EstadoServicio.CONFIRMADO || nuevoEstado == EstadoServicio.RECHAZADO) {
+
+        val esServicioLocal = servicioId.toIntOrNull() == null
+        if (!esServicioLocal && (nuevoEstado == EstadoServicio.CONFIRMADO || nuevoEstado == EstadoServicio.RECHAZADO)) {
             val respConfirmacion = enviarConfirmacionAlBackend(
                 servicioId = servicioId,
                 estado = nuevoEstado.name,
@@ -244,7 +246,6 @@ class ServiceRepository(
                 return Result.failure(respConfirmacion.exceptionOrNull()!!)
             }
         }
-
         val requiereMarcaje = nuevoEstado == EstadoServicio.EN_CURSO || nuevoEstado == EstadoServicio.FINALIZADO
         val marcaje = if (requiereMarcaje) {
             if (latitud == null || longitud == null || !latitud.isFinite() || !longitud.isFinite()) {
@@ -257,18 +258,19 @@ class ServiceRepository(
             }
 
             // Enviar Check-In / Check-Out al backend propio (Spring Boot) o encolar en Room si no hay conexión
-            val tipoMarcaje = if (nuevoEstado == EstadoServicio.EN_CURSO) "CHECK_IN" else "CHECK_OUT"
-            val validacionBackend = enviarMarcajeAlBackend(
-                servicio = servicio,
-                usuarioId = usuarioId,
-                tipo = tipoMarcaje,
-                latitud = latitud,
-                longitud = longitud,
-                instanteMillis = instante
-            )
-            // Si el backend rechaza con 400 (ej: fuera de geocerca 150m), abortamos y alertamos al usuario
-            if (validacionBackend.isFailure) {
-                return Result.failure(validacionBackend.exceptionOrNull()!!)
+            if (!esServicioLocal) {
+                val tipoMarcaje = if (nuevoEstado == EstadoServicio.EN_CURSO) "CHECK_IN" else "CHECK_OUT"
+                val validacionBackend = enviarMarcajeAlBackend(
+                    servicio = servicio,
+                    usuarioId = usuarioId,
+                    tipo = tipoMarcaje,
+                    latitud = latitud,
+                    longitud = longitud,
+                    instanteMillis = instante
+                )
+                if (validacionBackend.isFailure) {
+                    return Result.failure(validacionBackend.exceptionOrNull()!!)
+                }
             }
 
             Marcaje(instante, latitud, longitud)

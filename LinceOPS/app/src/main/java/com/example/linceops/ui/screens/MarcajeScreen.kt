@@ -122,13 +122,20 @@ fun MarcajeScreen(
     val geocercaObjetivo = if (esVistaCheckOut) geocercaTermino else geocercaPickup
     val radioPermitido = geocercaObjetivo?.radioMetros ?: 150
 
-    val puntoObjetivoMapa = remember(geocercaObjetivo) {
-        val lat = geocercaObjetivo?.latitudCentro
-        val lon = geocercaObjetivo?.longitudCentro
-        if (lat != null && lon != null && (abs(lat) > 1e-5 || abs(lon) > 1e-5)) {
-            PuntoMapa(lat, lon)
+    val esServicioLocal = servicio.id.toIntOrNull() == null
+    val puntoObjetivoMapa = remember(geocercaObjetivo, esServicioLocal, puntoUsuarioActual) {
+        val coincidePickup = geocercaObjetivo != null &&
+                !geocercaObjetivo.puntoReferencia.equals(servicio.oficina.name, ignoreCase = true)
+        if (esServicioLocal && !coincidePickup && puntoUsuarioActual != null) {
+            puntoUsuarioActual
         } else {
-            null
+            val lat = geocercaObjetivo?.latitudCentro
+            val lon = geocercaObjetivo?.longitudCentro
+            if (lat != null && lon != null && (abs(lat) > 1e-5 || abs(lon) > 1e-5)) {
+                PuntoMapa(lat, lon)
+            } else {
+                null
+            }
         }
     }
 
@@ -192,18 +199,18 @@ fun MarcajeScreen(
         onSuccess: (Double, Double) -> Unit
     ) {
         esVistaCheckOut = !esCheckIn
-        val geocercaPaso = if (esCheckIn) geocercaPickup else geocercaTermino
         puntoUsuarioActual = PuntoMapa(location.latitude, location.longitude)
         precisionGpsMetros = location.accuracy
-        val dist = if (geocercaPaso?.latitudCentro != null && geocercaPaso.longitudCentro != null) {
+        val obj = puntoObjetivoMapa
+        val dist = if (obj != null) {
             calcularHaversineMetros(
-                geocercaPaso.latitudCentro, geocercaPaso.longitudCentro,
+                obj.latitud, obj.longitud,
                 location.latitude, location.longitude
             )
         } else null
         distanciaMetros = dist
 
-        if (esCheckIn && isInternetAvailable(context) && location.accuracy > 50f) {
+        if (!esServicioLocal && esCheckIn && isInternetAvailable(context) && location.accuracy > 50f) {
             mensajeEstado = context.getString(
                 R.string.marcaje_gps_impreciso,
                 String.format(Locale.ROOT, "%.0f", location.accuracy)
@@ -236,7 +243,7 @@ fun MarcajeScreen(
             try {
                 fusedLocationClient.lastLocation
                     .addOnSuccessListener { location ->
-                        if (location != null) {
+                        if (location != null && (esServicioLocal || location.accuracy <= 50f)) {
                             procesarUbicacion(location, esCheckIn, onSuccess)
                         } else {
                             val token = CancellationTokenSource()

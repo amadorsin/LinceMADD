@@ -178,6 +178,9 @@ fun AppNavHost(
                             onCrearServicio = {
                                 navController.navigate("crear_servicio")
                             },
+                            onAbrirCoordinacion = { seccion ->
+                                navController.navigate("coordinacion/${seccion.name}")
+                            },
                             onVerDetalleServicio = { servicioId ->
                                 if (uiState.servicios.none { it.id == servicioId }) {
                                     serviceViewModel.limpiarFiltros()
@@ -366,13 +369,47 @@ fun AppNavHost(
                         popExitTransition = { ExitTransition.None }
                     ) {
                         CrearServicioScreen(
-                            onGuardar = { titulo, ruta, fecha, hora, tipo, pax ->
+                            guias = uiState.guiasSouthbound,
+                            transportistas = uiState.transportistasSouthbound,
+                            onGuardar = { titulo, ruta, fecha, hora, tipo, pax, pickup, dropoff, vehiculo, conductorId, guiaId, observaciones, confirmarDirecto ->
                                 serviceViewModel.crearNuevoServicio(
-                                    titulo, ruta, fecha, hora, tipo, pax
+                                    titulo = titulo,
+                                    origenDestino = ruta,
+                                    fecha = fecha,
+                                    hora = hora,
+                                    tipo = tipo,
+                                    pasajeros = pax,
+                                    pickup = pickup,
+                                    dropoff = dropoff,
+                                    vehiculo = vehiculo,
+                                    conductorId = conductorId,
+                                    guiaId = guiaId,
+                                    observaciones = observaciones,
+                                    confirmarDirecto = confirmarDirecto
                                 )
                                 navController.popBackStack()
                             },
                             onCancelar = { navController.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = "coordinacion/{seccion}",
+                        arguments = listOf(navArgument("seccion") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) { backStackEntry ->
+                        val seccionStr = backStackEntry.arguments?.getString("seccion")
+                        val seccionInicial = runCatching {
+                            SeccionCoordinacion.valueOf(seccionStr ?: "")
+                        }.getOrDefault(SeccionCoordinacion.HITOS)
+
+                        CoordinacionScreen(
+                            uiState = uiState,
+                            seccionInicial = seccionInicial,
+                            onVolver = { navController.popBackStack() },
+                            onRefrescar = { serviceViewModel.cargarDatosCoordinacion() }
                         )
                     }
                 }
