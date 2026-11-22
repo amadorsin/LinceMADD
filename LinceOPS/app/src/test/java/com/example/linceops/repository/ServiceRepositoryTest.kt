@@ -20,6 +20,7 @@ import com.example.linceops.network.dto.BloqueoCalendarioDto
 import com.example.linceops.network.dto.GeocercaDto
 import com.example.linceops.network.dto.HitoDto
 import com.example.linceops.network.dto.IncidenciaDto
+import com.example.linceops.network.dto.MensajeResponseDto
 import com.example.linceops.network.dto.ResumenDto
 import com.example.linceops.network.dto.RespuestaSimpleDto
 import com.example.linceops.network.dto.ServicioDto
@@ -30,6 +31,8 @@ import com.example.linceops.network.dto.AsignacionDto
 import com.example.linceops.network.dto.VehiculoDto
 import com.example.linceops.network.dto.ClienteDto
 import com.example.linceops.network.dto.ReservaDto
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -40,6 +43,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.Response
 
 class ServiceRepositoryTest {
 
@@ -426,6 +430,23 @@ class ServiceRepositoryTest {
     }
 
     @Test
+    fun obtenerServicios_httpErrorParseaApiErrorYJsonMalformadoHaceFallback() = runBlocking {
+        dao.guardarServicio(servicio())
+        southbound.codigoServicios = 503
+        southbound.cuerpoErrorServicios =
+            """{"error":{"code":"SOUTHBOUND_DOWN","message":"Servicio no disponible","requestId":"r-1"}}"""
+
+        val (conApiError, offlineConApiError) = repository.obtenerServicios("20")
+        assertTrue(offlineConApiError)
+        assertEquals(listOf("100"), conApiError.map { it.id })
+
+        southbound.cuerpoErrorServicios = "not-json"
+        val (conErrorMalformado, offlineConErrorMalformado) = repository.obtenerServicios("20")
+        assertTrue(offlineConErrorMalformado)
+        assertEquals(listOf("100"), conErrorMalformado.map { it.id })
+    }
+
+    @Test
     fun refrescarServicioPorId_actualizaRoomYPropagaFallos() = runBlocking {
         dao.guardarServicio(servicio(estado = EstadoServicio.CONFIRMADO))
         southbound.detalleServicio = dtoServicio(statusPL = "RQ")
@@ -506,6 +527,49 @@ class ServiceRepositoryTest {
     }
 
     @Test
+    fun obtenerMisBloqueos_sinMensajeHttpYExcepcionDevuelveFallbacks() = runBlocking {
+        backend.respuestaObtenerMisBloqueos = { respuestaError(500) }
+        val errorHttp = repository.obtenerMisBloqueos()
+        assertTrue(errorHttp.isFailure)
+        assertEquals(
+            "No se pudieron cargar los bloqueos (HTTP 500).",
+            errorHttp.exceptionOrNull()?.message
+        )
+
+        backend.respuestaObtenerMisBloqueos = { throw IOException("sin conexión") }
+        val errorRed = repository.obtenerMisBloqueos()
+        assertTrue(errorRed.isFailure)
+        assertEquals(
+            "Sin conexión con el servidor para cargar bloqueos.",
+            errorRed.exceptionOrNull()?.message
+        )
+    }
+
+    @Test
+    fun erroresHttpSinCuerpoUsanMensajesFallbackEnBloqueoConfirmacionEIncidencia() = runBlocking {
+        backend.respuestaBloquearFecha = { respuestaError(400) }
+        assertEquals(
+            "No se pudo bloquear la fecha (HTTP 400).",
+            repository.bloquearFecha("2026-11-20", "x").exceptionOrNull()?.message
+        )
+
+        dao.guardarServicio(servicio())
+        backend.respuestaRegistrarConfirmacion = { respuestaError(400) }
+        assertEquals(
+            "No se pudo registrar la confirmación (HTTP 400).",
+            repository.cambiarEstadoServicio(
+                "100", "20", EstadoServicio.CONFIRMADO
+            ).exceptionOrNull()?.message
+        )
+
+        backend.respuestaRegistrarIncidencia = { respuestaError(500) }
+        assertEquals(
+            "No se pudo registrar la incidencia (HTTP 500).",
+            repository.registrarIncidencia("100", "Otro").exceptionOrNull()?.message
+        )
+    }
+
+    @Test
     fun bloquearYDesbloquearFecha_manejaExitoRechazoYExcepcion() = runBlocking {
         val bloqueo = repository.bloquearFecha("2026-11-20", "Descanso").getOrThrow()
         assertEquals("2026-11-20", bloqueo.fechaBloqueada)
@@ -543,6 +607,140 @@ class ServiceRepositoryTest {
         val errorRechazar = repository.cambiarEstadoServicio("100", "20", EstadoServicio.RECHAZADO)
         assertEquals("Confirmación rechazada", errorRechazar.exceptionOrNull()?.message)
         assertTrue(hitoDao.estado.value.isEmpty())
+    }
+
+    @Test
+    fun servicioLocalNoEnviaConfirmacionNiMarcajesAlBackendYPersisteRoom() = runBlocking {
+        val idLocal = "local-uuid-1"
+        dao.guardarServicio(
+            servicio(
+                id = idLocal,
+                participaciones = listOf(
+                    ParticipacionServicio(usuarioId = "20"),
+                    ParticipacionServicio(usuarioId = "12")
+                )
+            )
+        )
+
+        val confirmacion = repository.cambiarEstadoServicio(
+            idLocal, "20", EstadoServicio.CONFIRMADO
+        )
+        assertTrue(confirmacion.isSuccess)
+        assertTrue(backend.llamadasConfirmacion.isEmpty())
+
+        val checkIn = repository.cambiarEstadoServicio(
+            idLocal,
+            "20",
+            EstadoServicio.EN_CURSO,
+            latitud = -41.47,
+            longitud = -72.94
+        )
+        assertTrue(checkIn.isSuccess)
+        assertTrue(backend.llamadasMarcaje.isEmpty())
+        assertTrue(hitoDao.estado.value.isEmpty())
+        assertEquals(EstadoServicio.EN_CURSO, dao.snapshot().single().estado)
+        assertNotNull(dao.snapshot().single().participaciones.first().checkIn)
+
+        ahoraMillis = 3_000L
+        val checkOut = repository.cambiarEstadoServicio(
+            idLocal,
+            "20",
+            EstadoServicio.FINALIZADO,
+            latitud = -41.47,
+            longitud = -72.94
+        )
+        assertTrue(checkOut.isSuccess)
+        assertTrue(backend.llamadasMarcaje.isEmpty())
+        assertEquals(EstadoServicio.EN_CURSO, dao.snapshot().single().estado)
+        assertEquals(EstadoServicio.FINALIZADO, dao.snapshot().single().participaciones.first().estado)
+        assertEquals(EstadoServicio.PENDIENTE, dao.snapshot().single().participaciones.last().estado)
+    }
+
+    @Test
+    fun marcajeOnline401Y403NoEncolanNiCambianRoom() = runBlocking {
+        for (codigo in listOf(401, 403)) {
+            dao.guardarServicio(servicio(estado = EstadoServicio.CONFIRMADO))
+            backend.respuestaRegistrarMarcaje = { _, _, _, _ -> respuestaError(codigo) }
+
+            val resultado = repository.cambiarEstadoServicio(
+                "100",
+                "20",
+                EstadoServicio.EN_CURSO,
+                latitud = -41.47,
+                longitud = -72.94
+            )
+
+            assertTrue("HTTP $codigo debe fallar", resultado.isFailure)
+            assertTrue("HTTP $codigo no debe encolar", hitoDao.estado.value.isEmpty())
+            assertEquals(EstadoServicio.CONFIRMADO, dao.snapshot().single().participaciones.single().estado)
+        }
+    }
+
+    @Test
+    fun marcaje400SinJsonUsaMensajeFallbackSinEncolar() = runBlocking {
+        dao.guardarServicio(servicio(estado = EstadoServicio.CONFIRMADO))
+        backend.respuestaRegistrarMarcaje = { _, _, _, _ ->
+            Response.error(
+                400,
+                "not-json".toResponseBody("application/json".toMediaType())
+            )
+        }
+
+        val resultado = repository.cambiarEstadoServicio(
+            "100",
+            "20",
+            EstadoServicio.EN_CURSO,
+            latitud = -41.47,
+            longitud = -72.94
+        )
+
+        assertEquals(
+            "Marcaje rechazado: fuera de geocerca (150m) o fuera de ventana horaria.",
+            resultado.exceptionOrNull()?.message
+        )
+        assertTrue(hitoDao.estado.value.isEmpty())
+    }
+
+    @Test
+    fun marcajeSinFechaHoraProgramadaEnvíaHoraNula() = runBlocking {
+        dao.guardarServicio(
+            servicio(estado = EstadoServicio.CONFIRMADO).copy(
+                fecha = "31/13/2026",
+                hora = "9:00"
+            )
+        )
+        var horaPickupEnviada: String? = "sin-llamada"
+        backend.respuestaRegistrarMarcaje = { _, _, _, hora ->
+            horaPickupEnviada = hora
+            retrofit2.Response.success(MensajeResponseDto("Marcaje registrado"))
+        }
+
+        val resultado = repository.cambiarEstadoServicio(
+            "100",
+            "20",
+            EstadoServicio.EN_CURSO,
+            latitud = -41.47,
+            longitud = -72.94
+        )
+
+        assertTrue(resultado.isSuccess)
+        assertNull(horaPickupEnviada)
+    }
+
+    @Test
+    fun calcularEstadoGeneral_mixtoConPendienteConservaEstadoPendiente() {
+        val metodo = ServiceRepository::class.java.getDeclaredMethod(
+            "calcularEstadoGeneral",
+            List::class.java
+        ).apply { isAccessible = true }
+        val participantes = listOf(
+            ParticipacionServicio("20", EstadoServicio.CONFIRMADO),
+            ParticipacionServicio("12", EstadoServicio.PENDIENTE)
+        )
+
+        val estado = metodo.invoke(repository, participantes) as EstadoServicio
+
+        assertEquals(EstadoServicio.PENDIENTE, estado)
     }
 
     @Test

@@ -10,6 +10,8 @@ import com.example.linceops.network.dto.RespuestaPaginadaDto
 import com.example.linceops.network.dto.RespuestaSimpleDto
 import com.example.linceops.network.dto.ServicioDto
 import com.example.linceops.network.dto.TransportistaDto
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
 
 data class ConsultaServicios(
@@ -34,6 +36,7 @@ class FakeSouthboundApi : SouthboundApi {
     var servicios: List<ServicioDto> = emptyList()
     var codigoServicios: Int = 200
     var errorServicios: String? = null
+    var cuerpoErrorServicios: String? = null
     var excepcionServicios: Exception? = null
     var ultimaConsultaServicios: ConsultaServicios? = null
 
@@ -93,7 +96,16 @@ class FakeSouthboundApi : SouthboundApi {
             pageSize = pageSize
         )
         excepcionServicios?.let { throw it }
-        if (codigoServicios != 200) return respuestaError(codigoServicios, errorServicios)
+        if (codigoServicios != 200) {
+            val cuerpo = cuerpoErrorServicios
+            if (cuerpo != null) {
+                return Response.error(
+                    codigoServicios,
+                    cuerpo.toResponseBody("application/json".toMediaType())
+                )
+            }
+            return respuestaError(codigoServicios, errorServicios)
+        }
         return Response.success(RespuestaPaginadaDto(data = servicios))
     }
 

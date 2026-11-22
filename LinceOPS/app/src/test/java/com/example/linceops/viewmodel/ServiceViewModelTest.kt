@@ -27,6 +27,7 @@ import com.example.linceops.repository.ServiceRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -174,6 +175,24 @@ class ServiceViewModelTest {
     }
 
     @Test
+    fun constructorConRepositorioPorDefectoInicializaFlujosYServiceUiState() = runBlocking {
+        val daoLocal = FakeServicioDao()
+        val pendientes = FakeHitoPendienteDao()
+        pendientes.insertarOActualizar(hito("default-constructor", EstadoSyncHito.PENDIENTE))
+
+        val viewModelPorDefecto = ServiceViewModel(
+            dao = daoLocal,
+            hitoPendienteDao = pendientes
+        )
+
+        esperar {
+            viewModelPorDefecto.uiState.value.hitosPendientesSync == 1
+        }
+        assertTrue(ServiceUiState(isLoading = true).isLoading)
+        assertNull(viewModelPorDefecto.uiState.value.usuarioLogueado)
+    }
+
+    @Test
     fun cerrarSesion_limpiaUsuarioTokenYNotifica() = runBlocking {
         viewModel.iniciarSesion("driver@linceops.cl")
         BackendRetrofitClient.jwtToken = "jwt-de-prueba"
@@ -268,6 +287,63 @@ class ServiceViewModelTest {
     }
 
     @Test
+    fun crearServicioLocalPersisteAsignacionesYEstadoConfirmadoEnRoom() = runBlocking {
+        viewModel.crearNuevoServicio(
+            titulo = "Traslado local",
+            origenDestino = "Hotel -> Aeropuerto",
+            fecha = "20/11/2026",
+            hora = "09:00",
+            tipo = "TRANSFER",
+            pasajeros = 2,
+            pickup = "Hotel",
+            dropoff = "Aeropuerto",
+            vehiculo = "Van QA",
+            conductorId = "20",
+            guiaId = "12",
+            observaciones = "Servicio de prueba",
+            confirmarDirecto = true
+        )
+
+        val creado = dao.snapshot().single()
+        assertTrue(creado.id.isNotBlank())
+        assertEquals("2026-11-20", creado.fecha)
+        assertEquals("Hotel", creado.pickup)
+        assertEquals("Aeropuerto", creado.dropoff)
+        assertEquals("Van QA", creado.vehiculo)
+        assertEquals("Servicio de prueba", creado.observaciones)
+        assertEquals(EstadoServicio.CONFIRMADO, creado.estado)
+        assertEquals(listOf("20", "12"), creado.participaciones.map { it.usuarioId })
+        assertTrue(creado.participaciones.all { it.estado == EstadoServicio.CONFIRMADO })
+        assertEquals(creado, dao.snapshot().single())
+    }
+
+    @Test
+    fun crearServicioLocalAplicaDefaultsMantieneFechaInvalidaYEvitaAsignacionDuplicada() = runBlocking {
+        viewModel.crearNuevoServicio(
+            titulo = "Servicio sin datos opcionales",
+            origenDestino = "A -> B",
+            fecha = "31/13/2026",
+            hora = "10:00",
+            tipo = "GUIDED_SERVICE",
+            pasajeros = 1,
+            pickup = " ",
+            vehiculo = "",
+            conductorId = "20",
+            guiaId = "20",
+            observaciones = "  Nota  "
+        )
+
+        val creado = dao.snapshot().single()
+        assertEquals("31/13/2026", creado.fecha)
+        assertEquals("Por definir", creado.pickup)
+        assertEquals("Por asignar", creado.vehiculo)
+        assertEquals("  Nota  ", creado.observaciones)
+        assertEquals(EstadoServicio.PENDIENTE, creado.estado)
+        assertEquals(listOf("20"), creado.participaciones.map { it.usuarioId })
+        assertEquals(EstadoServicio.PENDIENTE, creado.participaciones.single().estado)
+    }
+
+    @Test
     fun obtenerServicio_loEncuentraTrasCargarServicios() = runBlocking {
         viewModel.iniciarSesion("admin@linceops.cl")
         dao.guardarServicio(servicioPrueba("777"))
@@ -277,6 +353,58 @@ class ServiceViewModelTest {
 
         assertEquals("777", viewModel.obtenerServicio("777")?.id)
         assertNull(viewModel.obtenerServicio("000"))
+    }
+
+    @Test
+    fun filtrosDeServiciosCubrenEstadoFechaOficinaYStatusPL() = runBlocking {
+        southbound.servicios = listOf(
+            servicioDto(id = 100),
+            servicioDto(id = 101).copy(
+                fecha = "2026-11-21",
+                oficina = OficinaDto(codigo = "PUX"),
+                asignacion = AsignacionDto(statusPL = "RQ")
+            )
+        )
+        viewModel.iniciarSesion("driver@linceops.cl")
+        esperar { viewModel.uiState.value.serviciosTotales.size == 2 }
+
+        viewModel.filtrarPorFecha("20/11/2026")
+        esperar { viewModel.uiState.value.servicios.size == 1 }
+        assertEquals("100", viewModel.uiState.value.servicios.single().id)
+        assertEquals("2026-11-20", southbound.ultimaConsultaServicios?.fechaDesde)
+
+        viewModel.limpiarFiltros()
+        viewModel.filtrarPorOficina("SCL")
+        esperar { viewModel.uiState.value.servicios.size == 1 }
+        assertEquals("100", viewModel.uiState.value.servicios.single().id)
+
+        viewModel.limpiarFiltros()
+        viewModel.filtrarPorStatusPL("CF")
+        esperar { viewModel.uiState.value.servicios.size == 1 }
+        assertEquals("100", viewModel.uiState.value.servicios.single().id)
+
+        viewModel.limpiarFiltros()
+        viewModel.filtrarPorEstado(EstadoServicio.CONFIRMADO)
+        esperar { viewModel.uiState.value.servicios.size == 1 }
+        assertEquals("100", viewModel.uiState.value.servicios.single().id)
+    }
+
+    @Test
+    fun cargarServiciosSinUsuarioLimpiaListaYFallbackOfflineMuestraAviso() = runBlocking {
+        dao.guardarServicio(servicioPrueba("local"))
+        viewModel.cargarServicios()
+        assertTrue(viewModel.uiState.value.servicios.isEmpty())
+        assertTrue(viewModel.uiState.value.serviciosTotales.isEmpty())
+        assertFalse(viewModel.uiState.value.isLoading)
+
+        viewModel.iniciarSesion("driver@linceops.cl")
+        southbound.excepcionServicios = IOException("sin red")
+        viewModel.cargarServicios()
+
+        esperar {
+            viewModel.uiState.value.error ==
+                    "Sin conexión con el servidor. Trabajando en Modo Offline."
+        }
     }
 
     @Test
@@ -469,6 +597,46 @@ class ServiceViewModelTest {
         assertEquals(2, viewModel.uiState.value.resumenOperativo?.totalServicios)
         assertEquals(6L, viewModel.uiState.value.hitosCoordinacion.single().id)
         assertEquals(7L, viewModel.uiState.value.incidenciasCoordinacion.single().id)
+    }
+
+    @Test
+    fun cargarBloqueosYGeocercasManejaDatosMalformadosYFallos() = runBlocking {
+        viewModel.cargarBloqueos()
+        assertTrue(viewModel.uiState.value.diasBloqueados.isEmpty())
+
+        viewModel.iniciarSesion("admin@linceops.cl")
+        backend.respuestaObtenerMisBloqueos = {
+            retrofit2.Response.success(
+                listOf(BloqueoCalendarioDto(1, "fecha-malformada", "x"))
+            )
+        }
+        viewModel.cargarBloqueos()
+        assertEquals(listOf("fecha-malformada"), viewModel.uiState.value.diasBloqueados)
+
+        backend.respuestaObtenerGeocercas = { com.example.linceops.fakes.respuestaError(500) }
+        viewModel.cargarGeocercas()
+        assertTrue(viewModel.uiState.value.geocercas.isEmpty())
+
+        backend.respuestaObtenerMisBloqueos = { throw IOException("offline") }
+        viewModel.cargarBloqueos()
+        assertEquals(listOf("fecha-malformada"), viewModel.uiState.value.diasBloqueados)
+    }
+
+    @Test
+    fun cargarDatosCoordinacionConErroresNoReemplazaEstado() = runBlocking {
+        southbound.codigoResumen = 500
+        southbound.codigoGuias = 500
+        southbound.codigoTransportistas = 500
+        backend.respuestaObtenerTodosLosHitos = { com.example.linceops.fakes.respuestaError(500) }
+        backend.respuestaObtenerTodasLasIncidencias = { throw IOException("offline") }
+
+        viewModel.cargarDatosCoordinacion()
+
+        assertNull(viewModel.uiState.value.resumenOperativo)
+        assertTrue(viewModel.uiState.value.guiasSouthbound.isEmpty())
+        assertTrue(viewModel.uiState.value.transportistasSouthbound.isEmpty())
+        assertTrue(viewModel.uiState.value.hitosCoordinacion.isEmpty())
+        assertTrue(viewModel.uiState.value.incidenciasCoordinacion.isEmpty())
     }
 
     @Test
