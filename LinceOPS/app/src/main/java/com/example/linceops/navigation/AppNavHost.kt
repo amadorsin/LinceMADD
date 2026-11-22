@@ -20,8 +20,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.linceops.data.local.LinceOpsDatabase
+import com.example.linceops.data.sync.SincronizarHitosWorker
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
+import com.example.linceops.network.BackendRetrofitClient
 import com.example.linceops.ui.components.BarraInferiorGlass
 import com.example.linceops.ui.components.NotificacionFlotante
 import com.example.linceops.ui.screens.*
@@ -35,14 +37,23 @@ import kotlinx.coroutines.delay
 fun AppNavHost(
     navController: NavHostController = rememberNavController()
 ) {
-
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        BackendRetrofitClient.cargarTokenPersistido(context)
+    }
 
     val database = remember { LinceOpsDatabase.getDatabase(context) }
 
     val serviceViewModel: ServiceViewModel = remember {
-        ServiceViewModel(database.servicioDao())
+        ServiceViewModel(
+            dao = database.servicioDao(),
+            hitoPendienteDao = database.hitoPendienteDao(),
+            onProgramarSync = { SincronizarHitosWorker.programar(context) },
+            onGuardarToken = { token -> BackendRetrofitClient.guardarToken(context, token) }
+        )
     }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
@@ -215,12 +226,17 @@ fun AppNavHost(
                         arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
-
                         val servicio = serviceViewModel.obtenerServicio(servicioId)
+
                         MarcajeScreen(
                             servicioId = servicioId,
                             servicio = servicio,
                             geocercas = uiState.geocercas,
+                            hitosPendientesSync = uiState.hitosPendientesSync,
+                            sincronizandoOffline = uiState.sincronizandoOffline,
+                            errorSyncOffline = uiState.errorSyncOffline,
+                            onSincronizarAhora = { serviceViewModel.sincronizarAhora() },
+                            onDescartarErrorSync = { serviceViewModel.descartarErrorSync() },
                             onCheckIn = { lat, lon ->
                                 val hayRed = isInternetAvailable(context)
                                 serviceViewModel.registrarCheckIn(servicioId, lat, lon, hayRed)

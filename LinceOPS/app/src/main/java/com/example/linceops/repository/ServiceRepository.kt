@@ -1,6 +1,8 @@
 package com.example.linceops.repository
 
 import android.util.Log
+import com.example.linceops.data.local.HitoPendienteDao
+import com.example.linceops.data.local.HitoPendienteEntity
 import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.mappers.aEntidadLocal
 import com.example.linceops.model.*
@@ -8,12 +10,15 @@ import com.example.linceops.network.BackendRetrofitClient
 import com.example.linceops.network.RetrofitClient
 import com.example.linceops.network.dto.*
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class ServiceRepository(
     private val dao: ServicioDao,
+    private val hitoPendienteDao: HitoPendienteDao? = null,
     private val ahora: () -> Long = { System.currentTimeMillis() }
 ) {
     private val gson = Gson()
@@ -24,6 +29,16 @@ class ServiceRepository(
         Guia("12", "Camila Rojas Fuentes", "guia@linceops.cl", listOf("Español", "Inglés", "Alemán")),
         Administrador("A301", "Ana Administradora", "admin@linceops.cl")
     )
+
+    fun observarHitosPendientes(): Flow<List<HitoPendienteEntity>> =
+        hitoPendienteDao?.observarTodos() ?: emptyFlow()
+
+    suspend fun hayHitosPendientes(): Boolean =
+        hitoPendienteDao?.obtenerPendientesParaEnviar()?.isNotEmpty() == true
+
+    suspend fun limpiarErroresSync() {
+        hitoPendienteDao?.limpiarErroresValidacion()
+    }
 
     suspend fun inicializarDatosSiVacio() {
         // La app sincroniza directamente con Southbound API.
@@ -71,6 +86,7 @@ class ServiceRepository(
 
     suspend fun obtenerServicioPorId(servicioId: String): Servicio? =
         dao.obtenerServicioPorId(servicioId)
+
     suspend fun refrescarServicioPorId(servicioId: String): Result<Servicio> {
         val idNumerico = servicioId.toIntOrNull()
             ?: return Result.failure(IllegalArgumentException("ID de servicio local no numérico."))
@@ -134,6 +150,7 @@ class ServiceRepository(
             Result.failure(e)
         }
     }
+
     suspend fun obtenerServicios(
         usuarioId: String,
         fechaDesde: String? = null,
@@ -235,10 +252,11 @@ class ServiceRepository(
                 if (instante < entrada.fechaHoraMillis) return error("La salida no puede ser anterior a la entrada.")
             }
 
-            // Enviar Check-In / Check-Out al backend propio (Spring Boot) para validar geocerca y tiempo
+            // Enviar Check-In / Check-Out al backend propio (Spring Boot) o encolar en Room si no hay conexión
             val tipoMarcaje = if (nuevoEstado == EstadoServicio.EN_CURSO) "CHECK_IN" else "CHECK_OUT"
             val validacionBackend = enviarMarcajeAlBackend(
                 servicio = servicio,
+                usuarioId = usuarioId,
                 tipo = tipoMarcaje,
                 latitud = latitud,
                 longitud = longitud,
@@ -272,11 +290,12 @@ class ServiceRepository(
 
     private suspend fun enviarMarcajeAlBackend(
         servicio: Servicio,
+        usuarioId: String,
         tipo: String,
         latitud: Double,
         longitud: Double,
         instanteMillis: Long
-    ): Result<Unit> {
+    ): Result<Boolean> { // true = encolado offline, false = sincronizado online
         val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT)
         val timestampIso = isoFormat.format(Date(instanteMillis))
         val horaProgramadaIso = if (servicio.fecha.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) &&
@@ -293,6 +312,25 @@ class ServiceRepository(
             timestamp = timestampIso
         )
 
+        suspend fun encolarEnRoom(motivoOffline: String): Result<Boolean> {
+            hitoPendienteDao?.insertarOActualizar(
+                HitoPendienteEntity(
+                    claveIdempotencia = "${servicio.id}_${usuarioId}_${tipo}",
+                    servicioId = servicio.id,
+                    usuarioId = usuarioId,
+                    tipo = tipo,
+                    latitud = latitud,
+                    longitud = longitud,
+                    timestampIso = timestampIso,
+                    pickup = servicio.pickup,
+                    oficina = servicio.oficina.name,
+                    horaPickupIso = horaProgramadaIso,
+                    ultimoError = motivoOffline
+                )
+            )
+            return Result.success(true)
+        }
+
         return try {
             val response = BackendRetrofitClient.api.registrarMarcaje(
                 request = request,
@@ -301,7 +339,7 @@ class ServiceRepository(
                 horaPickup = horaProgramadaIso
             )
             when {
-                response.isSuccessful -> Result.success(Unit)
+                response.isSuccessful -> Result.success(false)
                 response.code() == 400 -> {
                     val mensajeGeocerca = extraerMensajeErrorBackend(response.errorBody()?.string())
                         ?: "Marcaje rechazado: fuera de geocerca (150m) o fuera de ventana horaria."
@@ -312,16 +350,16 @@ class ServiceRepository(
                     Result.failure(IllegalStateException("Sesión expirada o sin permisos en el servidor (HTTP ${response.code()})."))
                 }
                 else -> {
-                    Log.e("API_BACKEND", "Error HTTP ${response.code()} en marcaje")
-                    Result.success(Unit) // Fallback offline-first si el servidor tiene error 5xx
+                    Log.e("API_BACKEND", "Error HTTP ${response.code()} en marcaje, encolando offline")
+                    encolarEnRoom("Error servidor HTTP ${response.code()}. Pendiente de reintento.")
                 }
             }
         } catch (e: Exception) {
-            // Sin conexión con Spring Boot: permitimos guardar localmente en Room para sincronizar con WorkManager
-            Log.w("API_BACKEND", "Backend no alcanzable, guardando marcaje en modo offline", e)
-            Result.success(Unit)
+            Log.w("API_BACKEND", "Backend no alcanzable, encolando marcaje en Room", e)
+            encolarEnRoom("Sin conexión. Se enviará automáticamente al volver internet.")
         }
     }
+
     private suspend fun enviarConfirmacionAlBackend(
         servicioId: String,
         estado: String,
@@ -348,6 +386,7 @@ class ServiceRepository(
             Result.success(Unit)
         }
     }
+
     suspend fun bloquearFecha(fechaIso: String, motivo: String): Result<BloqueoCalendarioDto> {
         return try {
             val response = BackendRetrofitClient.api.bloquearFecha(BloqueoRequestDto(fechaIso, motivo))
@@ -362,6 +401,7 @@ class ServiceRepository(
             Result.failure(IllegalStateException("Sin conexión con el servidor para bloquear la fecha."))
         }
     }
+
     suspend fun obtenerMisBloqueos(): Result<List<BloqueoCalendarioDto>> {
         return try {
             val response = BackendRetrofitClient.api.obtenerMisBloqueos()
@@ -409,6 +449,7 @@ class ServiceRepository(
             Result.failure(IllegalStateException("Sin conexión con el servidor para registrar la incidencia."))
         }
     }
+
     suspend fun obtenerGeocercas(): Result<List<GeocercaDto>> = try {
         val resp = BackendRetrofitClient.api.obtenerGeocercas()
         if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())

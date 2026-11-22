@@ -2,8 +2,11 @@ package com.example.linceops.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.linceops.data.local.EstadoSyncHito
+import com.example.linceops.data.local.HitoPendienteDao
 import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.model.EstadoServicio
+import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.model.TipoServicio
 import com.example.linceops.network.BackendRetrofitClient
@@ -16,19 +19,34 @@ import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.UUID
-import com.example.linceops.model.RolUsuario
 
 class ServiceViewModel(
-    private val dao: ServicioDao
+    private val dao: ServicioDao,
+    private val hitoPendienteDao: HitoPendienteDao? = null,
+    private val onProgramarSync: () -> Unit = {},
+    private val onGuardarToken: (String?) -> Unit = {}
 ) : ViewModel() {
 
-    private val repository = ServiceRepository(dao)
+    private val repository = ServiceRepository(dao, hitoPendienteDao)
     private val _uiState = MutableStateFlow(ServiceUiState())
     val uiState: StateFlow<ServiceUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
             repository.inicializarDatosSiVacio()
+        }
+        viewModelScope.launch {
+            repository.observarHitosPendientes().collect { lista ->
+                val pendientes = lista.count { it.estadoSync != EstadoSyncHito.ERROR_VALIDACION }
+                val sincronizando = lista.any { it.estadoSync == EstadoSyncHito.SINCRONIZANDO }
+                val errorRechazo = lista.firstOrNull { it.estadoSync == EstadoSyncHito.ERROR_VALIDACION }?.ultimoError
+
+                _uiState.value = _uiState.value.copy(
+                    hitosPendientesSync = pendientes,
+                    sincronizandoOffline = sincronizando,
+                    errorSyncOffline = errorRechazo
+                )
+            }
         }
     }
 
@@ -37,12 +55,16 @@ class ServiceViewModel(
             viewModelScope.launch {
                 repository.autenticarConBackend(correo, password).fold(
                     onSuccess = { usuario ->
+                        onGuardarToken(BackendRetrofitClient.jwtToken)
                         _uiState.value = ServiceUiState(usuarioLogueado = usuario)
                         cargarServicios()
                         cargarBloqueos()
                         cargarGeocercas()
                         if (usuario.rol == RolUsuario.ADMINISTRADOR) {
                             cargarDatosCoordinacion()
+                        }
+                        if (repository.hayHitosPendientes()) {
+                            onProgramarSync()
                         }
                     },
                     onFailure = { err ->
@@ -61,6 +83,7 @@ class ServiceViewModel(
         }
         cargarServicios()
     }
+
     fun cargarGeocercas() {
         viewModelScope.launch {
             repository.obtenerGeocercas().onSuccess { lista ->
@@ -68,8 +91,10 @@ class ServiceViewModel(
             }
         }
     }
+
     fun cerrarSesion() {
         BackendRetrofitClient.jwtToken = null
+        onGuardarToken(null)
         _uiState.value = ServiceUiState()
     }
 
@@ -105,6 +130,7 @@ class ServiceViewModel(
             )
         }
     }
+
     fun cargarBloqueos() {
         if (_uiState.value.usuarioLogueado == null) return
         viewModelScope.launch {
@@ -213,6 +239,7 @@ class ServiceViewModel(
         return _uiState.value.serviciosTotales.find { it.id == servicioId }
             ?: _uiState.value.servicios.find { it.id == servicioId }
     }
+
     fun refrescarDetalleServicio(servicioId: String) {
         viewModelScope.launch {
             repository.refrescarServicioPorId(servicioId).onSuccess { actualizado ->
@@ -247,6 +274,7 @@ class ServiceViewModel(
             }
         }
     }
+
     fun cambiarEstadoServicio(
         servicioId: String,
         nuevoEstado: EstadoServicio,
@@ -266,7 +294,15 @@ class ServiceViewModel(
                 servicioId, usuario.id, nuevoEstado, motivo, latitud, longitud
             ).fold(
                 onSuccess = {
-                    val msjRed = if (hayInternet) "Sincronizado con el servidor." else "Guardado localmente (Offline)."
+                    val quedoPendiente = repository.hayHitosPendientes() || !hayInternet
+                    if (quedoPendiente) {
+                        onProgramarSync()
+                    }
+                    val msjRed = if (quedoPendiente) {
+                        "Guardado en cola offline. Se sincronizará al recuperar internet."
+                    } else {
+                        "Sincronizado con el servidor."
+                    }
                     _uiState.value = _uiState.value.copy(mensaje = "Estado actualizado. $msjRed", error = null)
                     cargarServicios()
                 },
@@ -305,6 +341,16 @@ class ServiceViewModel(
                     _uiState.value = _uiState.value.copy(error = it.message, mensaje = null)
                 }
             )
+        }
+    }
+
+    fun sincronizarAhora() {
+        onProgramarSync()
+    }
+
+    fun descartarErrorSync() {
+        viewModelScope.launch {
+            repository.limpiarErroresSync()
         }
     }
 
