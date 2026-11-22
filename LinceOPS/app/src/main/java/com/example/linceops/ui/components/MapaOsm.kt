@@ -28,11 +28,8 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Polygon
-import org.osmdroid.views.overlay.Polyline
 import java.io.File
 import kotlin.math.abs
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 private const val USER_AGENT_OSM = "Mozilla/5.0 (Linux; Android 14) LinceOPS/1.0"
@@ -81,6 +78,22 @@ private fun fuenteCartografica(): OnlineTileSourceBase {
     return if (clave.isEmpty()) FUENTE_ESRI else MapTilerStreetsSource(clave)
 }
 
+internal fun configurarFuenteCartografica(contexto: Context): OnlineTileSourceBase {
+    val fuente = fuenteCartografica()
+    Configuration.getInstance().apply {
+        @Suppress("DEPRECATION")
+        load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
+        userAgentValue = if (fuente is MapTilerStreetsSource) {
+            USER_AGENT_MAPTILER
+        } else {
+            USER_AGENT_OSM
+        }
+        osmdroidBasePath = File(contexto.cacheDir, "osmdroid").apply { mkdirs() }
+        osmdroidTileCache = File(contexto.cacheDir, "osmdroid/tiles").apply { mkdirs() }
+    }
+    return fuente
+}
+
 private class EstadoMapaOsm {
     var mapa: MapView? = null
     var marcadorGps: Marker? = null
@@ -93,17 +106,6 @@ private class EstadoMapaOsm {
     var exitosTesela = 0
     var fallosTesela = 0
     var errorTeselasNotificado = false
-}
-
-private class EstadoMapaDistanciaOsm {
-    var mapa: MapView? = null
-    var marcadorObjetivo: Marker? = null
-    var marcadorUsuario: Marker? = null
-    var lineaDistancia: Polyline? = null
-    var circuloRadio: Polygon? = null
-    var ultimoObjetivo: PuntoMapa? = null
-    var ultimoUsuario: PuntoMapa? = null
-    var ultimoRadio: Int? = null
 }
 
 @Composable
@@ -126,18 +128,7 @@ fun MapaOsm(
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { contexto ->
-            val fuente = fuenteCartografica()
-            Configuration.getInstance().apply {
-                @Suppress("DEPRECATION")
-                load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
-                userAgentValue = if (fuente is MapTilerStreetsSource) {
-                    USER_AGENT_MAPTILER
-                } else {
-                    USER_AGENT_OSM
-                }
-                osmdroidBasePath = File(contexto.cacheDir, "osmdroid").apply { mkdirs() }
-                osmdroidTileCache = File(contexto.cacheDir, "osmdroid/tiles").apply { mkdirs() }
-            }
+            val fuente = configurarFuenteCartografica(contexto)
 
             val handlerUi = Handler(Looper.getMainLooper())
             estado.handlerUi = handlerUi
@@ -305,198 +296,13 @@ fun MapaOsm(
     }
 }
 
-@Composable
-fun MarcajeMapaDistancia(
-    puntoObjetivo: PuntoMapa,
-    puntoUsuario: PuntoMapa?,
-    radioMetros: Int,
-    modifier: Modifier = Modifier
-) {
-    val estado = remember { EstadoMapaDistanciaOsm() }
-
-    AndroidView(
-        modifier = modifier.fillMaxSize(),
-        factory = { contexto ->
-            val fuente = fuenteCartografica()
-            Configuration.getInstance().apply {
-                @Suppress("DEPRECATION")
-                load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
-                userAgentValue = if (fuente is MapTilerStreetsSource) {
-                    USER_AGENT_MAPTILER
-                } else {
-                    USER_AGENT_OSM
-                }
-                osmdroidBasePath = File(contexto.cacheDir, "osmdroid").apply { mkdirs() }
-                osmdroidTileCache = File(contexto.cacheDir, "osmdroid/tiles").apply { mkdirs() }
-            }
-
-            val densidad = contexto.resources.displayMetrics.density
-            val mapa = MapView(contexto).apply {
-                setTileSource(fuente)
-                setMultiTouchControls(true)
-                setUseDataConnection(true)
-                setTilesScaledToDpi(true)
-                minZoomLevel = 4.0
-                maxZoomLevel = 19.0
-                setBackgroundColor(Color.TRANSPARENT)
-                overlayManager.tilesOverlay.setLoadingBackgroundColor(Color.TRANSPARENT)
-                overlayManager.tilesOverlay.setLoadingLineColor(Color.TRANSPARENT)
-                setOnTouchListener { vista, evento ->
-                    when (evento.actionMasked) {
-                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
-                            vista.parent?.requestDisallowInterceptTouchEvent(true)
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                            vista.parent?.requestDisallowInterceptTouchEvent(false)
-                    }
-                    false
-                }
-            }
-
-            val circulo = Polygon(mapa).apply {
-                fillPaint.color = 0x263E7B52
-                fillPaint.style = Paint.Style.FILL
-                outlinePaint.color = 0xFF3E7B52.toInt()
-                outlinePaint.strokeWidth = 2f * densidad
-                outlinePaint.isAntiAlias = true
-            }
-
-            val linea = Polyline(mapa).apply {
-                outlinePaint.color = 0xFF3E7B52.toInt()
-                outlinePaint.strokeWidth = 3.2f * densidad
-                outlinePaint.strokeCap = Paint.Cap.ROUND
-                outlinePaint.isAntiAlias = true
-                isEnabled = false
-            }
-
-            val marcadorObj = Marker(mapa).apply {
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = crearIconoObjetivo(contexto)
-                setOnMarkerClickListener { _, _ -> true }
-            }
-
-            val marcadorUsr = Marker(mapa).apply {
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = crearIconoGps(contexto)
-                isEnabled = false
-                setOnMarkerClickListener { _, _ -> true }
-            }
-
-            mapa.overlays.add(circulo)
-            mapa.overlays.add(linea)
-            mapa.overlays.add(marcadorObj)
-            mapa.overlays.add(marcadorUsr)
-
-            mapa.onResume()
-            estado.mapa = mapa
-            estado.circuloRadio = circulo
-            estado.lineaDistancia = linea
-            estado.marcadorObjetivo = marcadorObj
-            estado.marcadorUsuario = marcadorUsr
-            mapa
-        },
-        update = { mapa ->
-            val geoObjetivo = GeoPoint(puntoObjetivo.latitud, puntoObjetivo.longitud)
-            val cambioObjetivo = estado.ultimoObjetivo != puntoObjetivo
-            val cambioUsuario = estado.ultimoUsuario != puntoUsuario
-            val cambioRadio = estado.ultimoRadio != radioMetros
-
-            if (cambioObjetivo || cambioRadio) {
-                estado.marcadorObjetivo?.position = geoObjetivo
-                estado.circuloRadio?.points = Polygon.pointsAsCircle(
-                    geoObjetivo,
-                    radioMetros.coerceAtLeast(30).toDouble()
-                )
-            }
-
-            val marcadorUsr = estado.marcadorUsuario
-            val linea = estado.lineaDistancia
-            if (puntoUsuario == null) {
-                marcadorUsr?.isEnabled = false
-                linea?.isEnabled = false
-            } else {
-                val geoUsuario = GeoPoint(puntoUsuario.latitud, puntoUsuario.longitud)
-                marcadorUsr?.position = geoUsuario
-                marcadorUsr?.isEnabled = true
-                linea?.setPoints(listOf(geoUsuario, geoObjetivo))
-                linea?.isEnabled = true
-            }
-
-            if (cambioObjetivo || cambioUsuario || cambioRadio) {
-                estado.ultimoObjetivo = puntoObjetivo
-                estado.ultimoUsuario = puntoUsuario
-                estado.ultimoRadio = radioMetros
-                encuadrarPuntos(mapa, puntoObjetivo, puntoUsuario)
-                mapa.invalidate()
-            }
-        }
-    )
-
-    DisposableEffect(Unit) {
-        onDispose {
-            estado.mapa?.apply {
-                onPause()
-                onDetach()
-            }
-            estado.mapa = null
-            estado.marcadorObjetivo = null
-            estado.marcadorUsuario = null
-            estado.lineaDistancia = null
-            estado.circuloRadio = null
-        }
-    }
-}
-
-private fun encuadrarPuntos(
-    mapa: MapView,
-    objetivo: PuntoMapa,
-    usuario: PuntoMapa?
-) {
-    if (usuario == null) {
-        mapa.controller.setZoom(16.2)
-        mapa.controller.setCenter(GeoPoint(objetivo.latitud, objetivo.longitud))
-        return
-    }
-
-    val centroLat = (objetivo.latitud + usuario.latitud) / 2.0
-    val centroLon = (objetivo.longitud + usuario.longitud) / 2.0
-    val deltaLat = abs(objetivo.latitud - usuario.latitud)
-    val deltaLon = abs(objetivo.longitud - usuario.longitud)
-    val span = max(deltaLat, deltaLon)
-
-    val zoomCalculado = when {
-        span < 0.0018 -> 16.8
-        span < 0.0040 -> 15.8
-        span < 0.0090 -> 14.8
-        span < 0.0200 -> 13.8
-        span < 0.0450 -> 12.6
-        span < 0.1000 -> 11.4
-        span < 0.2500 -> 10.2
-        span < 0.6000 -> 9.0
-        else -> 7.5
-    }
-
-    mapa.controller.setZoom(zoomCalculado)
-    mapa.controller.setCenter(GeoPoint(centroLat, centroLon))
-}
-
 private fun crearIconoGps(contexto: Context): GradientDrawable {
-    val densidad = contexto.resources.displayMetrics.density
-    val tamano = (22 * densidad).toInt()
-    return GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
-        setColor(0xFF1E88E5.toInt())
-        setStroke((4 * densidad).toInt(), Color.WHITE)
-        setSize(tamano, tamano)
-    }
-}
-
-private fun crearIconoObjetivo(contexto: Context): GradientDrawable {
     val densidad = contexto.resources.displayMetrics.density
     val tamano = (24 * densidad).toInt()
     return GradientDrawable().apply {
         shape = GradientDrawable.OVAL
-        setColor(0xFF3E7B52.toInt())
-        setStroke((4 * densidad).toInt(), Color.WHITE)
+        setColor(0xFF1E88E5.toInt())
+        setStroke((5 * densidad).toInt(), Color.WHITE)
         setSize(tamano, tamano)
     }
 }

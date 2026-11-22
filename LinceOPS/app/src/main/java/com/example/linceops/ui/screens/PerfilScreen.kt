@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +55,15 @@ import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.model.Usuario
+import com.example.linceops.ui.components.LinceButton
+import com.example.linceops.ui.components.LinceButtonVariant
+import com.example.linceops.ui.components.LinceDivider
+import com.example.linceops.ui.components.LinceSectionHeader
+import com.example.linceops.ui.components.LinceStatusBadge
+import com.example.linceops.ui.components.LinceStatusTone
+import com.example.linceops.ui.components.LinceSurfaceCard
+import com.example.linceops.ui.components.LinceSurfaceCardVariant
+import com.example.linceops.ui.components.LinceUserAvatar
 import com.example.linceops.ui.components.PerfilSkeleton
 import com.example.linceops.ui.theme.*
 import com.example.linceops.utils.LanguagePreferences
@@ -180,86 +190,65 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.medium
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        modifier = Modifier.size(60.dp),
-                        shape = CircleShape,
-                        color = LinceGreenSageLight,
-                        border = BorderStroke(2.dp, LinceGreenPrimary)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = iniciales,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
+                    LinceUserAvatar(initials = iniciales, size = 64.dp)
+                    Spacer(modifier = Modifier.width(LinceSpacing.small))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = nombre,
                             style = MaterialTheme.typography.titleLarge,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
+                            color = LinceTheme.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = base.subtitulo,
                             style = MaterialTheme.typography.bodySmall,
-                            color = LinceTextSecondary
+                            color = LinceTheme.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = usuario?.correo ?: stringResource(R.string.perfil_sesion_demo),
                             style = MaterialTheme.typography.labelSmall,
-                            color = LinceTextSecondary
+                            color = LinceTheme.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        LinceStatusBadge(
+                            text = when (usuario?.rol) {
+                                RolUsuario.ADMINISTRADOR -> stringResource(R.string.rol_administrador)
+                                RolUsuario.CONDUCTOR -> stringResource(R.string.rol_conductor)
+                                RolUsuario.GUIA -> stringResource(R.string.rol_guia)
+                                null -> stringResource(R.string.rol_participante)
+                            },
+                            tone = LinceStatusTone.Success
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    OutlinedButton(
+                    Spacer(modifier = Modifier.width(LinceSpacing.xSmall))
+                    LinceButton(
+                        text = stringResource(R.string.accion_editar),
                         onClick = { mostrarEditor = true },
-                        modifier = Modifier.height(36.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, LinceGreenBorder),
-                        contentPadding = PaddingValues(horizontal = 10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceGreenDark)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.accion_editar),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                        variant = LinceButtonVariant.Outline,
+                        icon = Icons.Default.Edit
+                    )
                 }
 
-                HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
+                LinceDivider()
 
                 DatoPerfil(
                     icono = Icons.Default.Call,
@@ -272,40 +261,12 @@ fun PerfilScreen(
                     valor = idiomas
                 )
 
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = LinceGreenSageLight.copy(alpha = 0.65f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Build,
-                                contentDescription = null,
-                                tint = LinceGreenDark,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(R.string.perfil_unidad),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = unidad,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
+                LinceDivider()
+                DatoPerfil(
+                    icono = Icons.Default.Build,
+                    etiqueta = stringResource(R.string.perfil_unidad),
+                    valor = unidad
+                )
 
                 mensajePerfil?.let {
                     BannerMensaje(texto = it, esError = perfilError)
@@ -315,27 +276,24 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+        LinceSurfaceCard(variant = LinceSurfaceCardVariant.Default) {
             Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
             ) {
-                EncabezadoTarjeta(
-                    icono = Icons.Default.Settings,
-                    titulo = stringResource(R.string.perfil_idioma_titulo)
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_idioma_titulo),
+                    subtitle = stringResource(R.string.perfil_idioma_subtitulo),
+                    action = {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = LinceTheme.colors.greenPrimary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
                 )
-                HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
-                Text(
-                    text = stringResource(R.string.perfil_idioma_subtitulo),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LinceTextSecondary
-                )
+                LinceDivider()
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SelectorIdiomaChip(
                         texto = stringResource(R.string.perfil_idioma_es),
@@ -359,42 +317,15 @@ fun PerfilScreen(
                     )
                 }
 
-                HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
-
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.perfil_apariencia_titulo),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = LinceTextPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (modoOscuro) {
-                                    stringResource(R.string.perfil_modo_oscuro)
-                                } else {
-                                    stringResource(R.string.perfil_modo_claro)
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceTextSecondary
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
+                LinceDivider()
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_apariencia_titulo),
+                    subtitle = if (modoOscuro) {
+                        stringResource(R.string.perfil_modo_oscuro)
+                    } else {
+                        stringResource(R.string.perfil_modo_claro)
+                    },
+                    action = {
                         ThemeModeSwitch(
                             modoOscuro = modoOscuro,
                             onToggle = {
@@ -407,6 +338,28 @@ fun PerfilScreen(
                             }
                         )
                     }
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = LinceSpacing.xSmall),
+                    horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+                ) {
+                    Text(
+                        text = stringResource(R.string.perfil_modo_claro),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (!modoOscuro) LinceTheme.colors.greenPrimary else LinceTheme.colors.textSecondary,
+                        fontWeight = if (!modoOscuro) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = stringResource(R.string.perfil_modo_oscuro),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (modoOscuro) LinceTheme.colors.greenPrimary else LinceTheme.colors.textSecondary,
+                        fontWeight = if (modoOscuro) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.End
+                    )
                 }
             }
         }
@@ -415,22 +368,26 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.medium
         ) {
             Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
             ) {
-                EncabezadoTarjeta(
-                    icono = Icons.Default.DateRange,
-                    titulo = stringResource(R.string.perfil_disponibilidad)
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_disponibilidad),
+                    action = {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = LinceTheme.colors.greenPrimary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
                 )
-                HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
+                LinceDivider()
 
                 Text(
                     text = stringResource(R.string.perfil_fechas_asignadas),
@@ -503,7 +460,8 @@ fun PerfilScreen(
                     }
                 }
 
-                Button(
+                LinceButton(
+                    text = stringResource(R.string.perfil_bloquear_fecha),
                     onClick = {
                         val calendario = Calendar.getInstance()
                         DatePickerDialog(
@@ -557,25 +515,10 @@ fun PerfilScreen(
                             datePicker.minDate = System.currentTimeMillis() - 1000L
                         }.show()
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        tint = LinceOnPrimary,
-                        modifier = Modifier.size(17.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.perfil_bloquear_fecha),
-                        color = LinceOnPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                    icon = Icons.Default.DateRange,
+                    variant = LinceButtonVariant.Primary,
+                    fullWidth = true
+                )
 
                 mensajeDisponibilidad?.let {
                     BannerMensaje(texto = it, esError = disponibilidadError)
@@ -585,102 +528,46 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.medium
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = StatusPendingBg,
-                        border = BorderStroke(1.dp, StatusPendingText.copy(alpha = 0.2f))
-                    ) {
+            Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_no_asistir),
+                    action = {
                         Icon(
                             imageVector = Icons.Default.Warning,
                             contentDescription = null,
-                            tint = StatusPendingText,
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .size(20.dp)
+                            tint = LinceTheme.colors.warning,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.perfil_no_asistir),
-                        fontWeight = FontWeight.Bold,
-                        color = LinceTextPrimary,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
+                )
+                LinceDivider()
                 Text(
                     text = stringResource(R.string.perfil_no_asistir_desc),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = LinceTextSecondary
+                    color = LinceTheme.colors.textSecondary
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
                 ) {
-                    Button(
+                    LinceButton(
+                        text = stringResource(R.string.perfil_llamar_manager),
                         onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = null,
-                            tint = LinceOnPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.perfil_llamar_manager),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = LinceOnPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    OutlinedButton(
+                        variant = LinceButtonVariant.Primary,
+                        icon = Icons.Default.Call,
+                        fullWidth = true
+                    )
+                    LinceButton(
+                        text = stringResource(R.string.perfil_whatsapp),
                         onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.5.dp, LinceGreenPrimary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceGreenPrimary),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = null,
-                            tint = LinceGreenPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.perfil_whatsapp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = LinceGreenPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                        variant = LinceButtonVariant.Outline,
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        fullWidth = true
+                    )
                 }
             }
         }
@@ -688,28 +575,13 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
+        LinceButton(
+            text = stringResource(R.string.perfil_cerrar_sesion),
             onClick = onCerrarSesion,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = LinceDangerRed)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                contentDescription = null,
-                tint = LinceOnPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.perfil_cerrar_sesion),
-                style = MaterialTheme.typography.titleMedium,
-                color = LinceOnPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+            icon = Icons.AutoMirrored.Filled.ExitToApp,
+            variant = LinceButtonVariant.Destructive,
+            fullWidth = true
+        )
 
         Spacer(modifier = Modifier.height(104.dp))
     }
@@ -746,29 +618,17 @@ private fun EncabezadoTarjeta(
     icono: ImageVector,
     titulo: String
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            modifier = Modifier.size(30.dp),
-            shape = RoundedCornerShape(9.dp),
-            color = LinceGreenSageLight
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icono,
-                    contentDescription = null,
-                    tint = LinceGreenDark,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
+    LinceSectionHeader(
+        title = titulo,
+        action = {
+            Icon(
+                imageVector = icono,
+                contentDescription = null,
+                tint = LinceTheme.colors.greenPrimary,
+                modifier = Modifier.size(19.dp)
+            )
         }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = titulo,
-            style = MaterialTheme.typography.titleMedium,
-            color = LinceGreenDark,
-            fontWeight = FontWeight.Bold
-        )
-    }
+    )
 }
 
 @Composable
@@ -779,35 +639,26 @@ private fun DatoPerfil(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(30.dp),
-            shape = RoundedCornerShape(9.dp),
-            color = LinceSurfaceContainerLow
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icono,
-                    contentDescription = null,
-                    tint = LinceGreenPrimary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(10.dp))
+        Icon(
+            imageVector = icono,
+            contentDescription = null,
+            tint = LinceTheme.colors.greenPrimary,
+            modifier = Modifier.size(18.dp)
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = etiqueta,
                 style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                color = LinceTheme.colors.textSecondary,
+                fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = valor,
                 style = MaterialTheme.typography.bodyMedium,
-                color = LinceTextPrimary,
+                color = LinceTheme.colors.textPrimary,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -990,26 +841,13 @@ private fun SelectorIdiomaChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val fondo = if (seleccionado) LinceGreenPrimary else LinceCardSurface
-    val colorTexto = if (seleccionado) LinceOnPrimary else LinceGreenDark
-    Surface(
-        modifier = modifier
-            .height(46.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        color = fondo,
-        border = BorderStroke(1.5.dp, if (seleccionado) LinceGreenPrimary else LinceGreenBorder)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = texto,
-                style = MaterialTheme.typography.labelLarge,
-                color = colorTexto,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
+    LinceButton(
+        text = texto,
+        onClick = onClick,
+        modifier = modifier,
+        variant = if (seleccionado) LinceButtonVariant.Primary else LinceButtonVariant.Outline,
+        fullWidth = true
+    )
 }
 
 @Composable
@@ -1027,7 +865,12 @@ private fun BannerMensaje(
         border = BorderStroke(1.dp, colorTexto.copy(alpha = 0.22f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(
+                start = 12.dp,
+                end = 12.dp,
+                top = 10.dp,
+                bottom = 10.dp
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(

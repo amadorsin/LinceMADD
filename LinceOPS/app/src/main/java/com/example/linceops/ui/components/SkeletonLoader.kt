@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.example.linceops.ui.theme.LinceCardSurface
 import com.example.linceops.ui.theme.LinceCreamBackground
@@ -50,6 +52,15 @@ fun Modifier.shimmerEffect(shape: Shape = RoundedCornerShape(12.dp)): Modifier =
         ),
         label = "shimmerOffset"
     )
+    val pulseAlpha by transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerPulse"
+    )
     val brush = Brush.linearGradient(
         colors = listOf(
             colores.shimmerBase,
@@ -62,6 +73,7 @@ fun Modifier.shimmerEffect(shape: Shape = RoundedCornerShape(12.dp)): Modifier =
     this
         .clip(shape)
         .background(brush, shape)
+        .graphicsLayer { alpha = pulseAlpha }
 }
 
 @Composable

@@ -10,18 +10,19 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,22 +31,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.linceops.R
-import com.example.linceops.ui.theme.LinceGlassBorder
-import com.example.linceops.ui.theme.LinceGlassSurface
-import com.example.linceops.ui.theme.LinceGreenDark
-import com.example.linceops.ui.theme.LinceGreenSageLight
-import com.example.linceops.ui.theme.LinceOutlineVariant
-import com.example.linceops.ui.theme.LinceTextSecondary
+import com.example.linceops.ui.theme.LinceRadius
+import com.example.linceops.ui.theme.LinceSpacing
 import com.example.linceops.ui.theme.LinceTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -58,9 +56,9 @@ private data class ItemBarra(
 )
 
 private val ITEMS_BARRA = listOf(
-    ItemBarra("inicio", Icons.Filled.Home, R.string.nav_inicio),
-    ItemBarra("servicios", Icons.AutoMirrored.Filled.List, R.string.nav_servicios),
-    ItemBarra("perfil", Icons.Filled.Person, R.string.nav_perfil)
+    ItemBarra("inicio", Icons.Rounded.Home, R.string.nav_inicio),
+    ItemBarra("servicios", Icons.AutoMirrored.Rounded.List, R.string.nav_servicios),
+    ItemBarra("perfil", Icons.Rounded.Person, R.string.nav_perfil)
 )
 
 @Composable
@@ -74,25 +72,25 @@ fun BarraInferiorGlass(
 ) {
     val densidad = LocalDensity.current
     val umbral = with(densidad) { 24.dp.toPx() }
-    val alturaTotal = with(densidad) { 104.dp.toPx() }
+    val alturaTotal = with(densidad) { 96.dp.toPx() }
     var acumulado by remember { mutableStateOf(0f) }
+    val colores = LinceTheme.colors
 
     val progreso by animateFloatAsState(
         targetValue = if (visible) 0f else 1f,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 420f),
+        animationSpec = spring(dampingRatio = 0.86f, stiffness = 420f),
         label = "barraInferior"
     )
 
-    val formaPildora = RoundedCornerShape(32.dp)
+    val formaBarra = RoundedCornerShape(LinceRadius.xLarge)
 
     Box(modifier = modifier.fillMaxWidth()) {
-
         if (!visible) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(60.dp)
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onDragStart = { acumulado = 0f },
@@ -108,53 +106,54 @@ fun BarraInferiorGlass(
                         )
                     }
             )
-
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = LinceSpacing.small)
                     .size(width = 36.dp, height = 4.dp)
-                    .background(LinceOutlineVariant.copy(alpha = 0.55f), RoundedCornerShape(50))
+                    .background(
+                        colores.outlineVariant.copy(alpha = 0.75f),
+                        RoundedCornerShape(50)
+                    )
             )
         }
 
         if (progreso < 1f) {
-
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 32.dp)
-                    .padding(bottom = 18.dp)
+                    .padding(horizontal = LinceSpacing.medium)
+                    .padding(bottom = LinceSpacing.medium)
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(76.dp)
                     .graphicsLayer {
                         translationY = progreso * alturaTotal
                         alpha = 1f - (progreso * 0.55f)
-                        scaleX = 1f - (progreso * 0.08f)
-                        scaleY = 1f - (progreso * 0.08f)
+                        scaleX = 1f - (progreso * 0.035f)
+                        scaleY = 1f - (progreso * 0.035f)
                     }
-                    .clip(formaPildora)
+                    .clip(formaBarra)
                     .hazeChild(
                         state = hazeState,
-                        shape = formaPildora,
+                        shape = formaBarra,
                         style = HazeStyle(
-                            tint = LinceGlassSurface.copy(
-                                alpha = if (LinceTheme.colors.isDark) 0.72f else 0.52f
+                            tint = colores.glassSurface.copy(
+                                alpha = if (colores.isDark) 0.86f else 0.68f
                             ),
-                            blurRadius = 26.dp,
-                            noiseFactor = 0.04f
+                            blurRadius = 20.dp,
+                            noiseFactor = 0.025f
                         )
                     )
                     .background(
-                        color = LinceGlassSurface.copy(
-                            alpha = if (LinceTheme.colors.isDark) 0.42f else 0.18f
+                        color = colores.glassSurface.copy(
+                            alpha = if (colores.isDark) 0.78f else 0.72f
                         ),
-                        shape = formaPildora
+                        shape = formaBarra
                     )
                     .border(
-                        width = 1.dp,
-                        color = LinceGlassBorder.copy(alpha = 0.85f),
-                        shape = formaPildora
+                        width = 0.75.dp,
+                        color = colores.glassBorder.copy(alpha = 0.88f),
+                        shape = formaBarra
                     )
                     .pointerInput(visible) {
                         detectVerticalDragGestures(
@@ -174,9 +173,9 @@ fun BarraInferiorGlass(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp)
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                        .height(76.dp)
+                        .padding(horizontal = LinceSpacing.small, vertical = LinceSpacing.small),
+                    horizontalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ITEMS_BARRA.forEach { item ->
@@ -184,30 +183,42 @@ fun BarraInferiorGlass(
                         val interactionSource = remember { MutableInteractionSource() }
                         val etiquetaItem = stringResource(item.etiquetaRes)
 
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .height(56.dp)
+                                .clip(RoundedCornerShape(LinceRadius.medium))
+                                .background(
+                                    if (seleccionado) {
+                                        colores.greenSageLight.copy(
+                                            alpha = if (colores.isDark) 0.92f else 0.96f
+                                        )
+                                    } else {
+                                        colores.glassSurface.copy(alpha = 0f)
+                                    }
+                                )
                                 .clickable(
                                     interactionSource = interactionSource,
-                                    indication = null
+                                    indication = null,
+                                    role = Role.Tab
                                 ) { onNavegar(item.id) }
-                                .semantics { contentDescription = etiquetaItem },
-                            contentAlignment = Alignment.Center
+                                .semantics { contentDescription = etiquetaItem }
+                                .padding(horizontal = LinceSpacing.small, vertical = LinceSpacing.xSmall),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            if (seleccionado) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(LinceGreenSageLight.copy(alpha = 0.88f))
-                                )
-                            }
                             Icon(
                                 imageVector = item.icono,
                                 contentDescription = null,
-                                tint = if (seleccionado) LinceGreenDark else LinceTextSecondary,
-                                modifier = Modifier.size(24.dp)
+                                tint = if (seleccionado) colores.greenDark else colores.textSecondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                text = etiquetaItem,
+                                color = if (seleccionado) colores.greenDark else colores.textSecondary,
+                                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                                fontSize = 12.sp,
+                                maxLines = 1
                             )
                         }
                     }

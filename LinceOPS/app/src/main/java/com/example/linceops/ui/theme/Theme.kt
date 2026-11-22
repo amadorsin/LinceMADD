@@ -5,6 +5,25 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+object LinceSpacing {
+    val xSmall: Dp = 4.dp
+    val small: Dp = 8.dp
+    val mediumSmall: Dp = 12.dp
+    val medium: Dp = 16.dp
+    val large: Dp = 20.dp
+    val xLarge: Dp = 24.dp
+    val xxLarge: Dp = 32.dp
+}
+
+object LinceRadius {
+    val small: Dp = 10.dp
+    val medium: Dp = 14.dp
+    val large: Dp = 16.dp
+    val xLarge: Dp = 20.dp
+}
 
 private val LightLinceColorScheme = lightColorScheme(
     primary = LightLinceColors.greenPrimary,
@@ -16,7 +35,7 @@ private val LightLinceColorScheme = lightColorScheme(
     secondaryContainer = LightLinceColors.greenSageLight,
     onSecondaryContainer = LightLinceColors.greenDark,
     tertiary = LightLinceColors.tertiary,
-    onTertiary = LightLinceColors.onPrimary,
+    onTertiary = LightLinceColors.textPrimary,
     tertiaryContainer = LightLinceColors.tertiaryContainer,
     onTertiaryContainer = LightLinceColors.onTertiaryContainer,
     background = LightLinceColors.background,
@@ -30,6 +49,7 @@ private val LightLinceColorScheme = lightColorScheme(
     surfaceContainer = LightLinceColors.surfaceVariant,
     surfaceContainerHigh = LightLinceColors.surfaceContainerHigh,
     surfaceContainerHighest = LightLinceColors.surfaceContainerHigh,
+    surfaceTint = LightLinceColors.greenPrimary,
     outline = LightLinceColors.outlineVariant,
     outlineVariant = LightLinceColors.outlineVariant,
     error = LightLinceColors.dangerRed,
@@ -60,6 +80,7 @@ private val DarkLinceColorScheme = darkColorScheme(
     surfaceContainer = DarkLinceColors.cardSurface,
     surfaceContainerHigh = DarkLinceColors.surfaceContainerHigh,
     surfaceContainerHighest = DarkLinceColors.surfaceContainerHigh,
+    surfaceTint = DarkLinceColors.greenPrimary,
     outline = DarkLinceColors.outlineVariant,
     outlineVariant = DarkLinceColors.outlineVariant,
     error = DarkLinceColors.dangerRed,

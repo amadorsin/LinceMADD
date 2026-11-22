@@ -16,8 +16,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
@@ -39,9 +41,20 @@ import com.example.linceops.R
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.Servicio
 import com.example.linceops.network.dto.GeocercaDto
-import com.example.linceops.ui.components.MarcajeMapaDistancia
+import com.example.linceops.ui.components.MapaRutaMarcaje
 import com.example.linceops.ui.components.MarcajeSkeleton
 import com.example.linceops.ui.components.PuntoMapa
+import com.example.linceops.ui.components.LinceButton
+import com.example.linceops.ui.components.LinceButtonVariant
+import com.example.linceops.ui.components.LinceDivider
+import com.example.linceops.ui.components.LinceSectionHeader
+import com.example.linceops.ui.components.LinceStatusBadge
+import com.example.linceops.ui.components.LinceStatusTone
+import com.example.linceops.ui.components.LinceSurfaceCard
+import com.example.linceops.ui.components.LinceSurfaceCardVariant
+import com.example.linceops.ui.theme.LinceRadius
+import com.example.linceops.ui.theme.LinceSpacing
+import com.example.linceops.ui.theme.LinceTheme
 import com.example.linceops.ui.theme.*
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -263,452 +276,454 @@ fun MarcajeScreen(
         label = "pulsoRadar"
     )
 
+    val tonoGps = when {
+        precisionGpsMetros == null -> LinceStatusTone.Neutral
+        precisionGpsMetros!! <= 50f -> LinceStatusTone.Success
+        else -> LinceStatusTone.Warning
+    }
+    val checkInRegistrado = servicio.participaciones.any { it.checkIn != null }
+    val checkOutRegistrado = servicio.participaciones.any { it.checkOut != null }
+    val estadoEnRuta = servicio.estado == com.example.linceops.model.EstadoServicio.EN_CURSO ||
+            servicio.estado == com.example.linceops.model.EstadoServicio.FINALIZADO
+    val distanciaTexto = distanciaMetros?.let { metros ->
+        if (metros >= 1000.0) {
+            stringResource(
+                R.string.marcaje_distancia_km,
+                String.format(Locale.US, "%.2f", metros / 1000.0)
+            )
+        } else {
+            stringResource(R.string.marcaje_distancia_valor, metros.toInt())
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LinceCreamBackground)
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .background(LinceTheme.colors.background)
+            .padding(horizontal = LinceSpacing.medium, vertical = LinceSpacing.small)
     ) {
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.marcaje_control_ruta),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = LinceTextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Text(
-                    text = stringResource(R.string.marcaje_titulo),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = LinceGreenPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Surface(
-                color = LinceSurfaceContainerHigh,
-                shape = RoundedCornerShape(50)
-            ) {
-                Text(
-                    text = stringResource(R.string.marcaje_id, servicioId),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = LinceGreenSageLight,
-            shape = RoundedCornerShape(12.dp)
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.mediumSmall
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = LinceGreenDark,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.marcaje_recordatorio),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
+                ) {
+                    Text(
+                        text = stringResource(R.string.marcaje_control_ruta),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LinceTheme.colors.textSecondary,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = servicio.titulo,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = LinceTheme.colors.textPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = stringResource(R.string.marcaje_id, servicioId),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LinceTheme.colors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(LinceSpacing.small))
+                EstadoBadge(estado = servicio.estado)
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(LinceSpacing.small))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(LinceSpacing.mediumSmall)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.marcaje_geo_titulo),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = LinceGreenDark,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Surface(
-                        color = LinceGreenSageLight,
-                        shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, LinceGreenBorder)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .clickable { esVistaCheckOut = !esVistaCheckOut }
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .background(LinceGreenPrimary, CircleShape)
+            LinceSurfaceCard(
+                variant = LinceSurfaceCardVariant.Default,
+                contentPadding = LinceSpacing.medium
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+                    LinceSectionHeader(
+                        title = stringResource(R.string.marcaje_geo_titulo),
+                        action = {
+                            LinceStatusBadge(
+                                text = stringResource(R.string.marcaje_gps),
+                                tone = tonoGps,
+                                icon = Icons.Default.LocationOn
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (esVistaCheckOut) {
+                        }
+                    )
+                    LinceDivider()
+                    Text(
+                        text = stringResource(R.string.marcaje_estado_geo),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = LinceTheme.colors.textSecondary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = mensajeEstado,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LinceTheme.colors.textPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    val precisionTexto = precisionGpsMetros?.let {
+                        stringResource(R.string.marcaje_gps_valor, it.toInt())
+                    }
+                    if (precisionTexto != null || distanciaTexto != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+                        ) {
+                            precisionTexto?.let {
+                                LinceStatusBadge(text = it, tone = tonoGps)
+                            }
+                            distanciaTexto?.let {
+                                LinceStatusBadge(text = it, tone = LinceStatusTone.Info)
+                            }
+                        }
+                    }
+                    LinceDivider()
+                    NotaOperativaMarcaje(texto = stringResource(R.string.marcaje_recordatorio))
+                    NotaOperativaMarcaje(texto = stringResource(R.string.marcaje_info_adjunta))
+                }
+            }
+
+            LinceSurfaceCard(
+                variant = LinceSurfaceCardVariant.Default,
+                contentPadding = LinceSpacing.medium
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+                    LinceSectionHeader(
+                        title = stringResource(R.string.marcaje_titulo),
+                        action = {
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .clickable { esVistaCheckOut = !esVistaCheckOut },
+                                shape = RoundedCornerShape(50),
+                                color = LinceTheme.colors.surfaceContainerHigh
+                            ) {
+                                Text(
+                                    text = if (esVistaCheckOut) {
+                                        stringResource(R.string.marcaje_mapa_punto_termino)
+                                    } else {
+                                        stringResource(R.string.marcaje_mapa_punto_recogida)
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceTheme.colors.greenDark,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(
+                                        horizontal = LinceSpacing.small,
+                                        vertical = LinceSpacing.xSmall
+                                    )
+                                )
+                            }
+                        }
+                    )
+
+                    if (puntoObjetivoMapa != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp)
+                                .clip(RoundedCornerShape(LinceRadius.large))
+                                .border(
+                                    BorderStroke(1.dp, LinceTheme.colors.outlineVariant),
+                                    RoundedCornerShape(LinceRadius.large)
+                                )
+                        ) {
+                            MapaRutaMarcaje(
+                                puntoObjetivo = puntoObjetivoMapa,
+                                puntoUsuario = puntoUsuarioActual,
+                                radioMetros = radioPermitido,
+                                modifier = Modifier.fillMaxSize(),
+                                contextoPunto = if (esVistaCheckOut) {
                                     stringResource(R.string.marcaje_mapa_punto_termino)
                                 } else {
                                     stringResource(R.string.marcaje_mapa_punto_recogida)
                                 },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.4.sp
+                                distanciaDirecta = distanciaTexto
                             )
                         }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                val etiquetaObjetivoActual = if (esVistaCheckOut) {
-                    stringResource(R.string.marcaje_mapa_punto_termino)
-                } else {
-                    stringResource(R.string.marcaje_mapa_punto_recogida)
-                }
-
-                val textoDistanciaActual = distanciaMetros?.let { metros ->
-                    if (metros >= 1000.0) {
-                        stringResource(
-                            R.string.marcaje_distancia_km,
-                            String.format(Locale.US, "%.2f", metros / 1000.0)
-                        )
                     } else {
-                        stringResource(R.string.marcaje_distancia_valor, metros.toInt())
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(168.dp)
+                                .clip(RoundedCornerShape(LinceRadius.large))
+                                .background(LinceTheme.colors.surfaceContainerLow),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(124.dp),
+                                shape = CircleShape,
+                                color = LinceTheme.colors.greenPrimary.copy(
+                                    alpha = 0.04f + (0.07f * pulsoRadar)
+                                )
+                            ) {}
+                            Surface(
+                                modifier = Modifier.size(76.dp),
+                                shape = CircleShape,
+                                color = LinceTheme.colors.greenSageLight
+                            ) {}
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = stringResource(R.string.marcaje_ubicacion_gps),
+                                tint = LinceTheme.colors.greenPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
-                }
 
-                if (puntoObjetivoMapa != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(LinceSurfaceContainerLow, RoundedCornerShape(16.dp))
-                            .border(1.dp, LinceOutlineVariant, RoundedCornerShape(16.dp))
-                    ) {
-                        MarcajeMapaDistancia(
-                            puntoObjetivo = puntoObjetivoMapa,
-                            puntoUsuario = puntoUsuarioActual,
-                            radioMetros = radioPermitido,
-                            modifier = Modifier.fillMaxSize()
+                    if (puntoObjetivoMapa != null || puntoUsuarioActual != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(LinceSpacing.mediumSmall),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (puntoObjetivoMapa != null) {
+                                LeyendaMapaMarcaje(
+                                    color = LinceTheme.colors.greenPrimary,
+                                    texto = if (esVistaCheckOut) {
+                                        stringResource(R.string.marcaje_mapa_punto_termino)
+                                    } else {
+                                        stringResource(R.string.marcaje_mapa_punto_recogida)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (puntoUsuarioActual != null) {
+                            LeyendaMapaMarcaje(
+                                color = LinceTheme.colors.mapGpsBlue,
+                                texto = stringResource(R.string.marcaje_mapa_tu_ubicacion),
+                                modifier = Modifier.weight(1f)
+                            )
+                            }
+                        }
+                    }
+                    LinceStatusBadge(
+                        text = buildString {
+                            append(context.getString(R.string.marcaje_radio_valor, radioPermitido))
+                            distanciaTexto?.let {
+                                append(" · ")
+                                append(it)
+                            }
+                        },
+                        tone = LinceStatusTone.Neutral
+                    )
+                }
+            }
+
+            LinceSurfaceCard(
+                variant = LinceSurfaceCardVariant.Default,
+                contentPadding = LinceSpacing.medium
+            ) {
+                LinceSectionHeader(title = stringResource(R.string.detalle_trazabilidad))
+                Spacer(modifier = Modifier.height(LinceSpacing.small))
+                LineaTiempoMarcaje(
+                    pasos = listOf(
+                        PasoMarcaje(
+                            titulo = stringResource(R.string.marcaje_mapa_punto_recogida),
+                            completado = checkInRegistrado ||
+                                    servicio.estado == EstadoServicio.EN_CURSO ||
+                                    servicio.estado == EstadoServicio.FINALIZADO,
+                            actual = !checkInRegistrado && servicio.estado == EstadoServicio.CONFIRMADO
+                        ),
+                        PasoMarcaje(
+                            titulo = stringResource(R.string.dashboard_servicio_en_curso),
+                            completado = servicio.estado == EstadoServicio.FINALIZADO ||
+                                    (estadoEnRuta && checkOutRegistrado),
+                            actual = servicio.estado == com.example.linceops.model.EstadoServicio.EN_CURSO
+                        ),
+                        PasoMarcaje(
+                            titulo = stringResource(R.string.marcaje_mapa_punto_termino),
+                            completado = checkOutRegistrado || servicio.estado == com.example.linceops.model.EstadoServicio.FINALIZADO,
+                            actual = esVistaCheckOut &&
+                                    !checkOutRegistrado &&
+                                    servicio.estado != EstadoServicio.FINALIZADO
                         )
-
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(10.dp),
-                            color = LinceCardSurface.copy(alpha = 0.92f),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
-                        ) {
-                            Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
-                                Text(
-                                    text = stringResource(R.string.marcaje_margen),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = LinceTextSecondary,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Text(
-                                    text = buildString {
-                                        append(context.getString(R.string.marcaje_radio_valor, radioPermitido))
-                                        textoDistanciaActual?.let {
-                                            append(" · ")
-                                            append(it)
-                                        }
-                                        precisionGpsMetros?.let {
-                                            append(" · ")
-                                            append(context.getString(R.string.marcaje_gps_valor, it.toInt()))
-                                        }
-                                    },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = LinceTextPrimary,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(10.dp),
-                            color = LinceCardSurface.copy(alpha = 0.92f),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .background(LinceGreenPrimary, CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = etiquetaObjetivoActual,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = LinceTextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                if (puntoUsuarioActual != null) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .background(LinceTheme.colors.mapGpsBlue, CircleShape)
-                                        )
-                                        Spacer(modifier = Modifier.width(5.dp))
-                                        Text(
-                                            text = stringResource(R.string.marcaje_mapa_tu_ubicacion),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = LinceTextSecondary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .background(LinceSurfaceContainerLow, RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(184.dp),
-                            shape = CircleShape,
-                            color = LinceGreenPrimary.copy(alpha = 0.04f + (0.07f * pulsoRadar))
-                        ) {}
-                        Surface(
-                            modifier = Modifier.size(132.dp),
-                            shape = CircleShape,
-                            color = LinceGreenPrimary.copy(alpha = 0.09f)
-                        ) {}
-                        Surface(
-                            modifier = Modifier.size(84.dp),
-                            shape = CircleShape,
-                            color = LinceGreenSageLight
-                        ) {}
-                        Surface(
-                            modifier = Modifier.size(56.dp),
-                            shape = CircleShape,
-                            color = LinceGreenPrimary,
-                            shadowElevation = 4.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = stringResource(R.string.marcaje_ubicacion_gps),
-                                    tint = LinceOnPrimary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(10.dp),
-                            color = LinceCardSurface.copy(alpha = 0.9f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
-                                Text(
-                                    text = stringResource(R.string.marcaje_margen),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = LinceTextSecondary,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Text(
-                                    text = buildString {
-                                        append(context.getString(R.string.marcaje_radio_valor, radioPermitido))
-                                        textoDistanciaActual?.let {
-                                            append(" · ")
-                                            append(it)
-                                        }
-                                        precisionGpsMetros?.let {
-                                            append(" · ")
-                                            append(context.getString(R.string.marcaje_gps_valor, it.toInt()))
-                                        }
-                                    },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = LinceTextPrimary,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(34.dp),
-                            shape = CircleShape,
-                            color = LinceGreenSageLight
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = LinceGreenPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.marcaje_estado_geo),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceTextSecondary,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.6.sp
-                            )
-                            Text(
-                                text = mensajeEstado,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = LinceTextPrimary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = LinceTertiary,
-                        modifier = Modifier
-                            .padding(top = 1.dp)
-                            .size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.marcaje_info_adjunta),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LinceTextSecondary,
-                        textAlign = TextAlign.Start
-                    )
-                }
+                )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(LinceSpacing.small))
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
         ) {
-            Button(
-                onClick = { obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) } },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = LinceOnPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.marcaje_registrar_checkin),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LinceOnPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            OutlinedButton(
-                onClick = { obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) } },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, LinceGreenPrimary),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = LinceGreenDark,
-                    containerColor = LinceCardSurface
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = LinceGreenDark,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.marcaje_checkout),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
+            LinceButton(
+                text = if (esVistaCheckOut) {
+                    stringResource(R.string.marcaje_checkout)
+                } else {
+                    stringResource(R.string.marcaje_registrar_checkin)
+                },
+                onClick = {
+                    if (esVistaCheckOut) {
+                        obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) }
+                    } else {
+                        obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) }
+                    }
+                },
+                icon = if (esVistaCheckOut) Icons.Default.CheckCircle else Icons.Default.LocationOn,
+                variant = LinceButtonVariant.Primary,
+                fullWidth = true
+            )
+            LinceButton(
+                text = if (esVistaCheckOut) {
+                    stringResource(R.string.marcaje_registrar_checkin)
+                } else {
+                    stringResource(R.string.marcaje_checkout)
+                },
+                onClick = {
+                    if (esVistaCheckOut) {
+                        obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) }
+                    } else {
+                        obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) }
+                    }
+                },
+                icon = if (esVistaCheckOut) Icons.Default.LocationOn else Icons.Default.CheckCircle,
+                variant = LinceButtonVariant.Outline,
+                fullWidth = true
+            )
             Text(
                 text = stringResource(R.string.marcaje_verificacion),
                 style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary,
+                color = LinceTheme.colors.textSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+}
+
+private data class PasoMarcaje(
+    val titulo: String,
+    val completado: Boolean,
+    val actual: Boolean
+)
+
+@Composable
+private fun LineaTiempoMarcaje(pasos: List<PasoMarcaje>) {
+    val colores = LinceTheme.colors
+    Column {
+        pasos.forEachIndexed { index, paso ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Surface(
+                        modifier = Modifier.size(12.dp),
+                        shape = CircleShape,
+                        color = when {
+                            paso.completado -> colores.success
+                            paso.actual -> colores.greenPrimary
+                            else -> colores.surfaceContainerHigh
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                paso.completado -> colores.success
+                                paso.actual -> colores.greenPrimary
+                                else -> colores.outlineVariant
+                            }
+                        )
+                    ) {}
+                    if (index < pasos.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(22.dp)
+                                .background(colores.outlineVariant)
+                        )
+                    }
+                }
+                Text(
+                    text = paso.titulo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (paso.actual || paso.completado) {
+                        colores.textPrimary
+                    } else {
+                        colores.textSecondary
+                    },
+                    fontWeight = if (paso.actual) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+                if (paso.actual) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    LinceStatusBadge(
+                        text = paso.titulo,
+                        tone = LinceStatusTone.Info
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeyendaMapaMarcaje(
+    color: androidx.compose.ui.graphics.Color,
+    texto: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color, CircleShape)
+        )
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.labelSmall,
+            color = LinceTheme.colors.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun NotaOperativaMarcaje(texto: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            tint = LinceTheme.colors.goldAccent,
+            modifier = Modifier
+                .padding(top = 1.dp)
+                .size(15.dp)
+        )
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodySmall,
+            color = LinceTheme.colors.textSecondary
+        )
     }
 }
 

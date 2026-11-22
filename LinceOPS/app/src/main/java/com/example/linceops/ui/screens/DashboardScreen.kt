@@ -1,18 +1,28 @@
 package com.example.linceops.ui.screens
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -21,32 +31,27 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,12 +63,22 @@ import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.ui.components.DashboardSkeleton
 import com.example.linceops.ui.components.EfectoScrollBarraInferior
+import com.example.linceops.ui.components.LinceButton
+import com.example.linceops.ui.components.LinceButtonVariant
+import com.example.linceops.ui.components.LinceDivider
+import com.example.linceops.ui.components.LinceEmptyState
+import com.example.linceops.ui.components.LinceKpiCard
+import com.example.linceops.ui.components.LinceSectionHeader
+import com.example.linceops.ui.components.LinceStatusBadge
+import com.example.linceops.ui.components.LinceStatusTone
+import com.example.linceops.ui.components.LinceSurfaceCard
+import com.example.linceops.ui.components.LinceSurfaceCardVariant
+import com.example.linceops.ui.components.LinceUserAvatar
+import com.example.linceops.ui.theme.LinceSpacing
+import com.example.linceops.ui.theme.LinceTheme
 import com.example.linceops.ui.theme.*
-import com.example.linceops.utils.LanguagePreferences
 import com.example.linceops.viewmodel.ServiceUiState
-import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.sin
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(
@@ -83,21 +98,9 @@ fun DashboardScreen(
     val listState = rememberLazyListState()
     EfectoScrollBarraInferior(listState = listState, onVisibleChange = onScrollBarra)
     val context = LocalContext.current
-
-    var filtroInicio by remember { mutableStateOf<EstadoServicio?>(null) }
     val usuario = uiState.usuarioLogueado
-    val serviciosVisibles = if (filtroInicio == null) {
-        uiState.serviciosTotales
-    } else {
-        uiState.serviciosTotales.filter { servicio ->
-            val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
-            estado == filtroInicio
-        }
-    }
-
-    val uiStateCompleto = uiState.copy(servicios = uiState.serviciosTotales)
-
-    val nombreUsuario = uiState.usuarioLogueado?.nombre ?: stringResource(R.string.dashboard_usuario)
+    val serviciosVisibles = uiState.serviciosTotales
+    val nombreUsuario = usuario?.nombre ?: stringResource(R.string.dashboard_usuario)
     val iniciales = nombreUsuario
         .split(" ")
         .filter { it.isNotBlank() }
@@ -105,163 +108,176 @@ fun DashboardScreen(
         .mapNotNull { it.firstOrNull()?.uppercaseChar() }
         .joinToString("")
 
-    Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = modifier
-                .fillMaxSize()
-                .background(LinceCreamBackground),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 124.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "LINCE OPS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceGreenPrimary,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.2.sp
-                            )
-                            Text(
-                                text = "  •  ",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceOutlineVariant
-                            )
-                            Text(
-                                text = nombreRol(context, rolUsuario).uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceTextSecondary,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.8.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = LinceTertiary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.dashboard_base_operativa),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = LinceTextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+    var filtroInicio by remember { mutableStateOf<EstadoServicio?>(null) }
+    val serviciosFiltrados = if (filtroInicio == null) {
+        serviciosVisibles
+    } else {
+        serviciosVisibles.filter { servicio ->
+            (usuario?.let { servicio.estadoPara(it) } ?: servicio.estado) == filtroInicio
+        }
+    }
+    val datosDashboard = uiState.copy(servicios = uiState.serviciosTotales)
 
-                    Surface(
-                        modifier = Modifier.size(44.dp),
-                        shape = CircleShape,
-                        color = LinceGreenSageLight,
-                        border = BorderStroke(1.dp, LinceGreenBorder)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = iniciales.ifBlank { "LO" },
-                                style = MaterialTheme.typography.titleSmall,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .fillMaxSize()
+            .background(LinceTheme.colors.background),
+        contentPadding = PaddingValues(
+            start = LinceSpacing.medium,
+            end = LinceSpacing.medium,
+            top = LinceSpacing.medium,
+            bottom = 124.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)
+    ) {
+        item {
+            val topographicColor = LinceTheme.colors.greenPrimary.copy(alpha = 0.055f)
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Canvas(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(width = 138.dp, height = 112.dp)
+                ) {
+                    for (index in 0..4) {
+                        drawArc(
+                            color = topographicColor,
+                            startAngle = 185f + index * 5f,
+                            sweepAngle = 145f,
+                            useCenter = false,
+                            topLeft = Offset(size.width * 0.16f + index * 5f, size.height * 0.04f + index * 6f),
+                            size = androidx.compose.ui.geometry.Size(
+                                size.width * 0.88f - index * 7f,
+                                size.height * 0.84f - index * 7f
+                            ),
+                            style = Stroke(width = 1.1.dp.toPx(), cap = StrokeCap.Round)
+                        )
                     }
                 }
-            }
 
-            item {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "LINCE OPS",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceTheme.colors.greenPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.1.sp
+                                )
+                                Text(
+                                    text = "  ·  ${nombreRol(context, rolUsuario).uppercase()}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LinceTheme.colors.textSecondary,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = LinceTheme.colors.goldAccent,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(LinceSpacing.xSmall))
+                                Text(
+                                    text = stringResource(R.string.dashboard_base_operativa),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = LinceTheme.colors.textSecondary
+                                )
+                            }
+                        }
+                        LinceUserAvatar(
+                            initials = iniciales.ifBlank { "LO" },
+                            size = 44.dp
+                        )
+                    }
+
                     Text(
                         text = stringResource(R.string.dashboard_hola, nombreUsuario),
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = LinceTextPrimary
+                        color = LinceTheme.colors.textPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = LinceGreenPrimary,
-                            modifier = Modifier.size(14.dp)
+                            tint = LinceTheme.colors.success,
+                            modifier = Modifier.size(15.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(LinceSpacing.xSmall))
                         Text(
                             text = stringResource(R.string.dashboard_turno),
                             style = MaterialTheme.typography.bodySmall,
-                            color = LinceTextSecondary,
+                            color = LinceTheme.colors.textSecondary,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
             }
+        }
 
-            item {
-                when (rolUsuario) {
-                    RolUsuario.ADMINISTRADOR ->
-                        DashboardManagerView(
-                            uiState = uiStateCompleto,
-                            onCrearServicio = onCrearServicio
-                        )
-
-                    RolUsuario.CONDUCTOR ->
-                        DashboardDriverView(
-                            uiState = uiStateCompleto,
-                            onIniciarMarcaje = onIniciarMarcaje,
-                            onVerDetalleServicio = onVerDetalleServicio
-                        )
-
-                    RolUsuario.GUIA ->
-                        DashboardGuiaView(
-                            uiState = uiStateCompleto,
-                            onIniciarMarcaje = onIniciarMarcaje,
-                            onVerDetalleServicio = onVerDetalleServicio
-                        )
-                }
-            }
-
-            item {
-                FiltrosInicio(
-                    seleccionado = filtroInicio,
-                    onSeleccionar = { filtroInicio = it }
+        item {
+            when (rolUsuario) {
+                RolUsuario.ADMINISTRADOR -> DashboardManagerView(
+                    uiState = datosDashboard,
+                    onCrearServicio = onCrearServicio
+                )
+                RolUsuario.CONDUCTOR -> DashboardDriverView(
+                    uiState = datosDashboard,
+                    onIniciarMarcaje = onIniciarMarcaje,
+                    onVerDetalleServicio = onVerDetalleServicio
+                )
+                RolUsuario.GUIA -> DashboardGuiaView(
+                    uiState = datosDashboard,
+                    onIniciarMarcaje = onIniciarMarcaje,
+                    onVerDetalleServicio = onVerDetalleServicio
                 )
             }
+        }
 
-            if (serviciosVisibles.isNotEmpty()) {
-                item {
-                    ResumenServicios(
-                        servicios = serviciosVisibles,
-                        uiState = uiStateCompleto,
-                        onVerDetalleServicio = onVerDetalleServicio
-                    )
-                }
-            } else {
-                item {
-                    Surface(
-                        color = LinceSurfaceContainerLow,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.45f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = filtroInicio?.let {
-                                stringResource(R.string.dashboard_sin_servicios_estado, nombreEstado(context, it))
-                            } ?: stringResource(R.string.dashboard_sin_servicios),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LinceTextSecondary,
-                            modifier = Modifier.padding(14.dp)
-                        )
-                    }
-                }
+        item {
+            FiltrosInicio(
+                seleccionado = filtroInicio,
+                onSeleccionar = { filtroInicio = it }
+            )
+        }
+
+        if (serviciosFiltrados.isNotEmpty()) {
+            item {
+                ResumenServicios(
+                    servicios = serviciosFiltrados,
+                    uiState = datosDashboard,
+                    onVerDetalleServicio = onVerDetalleServicio
+                )
+            }
+        } else {
+            item {
+                LinceEmptyState(
+                    title = filtroInicio?.let {
+                        stringResource(R.string.dashboard_sin_servicios_estado, nombreEstado(context, it))
+                    } ?: stringResource(R.string.dashboard_sin_servicios),
+                    description = stringResource(R.string.dashboard_sin_servicios),
+                    icon = Icons.AutoMirrored.Filled.List
+                )
             }
         }
     }
@@ -273,17 +289,16 @@ private fun FiltrosInicio(
     onSeleccionar: (EstadoServicio?) -> Unit
 ) {
     val context = LocalContext.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
         Text(
             text = stringResource(R.string.dashboard_filtrar_estado),
-            style = MaterialTheme.typography.labelSmall,
-            color = LinceTextSecondary,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.8.sp
+            style = MaterialTheme.typography.labelMedium,
+            color = LinceTheme.colors.textSecondary,
+            fontWeight = FontWeight.SemiBold
         )
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
         ) {
             item {
                 FilterChip(
@@ -291,7 +306,7 @@ private fun FiltrosInicio(
                     onClick = { onSeleccionar(null) },
                     label = { Text(stringResource(R.string.dashboard_todos)) },
                     shape = RoundedCornerShape(50),
-                    colors = filterChipColors()
+                    colors = filtrosInicioColors()
                 )
             }
             items(estadosOrdenados) { estado ->
@@ -300,12 +315,20 @@ private fun FiltrosInicio(
                     onClick = { onSeleccionar(estado) },
                     label = { Text(nombreEstado(context, estado)) },
                     shape = RoundedCornerShape(50),
-                    colors = filterChipColors()
+                    colors = filtrosInicioColors()
                 )
             }
         }
     }
 }
+
+@Composable
+private fun filtrosInicioColors() = FilterChipDefaults.filterChipColors(
+    containerColor = LinceTheme.colors.surfaceContainerHigh,
+    labelColor = LinceTheme.colors.textSecondary,
+    selectedContainerColor = LinceTheme.colors.greenPrimary,
+    selectedLabelColor = LinceTheme.colors.onPrimary
+)
 
 @Composable
 private fun DashboardManagerView(
@@ -313,466 +336,326 @@ private fun DashboardManagerView(
     onCrearServicio: () -> Unit
 ) {
     val usuario = uiState.usuarioLogueado
-
     val pendientes = uiState.servicios.count { servicio ->
-        val estado = usuario?.let {
-            servicio.estadoPara(it)
-        } ?: servicio.estado
-
-        estado == EstadoServicio.PENDIENTE
+        (usuario?.let { servicio.estadoPara(it) } ?: servicio.estado) == EstadoServicio.PENDIENTE
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.55f))
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)) {
+        LinceSectionHeader(
+            title = stringResource(R.string.dashboard_panel_admin),
+            action = {
+                LinceStatusBadge(
+                    text = stringResource(R.string.dashboard_hoy),
+                    tone = LinceStatusTone.Info
+                )
+            }
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(LinceSpacing.mediumSmall)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.dashboard_panel_admin),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.Bold
-                )
-                Surface(
-                    color = LinceGreenSageLight,
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, LinceGreenBorder)
-                ) {
-                    Text(
-                        text = stringResource(R.string.dashboard_hoy),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = LinceGreenDark,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            }
+            LinceKpiCard(
+                value = "${uiState.servicios.size}",
+                label = stringResource(R.string.dashboard_kpi_visibles),
+                supportingText = stringResource(R.string.dashboard_kpi_seguimiento),
+                icon = Icons.AutoMirrored.Filled.List,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            LinceKpiCard(
+                value = "$pendientes",
+                label = stringResource(R.string.dashboard_kpi_pendientes),
+                supportingText = stringResource(R.string.dashboard_kpi_gestion),
+                icon = Icons.Default.Warning,
+                accentColor = LinceTheme.colors.warning,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                KpiCard(
-                    modifier = Modifier.weight(1f),
-                    etiqueta = stringResource(R.string.dashboard_kpi_visibles),
-                    valor = "${uiState.servicios.size}",
-                    detalle = stringResource(R.string.dashboard_kpi_seguimiento),
-                    colorValor = LinceGreenDark,
-                    colorFondo = LinceGreenSageLight.copy(alpha = 0.65f),
-                    colorIcono = LinceGreenPrimary,
-                    icono = Icons.AutoMirrored.Filled.List
-                )
-
-                KpiCard(
-                    modifier = Modifier.weight(1f),
-                    etiqueta = stringResource(R.string.dashboard_kpi_pendientes),
-                    valor = "$pendientes",
-                    detalle = stringResource(R.string.dashboard_kpi_gestion),
-                    colorValor = StatusPendingText,
-                    colorFondo = StatusPendingBg.copy(alpha = 0.72f),
-                    colorIcono = StatusPendingText,
-                    icono = Icons.Default.Warning
-                )
-            }
-
-            Surface(
-                color = LinceSurfaceContainerLow,
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.45f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = LinceGreenPrimary,
-                        modifier = Modifier.size(17.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.dashboard_consulta_feed),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LinceTextSecondary
-                    )
-                }
-            }
-
-            uiState.resumenOperativo?.let { resumen ->
-                val codigosBase = listOf("SCL", "PUX", "PUQ")
-                val oficinasMostrar = if (resumen.porOficina.size == 3) {
-                    resumen.porOficina.map { (it.clave ?: "-") to it.servicios }
-                } else {
-                    codigosBase.map { codigo ->
-                        val encontrado = resumen.porOficina.firstOrNull {
-                            it.clave.equals(codigo, ignoreCase = true)
-                        }
-                        codigo to (encontrado?.servicios ?: 0)
+        uiState.resumenOperativo?.let { resumen ->
+            val codigosBase = listOf("SCL", "PUX", "PUQ")
+            val oficinasMostrar = if (resumen.porOficina.size == 3) {
+                resumen.porOficina.map { (it.clave ?: "-") to it.servicios }
+            } else {
+                codigosBase.map { codigo ->
+                    val oficina = resumen.porOficina.firstOrNull {
+                        it.clave.equals(codigo, ignoreCase = true)
                     }
+                    codigo to (oficina?.servicios ?: 0)
                 }
-
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+            }
+            LinceSurfaceCard(variant = LinceSurfaceCardVariant.Default) {
+                Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)) {
+                    LinceSectionHeader(
+                        title = stringResource(R.string.dashboard_resumen_southbound_titulo),
+                        action = {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = LinceTheme.colors.goldAccent,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
                     ) {
+                        LinceStatusBadge(
+                            text = stringResource(
+                                R.string.dashboard_resumen_servicios_pill,
+                                resumen.totalServicios
+                            ),
+                            tone = LinceStatusTone.Success
+                        )
+                        LinceStatusBadge(
+                            text = stringResource(
+                                R.string.dashboard_resumen_pax_pill,
+                                resumen.totalPax
+                            ),
+                            tone = LinceStatusTone.Neutral
+                        )
+                    }
+                    if (resumen.porOficina.isNotEmpty()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(1.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(30.dp),
-                                    shape = RoundedCornerShape(9.dp),
-                                    color = LinceGreenSageLight
+                            val pesosOficinas = oficinasMostrar.map {
+                                it.second.toFloat().coerceAtLeast(0.18f)
+                            }
+                            val coloresOficina = listOf(
+                                LinceTheme.colors.greenPrimary,
+                                LinceTheme.colors.greenDark,
+                                LinceTheme.colors.goldAccent
+                            )
+                            oficinasMostrar.forEachIndexed { index, (codigo, cantidad) ->
+                                Column(
+                                    modifier = Modifier.weight(pesosOficinas[index]),
+                                    verticalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = null,
-                                            tint = LinceGreenDark,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(9.dp))
-                                Text(
-                                    text = stringResource(R.string.dashboard_resumen_southbound_titulo),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = LinceGreenDark,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AdminBadgePill(
-                                texto = stringResource(
-                                    R.string.dashboard_resumen_servicios_pill,
-                                    resumen.totalServicios
-                                ),
-                                colorFondo = LinceGreenSageLight,
-                                colorTexto = LinceGreenDark,
-                                colorBorde = LinceGreenBorder
-                            )
-                            AdminBadgePill(
-                                texto = stringResource(
-                                    R.string.dashboard_resumen_pax_pill,
-                                    resumen.totalPax
-                                ),
-                                colorFondo = LinceCardSurface,
-                                colorTexto = LinceTextPrimary,
-                                colorBorde = LinceOutlineVariant
-                            )
-                        }
-
-                        if (resumen.porOficina.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                oficinasMostrar.forEach { (codigo, cantidad) ->
-                                    Surface(
-                                        modifier = Modifier.weight(1f),
-                                        color = LinceCardSurface,
-                                        shape = RoundedCornerShape(12.dp),
-                                        border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.75f))
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(3.dp)
-                                        ) {
-                                            Text(
-                                                text = codigo,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = LinceGreenPrimary,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                letterSpacing = 0.8.sp
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(9.dp)
+                                            .background(
+                                                coloresOficina[index % coloresOficina.size],
+                                                RectangleShape
                                             )
-                                            Text(
-                                                text = "$cantidad",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = LinceTextPrimary,
-                                                fontWeight = FontWeight.ExtraBold
-                                            )
-                                        }
-                                    }
+                                    )
+                                    Text(
+                                        text = codigo,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = LinceTheme.colors.textSecondary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "$cantidad",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = LinceTheme.colors.textPrimary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
+        }
 
-            if (uiState.guiasSouthbound.isNotEmpty() || uiState.transportistasSouthbound.isNotEmpty()) {
-                val guiasMostrados = uiState.guiasSouthbound.take(2)
-                val transportistasMostrados = uiState.transportistasSouthbound.take(2)
-
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+        if (uiState.guiasSouthbound.isNotEmpty() || uiState.transportistasSouthbound.isNotEmpty()) {
+            LinceSurfaceCard(variant = LinceSurfaceCardVariant.Default) {
+                Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+                    Text(
+                        text = stringResource(R.string.dashboard_recursos_activos),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = LinceTheme.colors.textPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        softWrap = true,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(30.dp),
-                                shape = RoundedCornerShape(9.dp),
-                                color = LinceGreenSageLight
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = null,
-                                        tint = LinceGreenDark,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(9.dp))
-                            Text(
-                                text = stringResource(R.string.dashboard_recursos_activos),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.ExtraBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AdminBadgePill(
-                                texto = stringResource(
-                                    R.string.dashboard_guias_activos_badge,
-                                    uiState.guiasSouthbound.size
-                                ),
-                                colorFondo = LinceGreenSageLight,
-                                colorTexto = LinceGreenDark,
-                                colorBorde = LinceGreenBorder
-                            )
-                            AdminBadgePill(
-                                texto = stringResource(
-                                    R.string.dashboard_transportistas_badge,
-                                    uiState.transportistasSouthbound.size
-                                ),
-                                colorFondo = LinceCardSurface,
-                                colorTexto = LinceTextPrimary,
-                                colorBorde = LinceOutlineVariant
-                            )
-                        }
-
-                        Surface(
-                            color = LinceCardSurface,
-                            shape = RoundedCornerShape(13.dp),
-                            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                val totalFilas = guiasMostrados.size + transportistasMostrados.size
-                                var indiceFila = 0
-
-                                guiasMostrados.forEach { guia ->
-                                    val idiomas = guia.idiomas.mapNotNull { it.codigo }.joinToString(", ")
-                                    RecursoActivoFila(
-                                        esGuia = true,
-                                        nombre = guia.nombre ?: "-",
-                                        oficina = guia.oficina?.codigo ?: "-",
-                                        detalleSecundario = idiomas
-                                    )
-                                    indiceFila++
-                                    if (indiceFila < totalFilas) {
-                                        HorizontalDivider(
-                                            color = LinceOutlineVariant.copy(alpha = 0.35f),
-                                            modifier = Modifier.padding(horizontal = 12.dp)
-                                        )
-                                    }
-                                }
-
-                                transportistasMostrados.forEach { trans ->
-                                    val patente = trans.vehiculos.firstOrNull()?.patente
-                                        ?: stringResource(R.string.dashboard_sin_vehiculo)
-                                    RecursoActivoFila(
-                                        esGuia = false,
-                                        nombre = trans.nombre ?: "-",
-                                        oficina = trans.oficina?.codigo ?: "-",
-                                        detalleSecundario = patente
-                                    )
-                                    indiceFila++
-                                    if (indiceFila < totalFilas) {
-                                        HorizontalDivider(
-                                            color = LinceOutlineVariant.copy(alpha = 0.35f),
-                                            modifier = Modifier.padding(horizontal = 12.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        LinceStatusBadge(
+                            text = stringResource(
+                                R.string.dashboard_guias_activos_badge,
+                                uiState.guiasSouthbound.size
+                            ),
+                            tone = LinceStatusTone.Success,
+                            modifier = Modifier.weight(1f)
+                        )
+                        LinceStatusBadge(
+                            text = stringResource(
+                                R.string.dashboard_transportistas_badge,
+                                uiState.transportistasSouthbound.size
+                            ),
+                            tone = LinceStatusTone.Neutral,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    val guias = uiState.guiasSouthbound.take(2)
+                    val conductores = uiState.transportistasSouthbound.take(2)
+                    guias.forEachIndexed { index, guia ->
+                        if (index > 0) LinceDivider()
+                        RecursoFila(
+                            nombre = guia.nombre ?: "-",
+                            oficina = guia.oficina?.codigo ?: "-",
+                            detalle = guia.idiomas.mapNotNull { it.codigo }.joinToString(", "),
+                            guia = true
+                        )
+                    }
+                    conductores.forEachIndexed { index, conductor ->
+                        if (guias.isNotEmpty() || index > 0) LinceDivider()
+                        RecursoFila(
+                            nombre = conductor.nombre ?: "-",
+                            oficina = conductor.oficina?.codigo ?: "-",
+                            detalle = conductor.vehiculos.firstOrNull()?.patente
+                                ?: stringResource(R.string.dashboard_sin_vehiculo),
+                            guia = false
+                        )
                     }
                 }
             }
+        }
 
-            if (uiState.hitosCoordinacion.isNotEmpty() || uiState.incidenciasCoordinacion.isNotEmpty()) {
-                val hitosMostrados = uiState.hitosCoordinacion.takeLast(2).reversed()
-                val incidenciasMostradas = uiState.incidenciasCoordinacion.takeLast(2).reversed()
-
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+        if (uiState.hitosCoordinacion.isNotEmpty() || uiState.incidenciasCoordinacion.isNotEmpty()) {
+            LinceSurfaceCard(variant = LinceSurfaceCardVariant.Default) {
+                Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+                    Text(
+                        text = stringResource(R.string.dashboard_trazabilidad),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = LinceTheme.colors.textPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        softWrap = true,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(30.dp),
-                                shape = RoundedCornerShape(9.dp),
-                                color = LinceGreenSageLight
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = LinceGreenDark,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(9.dp))
-                            Text(
-                                text = stringResource(R.string.dashboard_trazabilidad),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.ExtraBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AdminBadgePill(
-                                texto = stringResource(
-                                    R.string.dashboard_hitos_badge,
-                                    uiState.hitosCoordinacion.size
-                                ),
-                                colorFondo = StatusConfirmedBg,
-                                colorTexto = StatusConfirmedText,
-                                colorBorde = StatusConfirmedText.copy(alpha = 0.3f)
-                            )
-                            AdminBadgePill(
-                                texto = stringResource(
-                                    R.string.dashboard_incidencias_badge,
-                                    uiState.incidenciasCoordinacion.size
-                                ),
-                                colorFondo = StatusRejectedBg,
-                                colorTexto = StatusRejectedText,
-                                colorBorde = StatusRejectedText.copy(alpha = 0.3f)
-                            )
-                        }
-
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            hitosMostrados.forEach { hito ->
-                                val coords = String.format(
-                                    java.util.Locale.US,
-                                    "%.4f, %.4f",
-                                    hito.latitudMarcaje ?: 0.0,
-                                    hito.longitudMarcaje ?: 0.0
-                                )
-                                ActividadFeedFila(
-                                    esIncidencia = false,
-                                    titulo = hito.tipo ?: stringResource(R.string.dashboard_hito),
-                                    servicioId = hito.servicioId ?: "-",
-                                    detalle = stringResource(
-                                        R.string.dashboard_hito_detalle,
-                                        hito.usuario?.nombre ?: "-",
-                                        coords
-                                    )
-                                )
-                            }
-
-                            incidenciasMostradas.forEach { inc ->
-                                ActividadFeedFila(
-                                    esIncidencia = true,
-                                    titulo = inc.motivo ?: stringResource(R.string.dashboard_incidencia),
-                                    servicioId = inc.servicioId ?: "-",
-                                    detalle = (inc.detalle ?: "").ifBlank { "-" }
-                                )
-                            }
-                        }
+                        LinceStatusBadge(
+                            text = stringResource(
+                                R.string.dashboard_hitos_badge,
+                                uiState.hitosCoordinacion.size
+                            ),
+                            tone = LinceStatusTone.Success,
+                            modifier = Modifier.weight(1f)
+                        )
+                        LinceStatusBadge(
+                            text = stringResource(
+                                R.string.dashboard_incidencias_badge,
+                                uiState.incidenciasCoordinacion.size
+                            ),
+                            tone = LinceStatusTone.Error,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    val hitos = uiState.hitosCoordinacion.takeLast(2).reversed()
+                    val incidencias = uiState.incidenciasCoordinacion.takeLast(2).reversed()
+                    hitos.forEachIndexed { index, hito ->
+                        if (index > 0) LinceDivider()
+                        val coordenadas = String.format(
+                            Locale.US,
+                            "%.4f, %.4f",
+                            hito.latitudMarcaje ?: 0.0,
+                            hito.longitudMarcaje ?: 0.0
+                        )
+                        ActividadFila(
+                            titulo = hito.tipo ?: stringResource(R.string.dashboard_hito),
+                            servicioId = hito.servicioId ?: "-",
+                            detalle = stringResource(
+                                R.string.dashboard_hito_detalle,
+                                hito.usuario?.nombre ?: "-",
+                                coordenadas
+                            ),
+                            incidencia = false
+                        )
+                    }
+                    incidencias.forEachIndexed { index, incidencia ->
+                        if (hitos.isNotEmpty() || index > 0) LinceDivider()
+                        ActividadFila(
+                            titulo = incidencia.motivo ?: stringResource(R.string.dashboard_incidencia),
+                            servicioId = incidencia.servicioId ?: "-",
+                            detalle = (incidencia.detalle ?: "").ifBlank { "-" },
+                            incidencia = true
+                        )
                     }
                 }
             }
+        }
 
-            Button(
-                onClick = onCrearServicio,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    tint = LinceOnPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
+        LinceButton(
+            text = stringResource(R.string.dashboard_asignacion_local),
+            onClick = onCrearServicio,
+            icon = Icons.Default.Add,
+            variant = LinceButtonVariant.Primary,
+            fullWidth = true
+        )
+    }
+}
 
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.dashboard_asignacion_local),
-                    color = LinceOnPrimary,
-                    fontWeight = FontWeight.SemiBold
+@Composable
+private fun RecursoFila(
+    nombre: String,
+    oficina: String,
+    detalle: String,
+    guia: Boolean
+) {
+    val iniciales = nombre.split(" ")
+        .filter { it.isNotBlank() }
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = LinceSpacing.xSmall),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+    ) {
+        LinceUserAvatar(
+            initials = iniciales.ifBlank { if (guia) "G" else "C" },
+            size = 34.dp
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = nombre,
+                style = MaterialTheme.typography.bodyMedium,
+                color = LinceTheme.colors.textPrimary,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = detalle.ifBlank { oficina },
+                style = MaterialTheme.typography.labelSmall,
+                color = LinceTheme.colors.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
+        ) {
+            LinceStatusBadge(
+                text = oficina,
+                tone = LinceStatusTone.Info
+            )
+            if (detalle.isNotBlank()) {
+                LinceStatusBadge(
+                    text = detalle,
+                    tone = if (guia) LinceStatusTone.Success else LinceStatusTone.Neutral
                 )
             }
         }
@@ -780,261 +663,57 @@ private fun DashboardManagerView(
 }
 
 @Composable
-private fun AdminBadgePill(
-    texto: String,
-    colorFondo: Color,
-    colorTexto: Color,
-    colorBorde: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = colorFondo,
-        shape = RoundedCornerShape(50),
-        border = BorderStroke(1.dp, colorBorde)
-    ) {
-        Text(
-            text = texto,
-            style = MaterialTheme.typography.labelSmall,
-            color = colorTexto,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-        )
-    }
-}
-
-@Composable
-private fun RecursoActivoFila(
-    esGuia: Boolean,
-    nombre: String,
-    oficina: String,
-    detalleSecundario: String
+private fun ActividadFila(
+    titulo: String,
+    servicioId: String,
+    detalle: String,
+    incidencia: Boolean
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(vertical = LinceSpacing.xSmall),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
     ) {
-        Surface(
-            modifier = Modifier.size(30.dp),
-            shape = CircleShape,
-            color = if (esGuia) LinceGreenSageLight else LinceSurfaceContainerHigh,
-            border = BorderStroke(
-                1.dp,
-                if (esGuia) LinceGreenBorder else LinceOutlineVariant
-            )
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = if (esGuia) Icons.Default.Face else Icons.Default.AccountBox,
-                    contentDescription = null,
-                    tint = if (esGuia) LinceGreenDark else LinceTertiary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-
-        Text(
-            text = nombre,
-            style = MaterialTheme.typography.bodySmall,
-            color = LinceTextPrimary,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-
-        Surface(
-            color = LinceGreenSageLight,
-            shape = RoundedCornerShape(6.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder)
-        ) {
-            Text(
-                text = oficina,
-                style = MaterialTheme.typography.labelSmall,
-                color = LinceGreenDark,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-            )
-        }
-
-        if (detalleSecundario.isNotBlank()) {
-            Surface(
-                color = LinceSurfaceContainerLow,
-                shape = RoundedCornerShape(6.dp),
-                border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.65f))
-            ) {
-                Text(
-                    text = detalleSecundario,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = LinceTextSecondary,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActividadFeedFila(
-    esIncidencia: Boolean,
-    titulo: String,
-    servicioId: String,
-    detalle: String
-) {
-    val colorIndicadorBg = if (esIncidencia) StatusRejectedBg else StatusConfirmedBg
-    val colorIndicadorIcono = if (esIncidencia) StatusRejectedText else StatusConfirmedText
-    val colorBorde = if (esIncidencia) StatusRejectedText.copy(alpha = 0.25f) else LinceOutlineVariant.copy(alpha = 0.55f)
-
-    Surface(
-        color = LinceCardSurface,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, colorBorde),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
+        Icon(
+            imageVector = if (incidencia) Icons.Default.Warning else Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = if (incidencia) LinceTheme.colors.error else LinceTheme.colors.success,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(top = 2.dp)
+                .size(18.dp)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Surface(
-                modifier = Modifier
-                    .padding(top = 1.dp)
-                    .size(28.dp),
-                shape = CircleShape,
-                color = colorIndicadorBg
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (esIncidencia) Icons.Default.Warning else Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = colorIndicadorIcono,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = titulo,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (esIncidencia) StatusRejectedText else LinceTextPrimary,
-                        fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        color = if (esIncidencia) StatusRejectedBg else LinceGreenSageLight,
-                        shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (esIncidencia) StatusRejectedText.copy(alpha = 0.3f) else LinceGreenBorder
-                        )
-                    ) {
-                        Text(
-                            text = stringResource(R.string.dashboard_srv_tag, servicioId),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (esIncidencia) StatusRejectedText else LinceGreenDark,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                Text(
-                    text = detalle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LinceTextSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun KpiCard(
-    modifier: Modifier = Modifier,
-    etiqueta: String,
-    valor: String,
-    detalle: String,
-    colorValor: Color,
-    colorFondo: Color,
-    colorIcono: Color,
-    icono: ImageVector
-) {
-    Surface(
-        modifier = modifier,
-        color = colorFondo,
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, colorValor.copy(alpha = 0.22f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = etiqueta,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colorValor.copy(alpha = 0.85f),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp,
-                    maxLines = 2,
+                    text = titulo,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (incidencia) LinceTheme.colors.error else LinceTheme.colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Surface(
-                    modifier = Modifier.size(28.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = LinceCardSurface.copy(alpha = 0.72f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = icono,
-                            contentDescription = null,
-                            tint = colorIcono,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.width(LinceSpacing.small))
+                LinceStatusBadge(
+                    text = stringResource(R.string.dashboard_srv_tag, servicioId),
+                    tone = if (incidencia) LinceStatusTone.Error else LinceStatusTone.Success
+                )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = valor,
-                style = MaterialTheme.typography.headlineMedium,
-                color = colorValor,
-                fontWeight = FontWeight.Bold
-            )
-
             Text(
                 text = detalle,
-                style = MaterialTheme.typography.labelSmall,
-                color = colorValor.copy(alpha = 0.78f)
+                style = MaterialTheme.typography.bodySmall,
+                color = LinceTheme.colors.textSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1044,194 +723,102 @@ private fun KpiCard(
 private fun DashboardDriverView(
     uiState: ServiceUiState,
     onIniciarMarcaje: (String) -> Unit,
-    onVerDetalleServicio: (String) -> Unit = {}
+    onVerDetalleServicio: (String) -> Unit
 ) {
     val usuario = uiState.usuarioLogueado
-
-    val servicioMarcaje = uiState.servicios.firstOrNull { servicio ->
-        val estado = usuario?.let {
-            servicio.estadoPara(it)
-        } ?: servicio.estado
-
-        estado == EstadoServicio.CONFIRMADO ||
-                estado == EstadoServicio.EN_CURSO
+    val servicio = uiState.servicios.firstOrNull { item ->
+        val estado = usuario?.let { item.estadoPara(it) } ?: item.estado
+        estado == EstadoServicio.CONFIRMADO || estado == EstadoServicio.EN_CURSO
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.55f))
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.dashboard_mis_servicios),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.Bold
-                )
-                CountPill(texto = stringResource(R.string.dashboard_visibles, uiState.servicios.size))
-            }
-
-            if (servicioMarcaje == null) {
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.45f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = LinceTertiary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = stringResource(R.string.dashboard_sin_confirmados),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = LinceTextSecondary
-                        )
-                    }
-                }
-            } else {
-                val estadoActual = usuario?.let {
-                    servicioMarcaje.estadoPara(it)
-                } ?: servicioMarcaje.estado
-
-                Surface(
-                    onClick = { onVerDetalleServicio(servicioMarcaje.id) },
-                    color = LinceSurfaceVariant,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (estadoActual == EstadoServicio.EN_CURSO) {
-                                    stringResource(R.string.dashboard_servicio_en_curso)
-                                } else {
-                                    stringResource(R.string.dashboard_proximo_servicio)
-                                },
-                                color = LinceGreenPrimary,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            EstadoBadge(estado = estadoActual)
-                        }
-
-                        Text(
-                            text = servicioMarcaje.titulo,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Surface(
-                            color = LinceCardSurface.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = stringResource(R.string.comun_ruta),
-                                    tint = LinceGreenPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = servicioMarcaje.origenDestino,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = LinceTextSecondary,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
-                        DashboardInfoRow(
-                            icono = Icons.Default.DateRange,
-                            texto = stringResource(
-                                R.string.dashboard_fecha_hora_oficina,
-                                servicioMarcaje.fecha,
-                                servicioMarcaje.hora,
-                                servicioMarcaje.oficina
-                            )
-                        )
-                        DashboardInfoRow(
-                            icono = Icons.Default.LocationOn,
-                            texto = if (servicioMarcaje.dropoff.isNotBlank()) {
-                                stringResource(
-                                    R.string.dashboard_pickup_dropoff,
-                                    servicioMarcaje.pickup,
-                                    servicioMarcaje.dropoff
-                                )
-                            } else {
-                                stringResource(R.string.servicios_pickup, servicioMarcaje.pickup)
-                            }
-                        )
-                        DashboardInfoRow(
-                            icono = Icons.Default.Person,
-                            texto = if (servicioMarcaje.capacidadVehiculo > 0) {
-                                stringResource(
-                                    R.string.dashboard_pax_unidad,
-                                    servicioMarcaje.pasajeros,
-                                    servicioMarcaje.capacidadVehiculo,
-                                    servicioMarcaje.vehiculo
-                                )
-                            } else {
-                                stringResource(
-                                    R.string.dashboard_pax_unidad_sin_cap,
-                                    servicioMarcaje.pasajeros,
-                                    servicioMarcaje.vehiculo
-                                )
-                            }
-                        )
-                    }
-                }
-
-                Button(
-                    onClick = {
-                        onIniciarMarcaje(servicioMarcaje.id)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-                ) {
-                    Text(
-                        text = stringResource(R.string.dashboard_iniciar_marcaje),
-                        color = LinceOnPrimary,
-                        fontWeight = FontWeight.SemiBold
+    if (servicio == null) {
+        LinceSurfaceCard {
+            LinceSectionHeader(
+                title = stringResource(R.string.dashboard_mis_servicios),
+                action = {
+                    LinceStatusBadge(
+                    text = stringResource(R.string.dashboard_visibles, uiState.servicios.size),
+                    tone = LinceStatusTone.Neutral
                     )
                 }
-            }
+            )
+            LinceEmptyState(
+                title = stringResource(R.string.dashboard_sin_confirmados),
+                description = stringResource(R.string.dashboard_consulta_feed),
+                icon = Icons.Default.DateRange
+            )
+        }
+        return
+    }
+
+    val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
+    LinceSurfaceCard(
+        modifier = Modifier.clickable { onVerDetalleServicio(servicio.id) },
+        variant = LinceSurfaceCardVariant.Highlighted
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)) {
+            LinceSectionHeader(
+                title = stringResource(R.string.dashboard_proximo_servicio),
+                action = {
+                    LinceStatusBadge(
+                        text = nombreEstado(LocalContext.current, estado),
+                        tone = tonoEstado(estado)
+                    )
+                }
+            )
+            Text(
+                text = servicio.titulo,
+                style = MaterialTheme.typography.titleLarge,
+                color = LinceTheme.colors.textPrimary,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            LinceDivider()
+            MetadatoServicio(
+                icono = Icons.Default.DateRange,
+                texto = stringResource(
+                    R.string.dashboard_fecha_hora_oficina,
+                    servicio.fecha,
+                    servicio.hora,
+                    servicio.oficina
+                )
+            )
+            MetadatoServicio(
+                icono = Icons.Default.LocationOn,
+                texto = if (servicio.dropoff.isNotBlank()) {
+                    stringResource(
+                        R.string.dashboard_pickup_dropoff,
+                        servicio.pickup,
+                        servicio.dropoff
+                    )
+                } else {
+                    stringResource(R.string.servicios_pickup, servicio.pickup)
+                }
+            )
+            MetadatoServicio(
+                icono = Icons.Default.Person,
+                texto = if (servicio.capacidadVehiculo > 0) {
+                    stringResource(
+                        R.string.dashboard_pax_unidad,
+                        servicio.pasajeros,
+                        servicio.capacidadVehiculo,
+                        servicio.vehiculo
+                    )
+                } else {
+                    stringResource(
+                        R.string.dashboard_pax_unidad_sin_cap,
+                        servicio.pasajeros,
+                        servicio.vehiculo
+                    )
+                }
+            )
+            LinceButton(
+                text = stringResource(R.string.dashboard_iniciar_marcaje),
+                onClick = { onIniciarMarcaje(servicio.id) },
+                variant = LinceButtonVariant.Primary,
+                fullWidth = true
+            )
         }
     }
 }
@@ -1240,166 +827,110 @@ private fun DashboardDriverView(
 private fun DashboardGuiaView(
     uiState: ServiceUiState,
     onIniciarMarcaje: (String) -> Unit,
-    onVerDetalleServicio: (String) -> Unit = {}
+    onVerDetalleServicio: (String) -> Unit
 ) {
     val usuario = uiState.usuarioLogueado
-
-    val servicioMarcaje = uiState.servicios.firstOrNull { servicio ->
-        val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
+    val servicioMarcaje = uiState.servicios.firstOrNull { item ->
+        val estado = usuario?.let { item.estadoPara(it) } ?: item.estado
         estado == EstadoServicio.CONFIRMADO || estado == EstadoServicio.EN_CURSO
     }
     val servicio = servicioMarcaje ?: uiState.servicios.firstOrNull()
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.55f))
+    if (servicio == null) {
+        LinceSurfaceCard {
+            LinceSectionHeader(
+                title = stringResource(R.string.dashboard_panel_guia),
+                action = {
+                    LinceStatusBadge(
+                        text = stringResource(R.string.dashboard_asignados, uiState.servicios.size),
+                        tone = LinceStatusTone.Neutral
+                    )
+                }
+            )
+            LinceEmptyState(
+                title = stringResource(R.string.dashboard_sin_asignados),
+                description = stringResource(R.string.dashboard_consulta_feed),
+                icon = Icons.Default.Face
+            )
+        }
+        return
+    }
+
+    val estado = usuario?.let { servicio.estadoPara(it) } ?: servicio.estado
+    LinceSurfaceCard(
+        modifier = Modifier.clickable { onVerDetalleServicio(servicio.id) },
+        variant = LinceSurfaceCardVariant.Highlighted
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.dashboard_panel_guia),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LinceGreenDark,
-                    fontWeight = FontWeight.Bold
+        Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)) {
+            LinceSectionHeader(
+                title = if (estado == EstadoServicio.EN_CURSO) {
+                    stringResource(R.string.dashboard_servicio_en_curso)
+                } else {
+                    stringResource(R.string.dashboard_proximo_asignado)
+                },
+                action = {
+                    LinceStatusBadge(
+                        text = nombreEstado(LocalContext.current, estado),
+                        tone = tonoEstado(estado)
+                    )
+                }
+            )
+            Text(
+                text = servicio.titulo,
+                style = MaterialTheme.typography.titleLarge,
+                color = LinceTheme.colors.textPrimary,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            LinceDivider()
+            MetadatoServicio(
+                icono = Icons.Default.LocationOn,
+                texto = servicio.origenDestino
+            )
+            MetadatoServicio(
+                icono = Icons.Default.DateRange,
+                texto = stringResource(R.string.dashboard_fecha_hora, servicio.fecha, servicio.hora)
+            )
+            MetadatoServicio(
+                icono = Icons.Default.Person,
+                texto = stringResource(R.string.dashboard_pasajeros, servicio.pasajeros)
+            )
+            if (servicioMarcaje != null) {
+                LinceButton(
+                    text = stringResource(R.string.dashboard_iniciar_marcaje),
+                    onClick = { onIniciarMarcaje(servicioMarcaje.id) },
+                    variant = LinceButtonVariant.Primary,
+                    fullWidth = true
                 )
-                CountPill(texto = stringResource(R.string.dashboard_asignados, uiState.servicios.size))
-            }
-
-            if (servicio == null) {
-                Surface(
-                    color = LinceSurfaceContainerLow,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.45f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = LinceTertiary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = stringResource(R.string.dashboard_sin_asignados),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = LinceTextSecondary
-                        )
-                    }
-                }
-            } else {
-                val estadoActual = usuario?.let {
-                    servicio.estadoPara(it)
-                } ?: servicio.estado
-
-                Surface(
-                    onClick = { onVerDetalleServicio(servicio.id) },
-                    color = LinceSurfaceVariant,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (estadoActual == EstadoServicio.EN_CURSO) {
-                                    stringResource(R.string.dashboard_servicio_en_curso)
-                                } else {
-                                    stringResource(R.string.dashboard_proximo_asignado)
-                                },
-                                style = MaterialTheme.typography.labelLarge,
-                                color = LinceGreenPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            EstadoBadge(estado = estadoActual)
-                        }
-
-                        Text(
-                            text = servicio.titulo,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Surface(
-                            color = LinceCardSurface.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = stringResource(R.string.comun_ruta),
-                                    tint = LinceGreenPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = servicio.origenDestino,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = LinceTextSecondary,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
-                        DashboardInfoRow(
-                            icono = Icons.Default.DateRange,
-                            texto = stringResource(R.string.dashboard_fecha_hora, servicio.fecha, servicio.hora)
-                        )
-                        DashboardInfoRow(
-                            icono = Icons.Default.LocationOn,
-                            texto = stringResource(R.string.dashboard_punto_encuentro, servicio.pickup)
-                        )
-                        DashboardInfoRow(
-                            icono = Icons.Default.Person,
-                            texto = stringResource(R.string.dashboard_pasajeros, servicio.pasajeros)
-                        )
-                    }
-                }
-
-                if (servicioMarcaje != null) {
-                    Button(
-                        onClick = { onIniciarMarcaje(servicioMarcaje.id) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.dashboard_iniciar_marcaje),
-                            color = LinceOnPrimary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
             }
         }
+    }
+}
+
+@Composable
+private fun MetadatoServicio(
+    icono: androidx.compose.ui.graphics.vector.ImageVector,
+    texto: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+    ) {
+        Icon(
+            imageVector = icono,
+            contentDescription = null,
+            tint = LinceTheme.colors.greenPrimary,
+            modifier = Modifier.size(17.dp)
+        )
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodySmall,
+            color = LinceTheme.colors.textSecondary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -1409,88 +940,48 @@ private fun ResumenServicios(
     uiState: ServiceUiState,
     onVerDetalleServicio: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.dashboard_resumen),
-                style = MaterialTheme.typography.titleMedium,
-                color = LinceTextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.dashboard_ultimos, minOf(3, servicios.size)),
-                style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary
-            )
-        }
-
+    Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+        LinceSectionHeader(
+            title = stringResource(R.string.dashboard_resumen),
+            subtitle = stringResource(R.string.dashboard_ultimos, minOf(3, servicios.size))
+        )
         servicios.take(3).forEach { servicio ->
-            Surface(
-                onClick = { onVerDetalleServicio(servicio.id) },
-                color = LinceCardSurface,
-                shape = RoundedCornerShape(14.dp),
-                shadowElevation = 1.dp,
-                border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.55f)),
-                modifier = Modifier.fillMaxWidth()
+            val estado = uiState.usuarioLogueado?.let {
+                servicio.estadoPara(it)
+            } ?: servicio.estado
+            LinceSurfaceCard(
+                modifier = Modifier.clickable { onVerDetalleServicio(servicio.id) },
+                variant = LinceSurfaceCardVariant.Default,
+                contentPadding = LinceSpacing.mediumSmall
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        color = LinceGreenSageLight,
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, LinceGreenBorder)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
                     ) {
                         Text(
-                            text = servicio.hora,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = LinceGreenDark,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            text = servicio.titulo,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = LinceTheme.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = servicio.titulo,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = LinceTextPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "[${servicio.oficina}]",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceGreenPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                         Text(
-                            text = "${servicio.origenDestino} · ${servicio.vehiculo}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = LinceTextSecondary,
+                            text = "${servicio.hora} · ${servicio.origenDestino}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTheme.colors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    EstadoBadge(
-                        estado = uiState.usuarioLogueado?.let {
-                            servicio.estadoPara(it)
-                        } ?: servicio.estado
+                    LinceStatusBadge(
+                        text = nombreEstado(LocalContext.current, estado),
+                        tone = tonoEstado(estado)
                     )
                 }
             }
@@ -1499,43 +990,12 @@ private fun ResumenServicios(
 }
 
 @Composable
-private fun CountPill(texto: String) {
-    Surface(
-        color = LinceGreenSageLight,
-        shape = RoundedCornerShape(50),
-        border = BorderStroke(1.dp, LinceGreenBorder)
-    ) {
-        Text(
-            text = texto,
-            style = MaterialTheme.typography.labelSmall,
-            color = LinceGreenDark,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
-private fun DashboardInfoRow(
-    icono: ImageVector,
-    texto: String
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icono,
-            contentDescription = null,
-            tint = LinceGreenPrimary,
-            modifier = Modifier.size(15.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = texto,
-            style = MaterialTheme.typography.bodySmall,
-            color = LinceTextSecondary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+private fun tonoEstado(estado: EstadoServicio): LinceStatusTone = when (estado) {
+    EstadoServicio.PENDIENTE -> LinceStatusTone.Warning
+    EstadoServicio.CONFIRMADO -> LinceStatusTone.Success
+    EstadoServicio.EN_CURSO -> LinceStatusTone.Info
+    EstadoServicio.FINALIZADO -> LinceStatusTone.Neutral
+    EstadoServicio.RECHAZADO -> LinceStatusTone.Error
 }
 
 @Preview(showBackground = true, showSystemUi = true)

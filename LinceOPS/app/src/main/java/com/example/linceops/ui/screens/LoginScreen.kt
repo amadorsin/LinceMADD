@@ -1,6 +1,7 @@
 package com.example.linceops.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,6 +26,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.linceops.R
+import com.example.linceops.ui.components.LinceButton
+import com.example.linceops.ui.components.LinceButtonVariant
+import com.example.linceops.ui.components.LinceSurfaceCard
+import com.example.linceops.ui.components.LinceSurfaceCardVariant
 import com.example.linceops.ui.theme.*
 
 @Composable
@@ -37,73 +45,91 @@ fun LoginScreen(
     val errorVisible = mensajeErrorLocal.ifBlank { errorLogin.orEmpty() }
     val errorCampos = stringResource(R.string.login_error_campos)
 
+    val topographicColor = LinceTheme.colors.greenPrimary.copy(alpha = 0.055f)
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LinceCreamBackground)
+            .background(LinceTheme.colors.background)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)
     ) {
-
-        Surface(
-            modifier = Modifier.size(68.dp),
-            shape = RoundedCornerShape(20.dp),
-            color = LinceGreenPrimary,
-            shadowElevation = 2.dp
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(174.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Canvas(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(width = 174.dp, height = 150.dp)
+            ) {
+                for (index in 0..5) {
+                    drawArc(
+                        color = topographicColor,
+                        startAngle = 190f + index * 4f,
+                        sweepAngle = 145f,
+                        useCenter = false,
+                        topLeft = Offset(index * 5f, index * 7f),
+                        size = androidx.compose.ui.geometry.Size(
+                            size.width - index * 10f,
+                            size.height - index * 12f
+                        ),
+                        style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
+            ) {
+                Surface(
+                    modifier = Modifier.size(60.dp),
+                    shape = RoundedCornerShape(LinceRadius.xLarge),
+                    color = LinceTheme.colors.greenPrimary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "L",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = LinceTheme.colors.onPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Text(
-                    text = "L",
+                    text = "LINCE OPS",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = LinceOnPrimary,
-                    fontWeight = FontWeight.ExtraBold
+                    color = LinceTheme.colors.greenPrimary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = stringResource(R.string.login_operaciones_terreno),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LinceTheme.colors.textSecondary,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Text(
-            text = "LINCE OPS",
-            style = MaterialTheme.typography.headlineMedium,
-            color = LinceGreenPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.sp
-        )
-        Spacer(modifier = Modifier.height(3.dp))
-        Text(
-            text = stringResource(R.string.login_operaciones_terreno),
-            style = MaterialTheme.typography.labelSmall,
-            color = LinceTextSecondary,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.large
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.medium)
             ) {
                 Text(
                     text = stringResource(R.string.login_acceso_operativo),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = LinceTextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp
+                    style = MaterialTheme.typography.titleSmall,
+                    color = LinceTheme.colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold
                 )
-
                 OutlinedTextField(
                     value = usuario,
                     onValueChange = {
@@ -116,16 +142,15 @@ fun LoginScreen(
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = stringResource(R.string.login_usuario),
-                            tint = LinceGreenPrimary
+                            tint = LinceTheme.colors.greenPrimary
                         )
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(LinceRadius.medium),
                     colors = loginFieldColors()
                 )
-
                 OutlinedTextField(
                     value = password,
                     onValueChange = {
@@ -137,84 +162,66 @@ fun LoginScreen(
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = stringResource(R.string.login_contrasena),
-                            tint = LinceGreenPrimary
+                            tint = LinceTheme.colors.greenPrimary
                         )
                     },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(LinceRadius.medium),
                     colors = loginFieldColors()
                 )
-
                 if (errorVisible.isNotEmpty()) {
                     Surface(
-                        color = StatusRejectedBg,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        color = LinceTheme.colors.errorContainer,
+                        shape = RoundedCornerShape(LinceRadius.small)
                     ) {
                         Text(
                             text = errorVisible,
-                            color = StatusRejectedText,
+                            color = LinceTheme.colors.error,
                             style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(10.dp)
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.padding(LinceSpacing.small)
                         )
                     }
                 }
+                LinceButton(
+                    text = stringResource(R.string.login_ingresar),
+                    onClick = {
+                        val correoResuelto = resolverCorreo(usuario)
+                        if (correoResuelto.isBlank() || password.isBlank()) {
+                            mensajeErrorLocal = errorCampos
+                        } else {
+                            mensajeErrorLocal = ""
+                            onLogin(correoResuelto, password)
+                        }
+                    },
+                    variant = LinceButtonVariant.Primary,
+                    fullWidth = true
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = {
-                val correoResuelto = resolverCorreo(usuario)
-                if (correoResuelto.isBlank() || password.isBlank()) {
-                    mensajeErrorLocal = errorCampos
-                } else {
-                    mensajeErrorLocal = ""
-                    onLogin(correoResuelto, password)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-        ) {
-            Text(
-                text = stringResource(R.string.login_ingresar),
-                style = MaterialTheme.typography.titleMedium,
-                color = LinceOnPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = LinceSurfaceVariant.copy(alpha = 0.55f),
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, LinceOutlineVariant.copy(alpha = 0.6f))
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Subtle,
+            contentPadding = LinceSpacing.medium
         ) {
             Column(
-                modifier = Modifier.padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
             ) {
                 Text(
                     text = stringResource(R.string.login_atajos),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = LinceTextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp
+                    style = MaterialTheme.typography.labelMedium,
+                    color = LinceTheme.colors.textSecondary,
+                    fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(LinceSpacing.xSmall)
                 ) {
                     AtajoRol(
                         texto = stringResource(R.string.login_atajo_manager),
@@ -235,12 +242,11 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-
         Text(
             text = stringResource(R.string.login_footer),
             style = MaterialTheme.typography.labelSmall,
-            color = LinceTextSecondary
+            color = LinceTheme.colors.textSecondary,
+            textAlign = TextAlign.Center
         )
     }
 }

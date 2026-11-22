@@ -381,4 +381,8 @@
     <string name="marcaje_mapa_punto_recogida">Pickup point</string>
     <string name="marcaje_mapa_punto_termino">Dropoff point</string>
     <string name="marcaje_distancia_km">Dist: %1$s km</string>
+    <string name="marcaje_ruta_info">Route: %1$s · %2$s</string>
+    <string name="marcaje_duracion_horas">%1$dh %2$d min</string>
+    <string name="marcaje_duracion_minutos">%1$d min</string>
+    <string name="mapa_atribucion_osm">© MapTiler · © OpenStreetMap contributors</string>
 </resources>
