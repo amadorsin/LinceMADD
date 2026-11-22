@@ -14,62 +14,9 @@ El diseño de la aplicación emplea una paleta de colores sobria que incorpora t
   * **Adicional (`#F8E0A8`):** Utilizado para logos de tiempo y estados de "listo para marcaje".
 
 ## 3. Flujo de Usuario
-El siguiente diagrama UML detalla el recorrido principal de la aplicación para los distintos roles. El archivo exportado en formato imagen se encuentra en `docs/diseno/flujo-usuario-uml.png`.
+El siguiente diagrama UML detalla el recorrido principal de la aplicación para los distintos roles. El archivo exportado en formato imagen se encuentra en `docs/Diseno/flujo-usuario-uml.png`.
 
-```mermaid
-flowchart TD
-    %% Nodos de Inicio y Fin
-    Start((Inicio)) --> Login[Ingresar Credenciales]
-    End((Fin))
-
-    %% Autenticación
-    Login --> Validate{¿Credenciales válidas?}
-    Validate -- "No" --> Error[Mostrar Error] --> Login
-    Validate -- "Sí" --> CheckRole{¿Qué rol tiene?}
-
-    %% ================= Flujo Manager (Operaciones) =================
-    CheckRole -- "Manager" --> DashboardManager[Dashboard: Métricas y Disponibilidad]
-    DashboardManager --> FeedManager[Ver Feed de Todos los Servicios]
-    FeedManager --> DetalleManager[Ver Detalle del Servicio]
-    DetalleManager --> AccionManager{¿Requiere reasignar?}
-    AccionManager -- "Sí" --> Reasignar[Cruzar disponibilidad y autoasignar] --> SyncManager[Guardar Cambios]
-    AccionManager -- "No" --> End
-    SyncManager --> End
-
-    %% ================= Flujo Conductor (Driver) =================
-    CheckRole -- "Driver" --> DashboardDriver[Dashboard: Atajos y Resumen]
-    DashboardDriver --> FeedDriver[Ver Asignaciones Pendientes]
-    FeedDriver --> DetalleDriver[Revisar 'Final Update' e Instrucciones]
-    DetalleDriver --> DecidirDriver{¿Acepta el viaje?}
-
-    DecidirDriver -- "No" --> RechazarDriver[Registrar Rechazo]
-    DecidirDriver -- "Sí" --> AceptarDriver[Registrar Aceptación]
-
-    RechazarDriver --> ConexionDriver{¿Hay Internet?}
-    AceptarDriver --> ConexionDriver
-
-    ConexionDriver -- "No" --> LocalDriver[Guardar Localmente / Mostrar Snackbar] --> EsperaDriver
-    ConexionDriver -- "Sí" --> SyncDriver[Sincronizar con Servidor] --> EsperaDriver
-
-    EsperaDriver[Día del Servicio] --> CheckIn[Check-In: 15 min antes\nCaptura estática Lat/Lon]
-    CheckIn --> CheckOut[Check-Out: Drop-off pasajeros\nCaptura estática Lat/Lon]
-    CheckOut --> End
-
-    %% ================= Flujo Guía =================
-    CheckRole -- "Guía" --> DashboardGuia[Dashboard: Atajos y Resumen]
-    DashboardGuia --> FeedGuia[Ver Asignaciones de Tours]
-    FeedGuia --> DetalleGuia[Revisar 'Final Update' y Preferencias]
-    DetalleGuia --> DecidirGuia{¿Confirma asistencia?}
-
-    DecidirGuia -- "No" --> RechazarGuia[Registrar Rechazo]
-    DecidirGuia -- "Sí" --> AceptarGuia[Registrar Aceptación]
-
-    RechazarGuia --> ConexionGuia{¿Hay Internet?}
-    AceptarGuia --> ConexionGuia
-
-    ConexionGuia -- "No" --> LocalGuia[Guardar Localmente / Mostrar Snackbar] --> End
-    ConexionGuia -- "Sí" --> SyncGuia[Sincronizar con Servidor] --> End
-```
+![Flujo de Usuario LinceOPS](docs/Diseno/flujo-usuario-uml.png)
 
 ## 4. Pantallas Principales
 Debido a la pérdida de resolución al exportar en formato PNG desde Stitch, las interfaces visuales se integraron como archivos HTML interactuables en el repositorio.
