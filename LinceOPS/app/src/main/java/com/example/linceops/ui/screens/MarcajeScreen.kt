@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -352,7 +353,7 @@ fun MarcajeScreen(
             Spacer(modifier = Modifier.height(LinceSpacing.small))
             val esError = errorSyncOffline != null
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("marcaje_banner_offline"),
                 color = if (esError) {
                     MaterialTheme.colorScheme.errorContainer
                 } else {
@@ -397,11 +398,17 @@ fun MarcajeScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     if (esError) {
-                        TextButton(onClick = onDescartarErrorSync) {
+                        TextButton(
+                            onClick = onDescartarErrorSync,
+                            modifier = Modifier.testTag("marcaje_btn_cerrar_error_sync")
+                        ) {
                             Text("Cerrar", color = MaterialTheme.colorScheme.error)
                         }
                     } else if (!sincronizandoOffline) {
-                        TextButton(onClick = onSincronizarAhora) {
+                        TextButton(
+                            onClick = onSincronizarAhora,
+                            modifier = Modifier.testTag("marcaje_btn_reintentar_sync")
+                        ) {
                             Text(
                                 "Reintentar",
                                 color = LinceTheme.colors.greenPrimary,

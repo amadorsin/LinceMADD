@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -146,7 +147,7 @@ fun LoginScreen(
                         )
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("login_input_correo"),
                     singleLine = true,
                     shape = RoundedCornerShape(LinceRadius.medium),
                     colors = loginFieldColors()
@@ -167,14 +168,14 @@ fun LoginScreen(
                     },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("login_input_password"),
                     singleLine = true,
                     shape = RoundedCornerShape(LinceRadius.medium),
                     colors = loginFieldColors()
                 )
                 if (errorVisible.isNotEmpty()) {
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("login_error_banner"),
                         color = LinceTheme.colors.errorContainer,
                         shape = RoundedCornerShape(LinceRadius.small)
                     ) {
@@ -199,6 +200,7 @@ fun LoginScreen(
                         }
                     },
                     variant = LinceButtonVariant.Primary,
+                    modifier = Modifier.testTag("login_btn_ingresar"),
                     fullWidth = true
                 )
             }
@@ -225,17 +227,17 @@ fun LoginScreen(
                 ) {
                     AtajoRol(
                         texto = stringResource(R.string.login_atajo_manager),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("login_atajo_manager"),
                         onClick = { onLogin("admin@linceops.cl", "123456") }
                     )
                     AtajoRol(
                         texto = stringResource(R.string.login_atajo_driver),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("login_atajo_driver"),
                         onClick = { onLogin("driver@linceops.cl", "123456") }
                     )
                     AtajoRol(
                         texto = stringResource(R.string.login_atajo_guia),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("login_atajo_guia"),
                         onClick = { onLogin("guia@linceops.cl", "123456") }
                     )
                 }

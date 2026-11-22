@@ -6,8 +6,10 @@ import com.example.linceops.data.local.HitoPendienteEntity
 import com.example.linceops.data.local.ServicioDao
 import com.example.linceops.mappers.aEntidadLocal
 import com.example.linceops.model.*
+import com.example.linceops.network.BackendApi
 import com.example.linceops.network.BackendRetrofitClient
 import com.example.linceops.network.RetrofitClient
+import com.example.linceops.network.SouthboundApi
 import com.example.linceops.network.dto.*
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +21,9 @@ import java.util.Locale
 class ServiceRepository(
     private val dao: ServicioDao,
     private val hitoPendienteDao: HitoPendienteDao? = null,
-    private val ahora: () -> Long = { System.currentTimeMillis() }
+    private val ahora: () -> Long = { System.currentTimeMillis() },
+    private val backendApi: BackendApi = BackendRetrofitClient.api,
+    private val southboundApi: SouthboundApi = RetrofitClient.api
 ) {
     private val gson = Gson()
 
@@ -59,7 +63,7 @@ class ServiceRepository(
     // Autenticación real contra Spring Boot (/api/auth/login) para obtener JWT
     suspend fun autenticarConBackend(correo: String, password: String): Result<Usuario> {
         return try {
-            val response = BackendRetrofitClient.api.login(LoginRequestDto(correo.trim(), password))
+            val response = backendApi.login(LoginRequestDto(correo.trim(), password))
             if (response.isSuccessful) {
                 val body = response.body() ?: return Result.failure(IllegalStateException("Respuesta vacía del servidor."))
                 BackendRetrofitClient.jwtToken = body.token
@@ -91,7 +95,7 @@ class ServiceRepository(
         val idNumerico = servicioId.toIntOrNull()
             ?: return Result.failure(IllegalArgumentException("ID de servicio local no numérico."))
         return try {
-            val response = RetrofitClient.api.obtenerServicioPorId(idNumerico)
+            val response = southboundApi.obtenerServicioPorId(idNumerico)
             if (response.isSuccessful) {
                 val dto = response.body()?.data
                     ?: return Result.failure(IllegalStateException("Servicio sin datos en Southbound."))
@@ -110,7 +114,7 @@ class ServiceRepository(
 
     suspend fun obtenerResumenOperativo(): Result<ResumenDto> {
         return try {
-            val response = RetrofitClient.api.obtenerResumen()
+            val response = southboundApi.obtenerResumen()
             val data = response.body()?.data
             if (response.isSuccessful && data != null) {
                 Result.success(data)
@@ -125,7 +129,7 @@ class ServiceRepository(
 
     suspend fun obtenerGuiasActivos(): Result<List<GuiaDto>> {
         return try {
-            val response = RetrofitClient.api.obtenerGuias(activo = true, page = 1, pageSize = 20)
+            val response = southboundApi.obtenerGuias(activo = true, page = 1, pageSize = 20)
             if (response.isSuccessful) {
                 Result.success(response.body()?.data ?: emptyList())
             } else {
@@ -139,7 +143,7 @@ class ServiceRepository(
 
     suspend fun obtenerTransportistasActivos(): Result<List<TransportistaDto>> {
         return try {
-            val response = RetrofitClient.api.obtenerTransportistas(activo = true, page = 1, pageSize = 20)
+            val response = southboundApi.obtenerTransportistas(activo = true, page = 1, pageSize = 20)
             if (response.isSuccessful) {
                 Result.success(response.body()?.data ?: emptyList())
             } else {
@@ -167,7 +171,7 @@ class ServiceRepository(
         val transportistaIdQuery = if (usuario.rol == RolUsuario.CONDUCTOR) usuario.id.toIntOrNull() else null
 
         try {
-            val response = RetrofitClient.api.obtenerServicios(
+            val response = southboundApi.obtenerServicios(
                 fechaDesde = fechaDesde,
                 fechaHasta = fechaHasta,
                 oficina = oficina,
@@ -332,7 +336,7 @@ class ServiceRepository(
         }
 
         return try {
-            val response = BackendRetrofitClient.api.registrarMarcaje(
+            val response = backendApi.registrarMarcaje(
                 request = request,
                 pickup = servicio.pickup,
                 oficina = servicio.oficina.name,
@@ -366,7 +370,7 @@ class ServiceRepository(
         motivo: String?
     ): Result<Unit> {
         return try {
-            val response = BackendRetrofitClient.api.registrarConfirmacion(
+            val response = backendApi.registrarConfirmacion(
                 ConfirmacionRequestDto(servicioId, estado, motivo)
             )
             when {
@@ -389,7 +393,7 @@ class ServiceRepository(
 
     suspend fun bloquearFecha(fechaIso: String, motivo: String): Result<BloqueoCalendarioDto> {
         return try {
-            val response = BackendRetrofitClient.api.bloquearFecha(BloqueoRequestDto(fechaIso, motivo))
+            val response = backendApi.bloquearFecha(BloqueoRequestDto(fechaIso, motivo))
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -404,7 +408,7 @@ class ServiceRepository(
 
     suspend fun obtenerMisBloqueos(): Result<List<BloqueoCalendarioDto>> {
         return try {
-            val response = BackendRetrofitClient.api.obtenerMisBloqueos()
+            val response = backendApi.obtenerMisBloqueos()
             if (response.isSuccessful) {
                 Result.success(response.body() ?: emptyList())
             } else {
@@ -420,7 +424,7 @@ class ServiceRepository(
 
     suspend fun desbloquearFecha(fechaIso: String): Result<Unit> {
         return try {
-            val response = BackendRetrofitClient.api.desbloquearFecha(fechaIso)
+            val response = backendApi.desbloquearFecha(fechaIso)
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
@@ -435,7 +439,7 @@ class ServiceRepository(
 
     suspend fun registrarIncidencia(servicioId: String, motivo: String, detalle: String? = null): Result<IncidenciaDto> {
         return try {
-            val response = BackendRetrofitClient.api.registrarIncidencia(
+            val response = backendApi.registrarIncidencia(
                 IncidenciaRequestDto(servicioId, motivo, detalle)
             )
             if (response.isSuccessful && response.body() != null) {
@@ -451,19 +455,19 @@ class ServiceRepository(
     }
 
     suspend fun obtenerGeocercas(): Result<List<GeocercaDto>> = try {
-        val resp = BackendRetrofitClient.api.obtenerGeocercas()
+        val resp = backendApi.obtenerGeocercas()
         if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
         else Result.failure(IllegalStateException("HTTP ${resp.code()} en /geocercas"))
     } catch (e: Exception) { Result.failure(e) }
 
     suspend fun obtenerTodosLosHitos(): Result<List<HitoDto>> = try {
-        val resp = BackendRetrofitClient.api.obtenerTodosLosHitos()
+        val resp = backendApi.obtenerTodosLosHitos()
         if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
         else Result.failure(IllegalStateException("HTTP ${resp.code()} en /hitos"))
     } catch (e: Exception) { Result.failure(e) }
 
     suspend fun obtenerTodasLasIncidencias(): Result<List<IncidenciaDto>> = try {
-        val resp = BackendRetrofitClient.api.obtenerTodasLasIncidencias()
+        val resp = backendApi.obtenerTodasLasIncidencias()
         if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
         else Result.failure(IllegalStateException("HTTP ${resp.code()} en /incidencias"))
     } catch (e: Exception) { Result.failure(e) }

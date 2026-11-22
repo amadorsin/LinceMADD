@@ -24,10 +24,10 @@ class ServiceViewModel(
     private val dao: ServicioDao,
     private val hitoPendienteDao: HitoPendienteDao? = null,
     private val onProgramarSync: () -> Unit = {},
-    private val onGuardarToken: (String?) -> Unit = {}
+    private val onGuardarToken: (String?) -> Unit = {},
+    private val repository: ServiceRepository = ServiceRepository(dao, hitoPendienteDao)
 ) : ViewModel() {
 
-    private val repository = ServiceRepository(dao, hitoPendienteDao)
     private val _uiState = MutableStateFlow(ServiceUiState())
     val uiState: StateFlow<ServiceUiState> = _uiState.asStateFlow()
 

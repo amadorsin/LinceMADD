@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.Test
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 import java.util.Properties
 
 plugins {
@@ -5,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
+    jacoco
 }
 
 val secretos = Properties().apply {
@@ -23,6 +27,15 @@ val maptilerKey = (secretos.getProperty("MAPTILER_KEY")
 val southboundApiKey = (System.getenv("SOUTHBOUND_API_KEY")
     ?: secretos.getProperty("SOUTHBOUND_API_KEY")
     ?: "").trim()
+
+val releaseStoreFile = (secretos.getProperty("RELEASE_STORE_FILE") ?: "").trim()
+val releaseStore = releaseStoreFile
+    .takeIf { it.isNotEmpty() }
+    ?.let { rootProject.file(it) }
+    ?.takeIf { it.exists() }
+val releaseStorePassword = secretos.getProperty("RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = secretos.getProperty("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = secretos.getProperty("RELEASE_KEY_PASSWORD")
 
 android {
     namespace = "com.example.linceops"
@@ -49,14 +62,29 @@ android {
         )
     }
 
+    signingConfigs {
+        create("release") {
+            releaseStore?.let { store ->
+                storeFile = store
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = releaseStore?.let { signingConfigs.getByName("release") }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -95,10 +123,65 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+tasks.withType<Test>().configureEach {
+    configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    group = "reporting"
+    description = "Genera el reporte de cobertura de las pruebas unitarias JVM."
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        xml.outputLocation.set(
+            layout.buildDirectory.file("reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
+        )
+        html.outputLocation.set(
+            layout.buildDirectory.dir("reports/jacoco/jacocoTestReport/html")
+        )
+    }
+
+    val exclusiones = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/*_Impl.*",
+        "**/ComposableSingletons*",
+        "**/MainActivity*",
+        "**/LinceOpsDatabase*",
+        "**/data/sync/**",
+        "**/utils/**",
+        "**/network/**",
+        "**/ui/**",
+        "**/navigation/**"
+    )
+
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+            exclude(exclusiones)
+        },
+        fileTree(layout.buildDirectory.dir("intermediates/javac/debug/classes")) {
+            exclude(exclusiones)
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(
+        fileTree(layout.buildDirectory) {
+            include("jacoco/testDebugUnitTest.exec")
+        }
+    )
 }
