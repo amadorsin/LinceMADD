@@ -556,36 +556,63 @@ private fun DashboardManagerView(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    val hitos = uiState.hitosCoordinacion.takeLast(2).reversed()
-                    val incidencias = uiState.incidenciasCoordinacion.takeLast(2).reversed()
+                    val titulosPorServicio = remember(uiState.serviciosTotales) {
+                        uiState.serviciosTotales.associate { it.id to it.titulo }
+                    }
+                    val hitos = uiState.hitosCoordinacion
+                        .sortedWith(
+                            compareByDescending<com.example.linceops.network.dto.HitoDto> { it.timestampRegistro ?: "" }
+                                .thenByDescending { it.id ?: 0L }
+                        )
+                        .take(2)
+                    val incidencias = uiState.incidenciasCoordinacion
+                        .sortedWith(
+                            compareByDescending<com.example.linceops.network.dto.IncidenciaDto> { it.fechaHora ?: "" }
+                                .thenByDescending { it.id ?: 0L }
+                        )
+                        .take(2)
+
                     hitos.forEachIndexed { index, hito ->
                         if (index > 0) LinceDivider()
-                        val coordenadas = String.format(
-                            Locale.US,
-                            "%.4f, %.4f",
-                            hito.latitudMarcaje ?: 0.0,
-                            hito.longitudMarcaje ?: 0.0
-                        )
+                        val autor = hito.usuario?.nombre?.takeIf { it.isNotBlank() } ?: "Sin autor"
+                        val fecha = formatearFechaIsoCorta(hito.timestampRegistro)
+                        val tituloServicio = hito.servicioId?.let { titulosPorServicio[it] }
+                        val detalleLinea = buildString {
+                            append("$autor · $fecha")
+                            if (!tituloServicio.isNullOrBlank()) {
+                                append("\n$tituloServicio")
+                            }
+                        }
                         ActividadFila(
                             titulo = hito.tipo ?: stringResource(R.string.dashboard_hito),
                             servicioId = hito.servicioId ?: "-",
-                            detalle = stringResource(
-                                R.string.dashboard_hito_detalle,
-                                hito.usuario?.nombre ?: "-",
-                                coordenadas
-                            ),
+                            detalle = detalleLinea,
                             incidencia = false
                         )
                     }
                     incidencias.forEachIndexed { index, incidencia ->
                         if (hitos.isNotEmpty() || index > 0) LinceDivider()
+                        val autor = incidencia.usuario?.nombre?.takeIf { it.isNotBlank() } ?: "Sin autor"
+                        val fecha = formatearFechaIsoCorta(incidencia.fechaHora)
+                        val tituloServicio = incidencia.servicioId?.let { titulosPorServicio[it] }
+                        val descripcion = (incidencia.detalle ?: "").trim()
+                        val detalleLinea = buildString {
+                            append("$autor · $fecha")
+                            if (!tituloServicio.isNullOrBlank()) {
+                                append("\n$tituloServicio")
+                            }
+                            if (descripcion.isNotBlank()) {
+                                append("\n$descripcion")
+                            }
+                        }
                         ActividadFila(
                             titulo = incidencia.motivo ?: stringResource(R.string.dashboard_incidencia),
                             servicioId = incidencia.servicioId ?: "-",
-                            detalle = (incidencia.detalle ?: "").ifBlank { "-" },
+                            detalle = detalleLinea,
                             incidencia = true
                         )
                     }
+
                 }
             }
         }
@@ -712,7 +739,7 @@ private fun ActividadFila(
                 text = detalle,
                 style = MaterialTheme.typography.bodySmall,
                 color = LinceTheme.colors.textSecondary,
-                maxLines = 2,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -1009,4 +1036,11 @@ fun InicioScreenPreview() {
             onCrearServicio = {}
         )
     }
+}
+private fun formatearFechaIsoCorta(iso: String?): String {
+    if (iso.isNullOrBlank()) return "Sin fecha"
+    val match = Regex("""(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})""").find(iso)
+        ?: return iso
+    val (anio, mes, dia, hora, min) = match.destructured
+    return "$dia/$mes/$anio $hora:$min"
 }

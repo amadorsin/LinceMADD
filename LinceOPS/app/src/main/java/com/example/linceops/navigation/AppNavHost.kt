@@ -69,6 +69,7 @@ fun AppNavHost(
     var avisoError by remember { mutableStateOf(false) }
     var avisoVisible by remember { mutableStateOf(false) }
     var avisoId by remember { mutableStateOf(0) }
+    var errorMarcajeOnline by remember { mutableStateOf<String?>(null) }
 
     var servicioEnfocadoId by rememberSaveable { mutableStateOf<String?>(null) }
     var abrirDetallePendienteId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -76,6 +77,11 @@ fun AppNavHost(
     LaunchedEffect(uiState.mensaje, uiState.error) {
         val texto = uiState.mensaje ?: uiState.error
         if (texto != null) {
+            if (uiState.error != null && rutaActual?.startsWith("marcaje") == true) {
+                errorMarcajeOnline = uiState.error
+            } else if (uiState.mensaje != null) {
+                errorMarcajeOnline = null
+            }
             avisoTexto = texto
             avisoError = uiState.error != null
             avisoVisible = true
@@ -158,7 +164,11 @@ fun AppNavHost(
                         } catch (e: Exception) {
                             RolUsuario.CONDUCTOR
                         }
-
+                        LaunchedEffect(rolUsuario) {
+                            if (rolUsuario == RolUsuario.ADMINISTRADOR) {
+                                serviceViewModel.cargarDatosCoordinacion()
+                            }
+                        }
                         DashboardScreen(
                             rolUsuario = rolUsuario,
                             uiState = uiState,
@@ -323,7 +333,9 @@ fun AppNavHost(
                     ) { backStackEntry ->
                         val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
                         val servicio = serviceViewModel.obtenerServicio(servicioId)
-
+                        LaunchedEffect(servicioId) {
+                            errorMarcajeOnline = null
+                        }
                         MarcajeScreen(
                             servicioId = servicioId,
                             servicio = servicio,
@@ -333,6 +345,8 @@ fun AppNavHost(
                             errorSyncOffline = uiState.errorSyncOffline,
                             onSincronizarAhora = { serviceViewModel.sincronizarAhora() },
                             onDescartarErrorSync = { serviceViewModel.descartarErrorSync() },
+                            errorOnline = errorMarcajeOnline,
+                            onDescartarErrorOnline = { errorMarcajeOnline = null },
                             onCheckIn = { lat, lon ->
                                 val hayRed = isInternetAvailable(context)
                                 serviceViewModel.registrarCheckIn(servicioId, lat, lon, hayRed)

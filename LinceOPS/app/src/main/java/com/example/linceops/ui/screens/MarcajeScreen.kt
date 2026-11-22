@@ -79,6 +79,8 @@ fun MarcajeScreen(
     errorSyncOffline: String? = null,
     onSincronizarAhora: () -> Unit = {},
     onDescartarErrorSync: () -> Unit = {},
+    errorOnline: String? = null,
+    onDescartarErrorOnline: () -> Unit = {},
     onCheckIn: (Double, Double) -> Unit,
     onCheckOut: (Double, Double) -> Unit,
     modifier: Modifier = Modifier
@@ -421,6 +423,40 @@ fun MarcajeScreen(
             }
         }
 
+        if (errorOnline != null) {
+            Spacer(modifier = Modifier.height(LinceSpacing.small))
+            Surface(
+                modifier = Modifier.fillMaxWidth().testTag("marcaje_banner_error_online"),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(LinceRadius.medium),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Marcaje rechazado",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = errorOnline,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LinceTheme.colors.textSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = onDescartarErrorOnline) {
+                        Text("Cerrar", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(LinceSpacing.small))
 
         Column(
@@ -663,6 +699,7 @@ fun MarcajeScreen(
                 },
                 icon = Icons.Default.CheckCircle,
                 variant = if (enCurso) LinceButtonVariant.Primary else LinceButtonVariant.Outline,
+                enabled = enCurso,
                 fullWidth = true
             )
             Text(

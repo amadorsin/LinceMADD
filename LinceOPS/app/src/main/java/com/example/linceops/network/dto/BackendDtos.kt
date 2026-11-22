@@ -50,8 +50,10 @@ data class IncidenciaRequestDto(
 data class IncidenciaDto(
     @SerializedName("id") val id: Long? = null,
     @SerializedName("servicioId") val servicioId: String? = null,
+    @SerializedName("usuario") val usuario: UsuarioResumenDto? = null,
     @SerializedName("motivo") val motivo: String? = null,
-    @SerializedName("detalle") val detalle: String? = null
+    @SerializedName("detalle") val detalle: String? = null,
+    @SerializedName("fechaHora") val fechaHora: String? = null
 )
 
 // --- Error estándar de tu Spring Boot (HTTP 400 Geocerca / Tiempo) ---

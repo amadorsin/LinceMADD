@@ -41,11 +41,19 @@ class ServiceViewModel(
                 val sincronizando = lista.any { it.estadoSync == EstadoSyncHito.SINCRONIZANDO }
                 val errorRechazo = lista.firstOrNull { it.estadoSync == EstadoSyncHito.ERROR_VALIDACION }?.ultimoError
 
-                _uiState.value = _uiState.value.copy(
+                val estadoPrevio = _uiState.value
+                val huboRollbackOSync = (errorRechazo != null && errorRechazo != estadoPrevio.errorSyncOffline) ||
+                        (estadoPrevio.hitosPendientesSync > 0 && pendientes < estadoPrevio.hitosPendientesSync)
+
+                _uiState.value = estadoPrevio.copy(
                     hitosPendientesSync = pendientes,
                     sincronizandoOffline = sincronizando,
                     errorSyncOffline = errorRechazo
                 )
+
+                if (huboRollbackOSync && _uiState.value.usuarioLogueado != null) {
+                    cargarServicios()
+                }
             }
         }
     }
