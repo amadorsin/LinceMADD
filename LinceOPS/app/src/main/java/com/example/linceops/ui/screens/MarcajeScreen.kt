@@ -67,6 +67,7 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
+import com.example.linceops.utils.isInternetAvailable
 
 @Composable
 fun MarcajeScreen(
@@ -200,7 +201,7 @@ fun MarcajeScreen(
         } else null
         distanciaMetros = dist
 
-        if (esCheckIn && location.accuracy > 50f) {
+        if (esCheckIn && isInternetAvailable(context) && location.accuracy > 50f) {
             mensajeEstado = context.getString(
                 R.string.marcaje_gps_impreciso,
                 String.format(Locale.ROOT, "%.0f", location.accuracy)
