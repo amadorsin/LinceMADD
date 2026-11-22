@@ -1,22 +1,63 @@
 package com.example.linceops.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.*
 import androidx.navigation.NavType
+import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.example.linceops.R
+import com.example.linceops.data.local.LinceOpsDatabase
+import com.example.linceops.data.sync.SincronizarHitosWorker
+import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
+import com.example.linceops.network.BackendRetrofitClient
+import com.example.linceops.ui.components.BarraInferiorGlass
+import com.example.linceops.ui.components.DetalleSkeleton
+import com.example.linceops.ui.components.NotificacionFlotante
 import com.example.linceops.ui.screens.*
-
+import com.example.linceops.utils.isInternetAvailable
+import com.example.linceops.viewmodel.ServiceViewModel
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import kotlinx.coroutines.delay
+import androidx.compose.foundation.layout.statusBarsPadding
 
 @Composable
 fun AppNavHost(
-    navController: NavHostController = rememberNavController(),
-    serviceViewModel: ServiceViewModel = remember { ServiceViewModel() }
+    navController: NavHostController = rememberNavController()
 ) {
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        BackendRetrofitClient.cargarTokenPersistido(context)
+    }
+
+    val database = remember { LinceOpsDatabase.getDatabase(context) }
+
+    val serviceViewModel: ServiceViewModel = remember {
+        ServiceViewModel(
+            dao = database.servicioDao(),
+            hitoPendienteDao = database.hitoPendienteDao(),
+            onProgramarSync = { SincronizarHitosWorker.programar(context) },
+            onGuardarToken = { token -> BackendRetrofitClient.guardarToken(context, token) }
+        )
+    }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
@@ -24,114 +65,392 @@ fun AppNavHost(
     val uiState by serviceViewModel.uiState.collectAsState()
     val rolActual = uiState.usuarioLogueado?.rol ?: RolUsuario.CONDUCTOR
 
+    var avisoTexto by remember { mutableStateOf("") }
+    var avisoError by remember { mutableStateOf(false) }
+    var avisoVisible by remember { mutableStateOf(false) }
+    var avisoId by remember { mutableStateOf(0) }
+    var errorMarcajeOnline by remember { mutableStateOf<String?>(null) }
+
+    var servicioEnfocadoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var abrirDetallePendienteId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(uiState.mensaje, uiState.error) {
+        val texto = uiState.mensaje ?: uiState.error
+        if (texto != null) {
+            if (uiState.error != null && rutaActual?.startsWith("marcaje") == true) {
+                errorMarcajeOnline = uiState.error
+            } else if (uiState.mensaje != null) {
+                errorMarcajeOnline = null
+            }
+            avisoTexto = texto
+            avisoError = uiState.error != null
+            avisoVisible = true
+            avisoId += 1
+            serviceViewModel.limpiarMensajes()
+        }
+    }
+
+    LaunchedEffect(avisoId) {
+        if (avisoId > 0) {
+            delay(4500)
+            avisoVisible = false
+        }
+    }
+
     val pantallasMenu = listOf(Destino.Dashboard, Destino.Feed, Destino.Perfil)
-    val mostrarBottomBar = rutaActual != Destino.Login.ruta
+    val rutaBase = rutaActual?.substringBefore("/")
+    val mostrarBottomBar = rutaBase != null &&
+            pantallasMenu.any { it.ruta.substringBefore("/") == rutaBase }
 
-    Scaffold(
-        bottomBar = {
-            if (mostrarBottomBar) {
-                NavigationBar {
-                    pantallasMenu.forEach { destino ->
-                        val seleccionado = rutaActual?.substringBefore("/") == destino.ruta.substringBefore("/")
+    var barraVisible by rememberSaveable { mutableStateOf(true) }
+    LaunchedEffect(rutaActual) { barraVisible = true }
 
-                        NavigationBarItem(
-                            icon = { Icon(destino.icon!!, contentDescription = destino.title) },
-                            label = { Text(destino.title!!) },
-                            selected = seleccionado,
-                            onClick = {
-                                navController.navigate(destino.ruta.substringBefore("/")) {
+    val hazeState = remember { HazeState() }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .haze(state = hazeState)
+        ) {
+            Scaffold { paddingValues ->
+                NavHost(
+                    navController = navController,
+                    startDestination = Destino.Login.ruta,
+                    modifier = Modifier.padding(paddingValues),
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None }
+                ) {
+
+                    composable(
+                        route = Destino.Login.ruta,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
+                        val usuarioLogueado = uiState.usuarioLogueado
+                        LaunchedEffect(usuarioLogueado) {
+                            if (usuarioLogueado != null) {
+                                navController.navigate(Destino.Dashboard.createRoute(usuarioLogueado.rol.name)) {
+                                    popUpTo(Destino.Login.ruta) { inclusive = true }
+                                }
+                            }
+                        }
+
+                        LoginScreen(
+                            errorLogin = uiState.errorLogin,
+                            onLogin = { correo, password ->
+                                serviceViewModel.iniciarSesion(correo, password)
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = Destino.Dashboard.ruta,
+                        arguments = listOf(navArgument("rol") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) { backStackEntry ->
+                        val rolString =
+                            backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
+                        val rolUsuario = try {
+                            RolUsuario.valueOf(rolString)
+                        } catch (e: Exception) {
+                            RolUsuario.CONDUCTOR
+                        }
+                        LaunchedEffect(rolUsuario) {
+                            if (rolUsuario == RolUsuario.ADMINISTRADOR) {
+                                serviceViewModel.cargarDatosCoordinacion()
+                            }
+                        }
+                        DashboardScreen(
+                            rolUsuario = rolUsuario,
+                            uiState = uiState,
+                            onIniciarMarcaje = { servicioId ->
+                                navController.navigate(Destino.Marcaje.createRoute(servicioId))
+                            },
+                            onCrearServicio = {
+                                navController.navigate("crear_servicio")
+                            },
+                            onAbrirCoordinacion = { seccion ->
+                                navController.navigate("coordinacion/${seccion.name}")
+                            },
+                            onVerDetalleServicio = { servicioId ->
+                                if (uiState.servicios.none { it.id == servicioId }) {
+                                    serviceViewModel.limpiarFiltros()
+                                }
+                                servicioEnfocadoId = servicioId
+                                abrirDetallePendienteId = servicioId
+                                barraVisible = true
+                                navController.navigate(Destino.Feed.ruta) {
                                     popUpTo(navController.graph.startDestinationId) {
                                         saveState = true
                                     }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            },
+                            onScrollBarra = { barraVisible = it }
+                        )
+                    }
+
+                    composable(
+                        route = Destino.Feed.ruta,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
+                        ServiciosScreen(
+                            servicios = uiState.servicios,
+                            onVerDetalle = { servicioId ->
+                                servicioEnfocadoId = servicioId
+                                navController.navigate(Destino.Detalle.createRoute(servicioId)) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            filtroEstado = uiState.filtroEstado,
+                            filtroFecha = uiState.filtroFecha,
+                            onFiltrarPorEstado = { estado -> serviceViewModel.filtrarPorEstado(estado) },
+                            onFiltrarPorFecha = { fecha -> serviceViewModel.filtrarPorFecha(fecha) },
+                            onLimpiarFiltros = { serviceViewModel.limpiarFiltros() },
+                            onScrollBarra = { barraVisible = it },
+                            isLoading = uiState.isLoading,
+                            servicioEnfocadoId = servicioEnfocadoId,
+                            abrirDetallePendienteId = abrirDetallePendienteId,
+                            onDetallePendienteAbierto = { servicioId ->
+                                abrirDetallePendienteId = null
+                                navController.navigate(Destino.Detalle.createRoute(servicioId)) {
+                                    launchSingleTop = true
+                                }
                             }
+                        )
+                    }
+
+                    composable(
+                        route = Destino.Perfil.ruta,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
+                        PerfilScreen(
+                            usuario = uiState.usuarioLogueado,
+                            servicios = uiState.serviciosTotales,
+                            diasBloqueadosRemotos = uiState.diasBloqueados,
+                            onBloquearFecha = { fecha -> serviceViewModel.bloquearFecha(fecha) },
+                            onDesbloquearFecha = { fecha -> serviceViewModel.desbloquearFecha(fecha) },
+                            onScrollBarra = { barraVisible = it },
+                            onCerrarSesion = {
+                                servicioEnfocadoId = null
+                                abrirDetallePendienteId = null
+                                serviceViewModel.cerrarSesion()
+                                navController.navigate(Destino.Login.ruta) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = Destino.Detalle.ruta,
+                        arguments = listOf(navArgument("servicioId") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) { backStackEntry ->
+                        val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
+                        val servicio = serviceViewModel.obtenerServicio(servicioId)
+                        LaunchedEffect(servicioId) {
+                            serviceViewModel.refrescarDetalleServicio(servicioId)
+                        }
+                        val nombresPorId = remember(
+                            uiState.guiasSouthbound,
+                            uiState.transportistasSouthbound,
+                            uiState.usuarioLogueado
+                        ) {
+                            buildMap {
+                                uiState.guiasSouthbound.forEach { g ->
+                                    val id = g.id?.toString()
+                                    val nombre = g.nombre
+                                    if (!id.isNullOrBlank() && !nombre.isNullOrBlank()) put(id, nombre)
+                                }
+                                uiState.transportistasSouthbound.forEach { t ->
+                                    val id = t.id?.toString()
+                                    val nombre = t.nombre
+                                    if (!id.isNullOrBlank() && !nombre.isNullOrBlank()) put(id, nombre)
+                                }
+                                uiState.usuarioLogueado?.let { put(it.id, it.nombre) }
+                            }
+                        }
+                        if (servicio != null) {
+                            DetalleScreen(
+                                servicio = servicio,
+                                rolUsuario = rolActual,
+                                usuarioId = uiState.usuarioLogueado?.id,
+                                nombresPorId = nombresPorId,
+                                onAceptar = {
+                                    val hayRed = isInternetAvailable(context)
+
+                                    serviceViewModel.cambiarEstadoServicio(
+                                        servicioId = servicio.id,
+                                        nuevoEstado = EstadoServicio.CONFIRMADO,
+                                        hayInternet = hayRed
+                                    )
+
+                                    navController.popBackStack()
+                                },
+                                onRechazar = {
+                                    serviceViewModel.rechazarServicio(
+                                        servicio.id,
+                                        context.getString(R.string.detalle_motivo_no_especificado)
+                                    )
+                                    navController.popBackStack()
+                                },
+                                onReasignar = {
+                                    navController.popBackStack()
+                                },
+                                onIrAMarcaje = {
+                                    navController.navigate(Destino.Marcaje.createRoute(servicio.id))
+                                }
+                            )
+                        } else {
+                            DetalleSkeleton()
+                        }
+                    }
+
+                    composable(
+                        route = Destino.Marcaje.ruta,
+                        arguments = listOf(navArgument("servicioId") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) { backStackEntry ->
+                        val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
+                        val servicio = serviceViewModel.obtenerServicio(servicioId)
+                        LaunchedEffect(servicioId) {
+                            errorMarcajeOnline = null
+                        }
+                        MarcajeScreen(
+                            servicioId = servicioId,
+                            servicio = servicio,
+                            geocercas = uiState.geocercas,
+                            hitosPendientesSync = uiState.hitosPendientesSync,
+                            sincronizandoOffline = uiState.sincronizandoOffline,
+                            errorSyncOffline = uiState.errorSyncOffline,
+                            onSincronizarAhora = { serviceViewModel.sincronizarAhora() },
+                            onDescartarErrorSync = { serviceViewModel.descartarErrorSync() },
+                            errorOnline = errorMarcajeOnline,
+                            onDescartarErrorOnline = { errorMarcajeOnline = null },
+                            onCheckIn = { lat, lon ->
+                                val hayRed = isInternetAvailable(context)
+                                serviceViewModel.registrarCheckIn(servicioId, lat, lon, hayRed)
+                            },
+                            onCheckOut = { lat, lon ->
+                                val hayRed = isInternetAvailable(context)
+                                serviceViewModel.registrarCheckOut(servicioId, lat, lon, hayRed)
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = "crear_servicio",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
+                        CrearServicioScreen(
+                            guias = uiState.guiasSouthbound,
+                            transportistas = uiState.transportistasSouthbound,
+                            onGuardar = { titulo, ruta, fecha, hora, tipo, pax, pickup, dropoff, vehiculo, conductorId, guiaId, observaciones, confirmarDirecto ->
+                                serviceViewModel.crearNuevoServicio(
+                                    titulo = titulo,
+                                    origenDestino = ruta,
+                                    fecha = fecha,
+                                    hora = hora,
+                                    tipo = tipo,
+                                    pasajeros = pax,
+                                    pickup = pickup,
+                                    dropoff = dropoff,
+                                    vehiculo = vehiculo,
+                                    conductorId = conductorId,
+                                    guiaId = guiaId,
+                                    observaciones = observaciones,
+                                    confirmarDirecto = confirmarDirecto
+                                )
+                                navController.popBackStack()
+                            },
+                            onCancelar = { navController.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = "coordinacion/{seccion}",
+                        arguments = listOf(navArgument("seccion") { type = NavType.StringType }),
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) { backStackEntry ->
+                        val seccionStr = backStackEntry.arguments?.getString("seccion")
+                        val seccionInicial = runCatching {
+                            SeccionCoordinacion.valueOf(seccionStr ?: "")
+                        }.getOrDefault(SeccionCoordinacion.HITOS)
+
+                        CoordinacionScreen(
+                            uiState = uiState,
+                            seccionInicial = seccionInicial,
+                            onVolver = { navController.popBackStack() },
+                            onRefrescar = { serviceViewModel.cargarDatosCoordinacion() }
                         )
                     }
                 }
             }
         }
-    ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = Destino.Login.ruta,
-            modifier = Modifier.padding(paddingValues)
-        ) {
 
-
-            composable(Destino.Login.ruta) {
-                LoginScreen(
-                    onLoginSuccess = { rolUsuario ->
-
-                        serviceViewModel.iniciarSesionPorRol(rolUsuario)
-                        navController.navigate(Destino.Dashboard.createRoute(rolUsuario.name)) {
-                            popUpTo(Destino.Login.ruta) { inclusive = true }
-                        }
+        if (mostrarBottomBar) {
+            BarraInferiorGlass(
+                rutaActual = rutaActual,
+                onNavegar = { id ->
+                    barraVisible = true
+                    val rutaNavegacion = when (id) {
+                        "inicio" -> Destino.Dashboard.createRoute(rolActual.name)
+                        "servicios" -> Destino.Feed.ruta
+                        else -> Destino.Perfil.ruta
                     }
-                )
-            }
-
-            composable(
-                route = Destino.Dashboard.ruta,
-                arguments = listOf(navArgument("rol") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val rolString = backStackEntry.arguments?.getString("rol") ?: RolUsuario.CONDUCTOR.name
-                val rolUsuario = RolUsuario.valueOf(rolString)
-
-                DashboardScreen(rolUsuario = rolUsuario)
-            }
-
-            composable(Destino.Feed.ruta) {
-
-                ServiciosScreen()
-            }
-
-            composable(Destino.Perfil.ruta) {
-                PerfilScreen()
-            }
-
-            composable(
-                route = "detalle/{servicioId}",
-                arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
-
-                val servicio = serviceViewModel.obtenerServicio(servicioId)
-
-                if (servicio != null) {
-                    DetalleScreen(
-                        servicio = servicio,
-                        rolUsuario = rolActual,
-                        onAceptar = {
-                            serviceViewModel.confirmarServicio(servicio.id)
-                            navController.popBackStack()
-                        },
-                        onRechazar = {
-                            serviceViewModel.rechazarServicio(servicio.id)
-                            navController.popBackStack()
-                        },
-                        onReasignar = {
-                            serviceViewModel.reasignarServicio(servicio.id)
-                            navController.popBackStack()
+                    navController.navigate(rutaNavegacion) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
                         }
-                    )
-                }
-            }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                visible = barraVisible,
+                onVisibleChange = { barraVisible = it },
+                hazeState = hazeState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
 
-
-            composable(
-                route = "marcaje/{servicioId}",
-                arguments = listOf(navArgument("servicioId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val servicioId = backStackEntry.arguments?.getString("servicioId") ?: "1"
-
-                MarcajeScreen(
-                    servicioId = servicioId,
-                    onCheckIn = { lat, lon -> serviceViewModel.registrarCheckIn(servicioId, lat, lon) },
-                    onCheckOut = { lat, lon -> serviceViewModel.registrarCheckOut(servicioId, lat, lon) }
-                )
-            }
+        AnimatedVisibility(
+            visible = avisoVisible,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 2 }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        ) {
+            NotificacionFlotante(texto = avisoTexto, esError = avisoError)
         }
     }
 }

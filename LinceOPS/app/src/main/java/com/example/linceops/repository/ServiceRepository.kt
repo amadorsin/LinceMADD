@@ -1,61 +1,512 @@
 package com.example.linceops.repository
 
+import android.util.Log
+import com.example.linceops.data.local.HitoPendienteDao
+import com.example.linceops.data.local.HitoPendienteEntity
+import com.example.linceops.data.local.ServicioDao
+import com.example.linceops.mappers.aEntidadLocal
 import com.example.linceops.model.*
+import com.example.linceops.network.BackendApi
+import com.example.linceops.network.BackendRetrofitClient
+import com.example.linceops.network.RetrofitClient
+import com.example.linceops.network.SouthboundApi
+import com.example.linceops.network.dto.*
+import com.google.gson.Gson
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class ServiceRepository {
+class ServiceRepository(
+    private val dao: ServicioDao,
+    private val hitoPendienteDao: HitoPendienteDao? = null,
+    private val ahora: () -> Long = { System.currentTimeMillis() },
+    private val backendApi: BackendApi = BackendRetrofitClient.api,
+    private val southboundApi: SouthboundApi = RetrofitClient.api
+) {
+    private val gson = Gson()
 
-    // Lista de usuarios ficticios del sistema (1 Conductor, 1 Guía, 1 Admin)
-    private val usuariosSistema = listOf(
-        Conductor(
-            id = "D101",
-            nombre = "Carlos Conductor",
-            correo = "driver@linceops.cl",
-            licencia = "A-2 Profesional",
-            vehiculoAsignado = "Mercedes-Benz Sprinter (KXYZ-88)"
-        ),
-        Guia(
-            id = "G201",
-            nombre = "Gabriela Guía",
-            correo = "guia@linceops.cl",
-            idiomas = listOf("Español", "Inglés")
-        ),
-        Administrador(
-            id = "A301",
-            nombre = "Ana Administradora",
-            correo = "admin@linceops.cl",
-            departamento = "Coordinación Logística"
-        )
+    private val usuariosSistema: List<Usuario> = listOf(
+        // IDs alineados con Southbound API
+        Conductor("20", "Matías Soto Herrera", "driver@linceops.cl", "A-2 Profesional", "Sprinter de prueba"),
+        Guia("12", "Camila Rojas Fuentes", "guia@linceops.cl", listOf("Español", "Inglés", "Alemán")),
+        Administrador("A301", "Ana Administradora", "admin@linceops.cl")
     )
 
-    fun autenticar(correo: String): Usuario? {
-        // Busca el usuario por correo (simula validación de credenciales)
-        return usuariosSistema.find { it.correo.equals(correo.trim(), ignoreCase = true) }
+    fun observarHitosPendientes(): Flow<List<HitoPendienteEntity>> =
+        hitoPendienteDao?.observarTodos() ?: emptyFlow()
+
+    suspend fun hayHitosPendientes(): Boolean =
+        hitoPendienteDao?.obtenerPendientesParaEnviar()?.isNotEmpty() == true
+
+    suspend fun limpiarErroresSync() {
+        hitoPendienteDao?.limpiarErroresValidacion()
     }
 
-    fun getServiciosIniciales(): List<Servicio> {
-        return listOf(
-            Servicio(
-                id = "1",
-                titulo = "Traslado Aeropuerto - Hotel",
-                origenDestino = "Aeropuerto -> Hotel Centro",
-                fecha = "28/09/2026",
-                hora = "08:30",
-                pickup = "Terminal 1",
-                estado = EstadoServicio.PENDIENTE,
-                pasajeros = 3,
-                conductorId = "D101"
-            ),
-            Servicio(
-                id = "2",
-                titulo = "Tour Pelluco Exclusivo",
-                origenDestino = "Centro -> Pelluco",
-                fecha = "28/09/2026",
-                hora = "11:00",
-                pickup = "Lobby Hotel",
-                estado = EstadoServicio.CONFIRMADO,
-                pasajeros = 4,
-                conductorId = "D101"
+    suspend fun inicializarDatosSiVacio() {
+        // La app sincroniza directamente con Southbound API.
+    }
+
+    // Autenticación local de respaldo (offline / pruebas rápidas)
+    fun autenticar(credencial: String): Usuario? {
+        val entrada = credencial.trim().lowercase()
+        return usuariosSistema.find { it.correo.lowercase() == entrada }
+            ?: when (entrada) {
+                "admin", "manager", "administrador" -> usuariosSistema.find { it.rol == RolUsuario.ADMINISTRADOR }
+                "driver", "conductor" -> usuariosSistema.find { it.rol == RolUsuario.CONDUCTOR }
+                "guia", "guía" -> usuariosSistema.find { it.rol == RolUsuario.GUIA }
+                else -> null
+            }
+    }
+
+    // Autenticación real contra Spring Boot (/api/auth/login) para obtener JWT
+    suspend fun autenticarConBackend(correo: String, password: String): Result<Usuario> {
+        return try {
+            val response = backendApi.login(LoginRequestDto(correo.trim(), password))
+            if (response.isSuccessful) {
+                val body = response.body() ?: return Result.failure(IllegalStateException("Respuesta vacía del servidor."))
+                BackendRetrofitClient.jwtToken = body.token
+
+                val usuario = when (body.rol.uppercase()) {
+                    "ADMINISTRADOR", "ADMIN", "ROLE_ADMINISTRADOR" ->
+                        Administrador(body.usuarioId, body.nombre, correo.trim())
+                    "GUIA", "ROLE_GUIA" ->
+                        Guia(body.usuarioId, body.nombre, correo.trim(), listOf("Español", "Inglés"))
+                    else ->
+                        Conductor(body.usuarioId, body.nombre, correo.trim(), "A-2 Profesional", "Vehículo asignado")
+                }
+                Result.success(usuario)
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "Credenciales inválidas (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Log.e("API_BACKEND", "Error en login remoto", e)
+            Result.failure(IllegalStateException("No se pudo conectar con el backend de autenticación."))
+        }
+    }
+
+    suspend fun obtenerServicioPorId(servicioId: String): Servicio? =
+        dao.obtenerServicioPorId(servicioId)
+
+    suspend fun refrescarServicioPorId(servicioId: String): Result<Servicio> {
+        val idNumerico = servicioId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException("ID de servicio local no numérico."))
+        return try {
+            val response = southboundApi.obtenerServicioPorId(idNumerico)
+            if (response.isSuccessful) {
+                val dto = response.body()?.data
+                    ?: return Result.failure(IllegalStateException("Servicio sin datos en Southbound."))
+                val existente = dao.obtenerServicioPorId(servicioId)
+                val actualizado = dto.aEntidadLocal(existente)
+                dao.guardarServicio(actualizado)
+                Result.success(actualizado)
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} al consultar detalle."))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "No se pudo refrescar detalle de servicio $servicioId", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerResumenOperativo(): Result<ResumenDto> {
+        return try {
+            val response = southboundApi.obtenerResumen()
+            val data = response.body()?.data
+            if (response.isSuccessful && data != null) {
+                Result.success(data)
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} en /resumen"))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "Fallo al obtener resumen de Southbound", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerGuiasActivos(): Result<List<GuiaDto>> {
+        return try {
+            val response = southboundApi.obtenerGuias(activo = true, page = 1, pageSize = 50)
+            if (response.isSuccessful) {
+                Result.success(response.body()?.data ?: emptyList())
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} en /guias"))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "Fallo al obtener guías de Southbound", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerTransportistasActivos(): Result<List<TransportistaDto>> {
+        return try {
+            val response = southboundApi.obtenerTransportistas(activo = true, page = 1, pageSize = 50)
+            if (response.isSuccessful) {
+                Result.success(response.body()?.data ?: emptyList())
+            } else {
+                Result.failure(IllegalStateException("Error HTTP ${response.code()} en /transportistas"))
+            }
+        } catch (e: Exception) {
+            Log.w("API_LINCE", "Fallo al obtener transportistas de Southbound", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerServicios(
+        usuarioId: String,
+        fechaDesde: String? = null,
+        fechaHasta: String? = null,
+        oficina: String? = null,
+        statusPL: String? = null,
+        q: String? = null
+    ): Pair<List<Servicio>, Boolean> {
+        val usuario = usuariosSistema.find { it.id == usuarioId } ?: return Pair(emptyList(), false)
+        var esOffline = false
+
+        // Delegamos el filtro por rol al servidor de Southbound
+        val guiaIdQuery = if (usuario.rol == RolUsuario.GUIA) usuario.id.toIntOrNull() else null
+        val transportistaIdQuery = if (usuario.rol == RolUsuario.CONDUCTOR) usuario.id.toIntOrNull() else null
+
+        try {
+            val response = southboundApi.obtenerServicios(
+                fechaDesde = fechaDesde,
+                fechaHasta = fechaHasta,
+                oficina = oficina,
+                statusPL = statusPL,
+                guiaId = guiaIdQuery,
+                transportistaId = transportistaIdQuery,
+                q = q,
+                page = 1,
+                pageSize = 50
             )
+            if (response.isSuccessful) {
+                val dtos = response.body()?.data ?: emptyList()
+
+                val serviciosSincronizados = dtos.map { dto ->
+                    val existente = dao.obtenerServicioPorId(dto.id?.toString() ?: "")
+                    dto.aEntidadLocal(existente)
+                }
+
+                dao.guardarServiciosIniciales(serviciosSincronizados)
+            } else {
+                val rawError = response.errorBody()?.string()
+                val apiError = try {
+                    gson.fromJson(rawError, ApiErrorWrapperDto::class.java)?.error
+                } catch (_: Exception) { null }
+
+                Log.e(
+                    "API_LINCE",
+                    "Error HTTP ${response.code()} | code=${apiError?.code} | requestId=${apiError?.requestId} | msg=${apiError?.message ?: rawError}"
+                )
+                esOffline = true
+            }
+        } catch (e: Exception) {
+            Log.e("API_LINCE", "Fallo al conectar con Southbound", e)
+            esOffline = true
+        }
+
+        val serviciosLocales = dao.obtenerTodosLosServicios().filter {
+            usuario.rol == RolUsuario.ADMINISTRADOR || it.estaAsignadoA(usuarioId)
+        }
+
+        return Pair(serviciosLocales, esOffline)
+    }
+
+    suspend fun cambiarEstadoServicio(
+        servicioId: String,
+        usuarioId: String,
+        nuevoEstado: EstadoServicio,
+        motivo: String = "",
+        latitud: Double? = null,
+        longitud: Double? = null
+    ): Result<Servicio> {
+        val servicio = dao.obtenerServicioPorId(servicioId) ?: return error("El servicio no existe.")
+        val participante = servicio.participaciones.find { it.usuarioId == usuarioId }
+            ?: return error("No estás asignado a este servicio.")
+
+        val permitido = when (participante.estado) {
+            EstadoServicio.PENDIENTE -> nuevoEstado == EstadoServicio.CONFIRMADO || nuevoEstado == EstadoServicio.RECHAZADO
+            EstadoServicio.CONFIRMADO -> nuevoEstado == EstadoServicio.EN_CURSO
+            EstadoServicio.EN_CURSO -> nuevoEstado == EstadoServicio.FINALIZADO
+            EstadoServicio.RECHAZADO, EstadoServicio.FINALIZADO -> false
+        }
+        if (!permitido) return error("Cambio de estado no permitido.")
+
+        val esServicioLocal = servicioId.toIntOrNull() == null
+        if (!esServicioLocal && (nuevoEstado == EstadoServicio.CONFIRMADO || nuevoEstado == EstadoServicio.RECHAZADO)) {
+            val respConfirmacion = enviarConfirmacionAlBackend(
+                servicioId = servicioId,
+                estado = nuevoEstado.name,
+                motivo = motivo.trim().takeIf { it.isNotBlank() }
+            )
+            if (respConfirmacion.isFailure) {
+                return Result.failure(respConfirmacion.exceptionOrNull()!!)
+            }
+        }
+        val requiereMarcaje = nuevoEstado == EstadoServicio.EN_CURSO || nuevoEstado == EstadoServicio.FINALIZADO
+        val marcaje = if (requiereMarcaje) {
+            if (latitud == null || longitud == null || !latitud.isFinite() || !longitud.isFinite()) {
+                return error("Se necesita una ubicación válida para registrar el marcaje.")
+            }
+            val instante = ahora()
+            if (nuevoEstado == EstadoServicio.FINALIZADO) {
+                val entrada = participante.checkIn ?: return error("Primero debes registrar el check-in.")
+                if (instante < entrada.fechaHoraMillis) return error("La salida no puede ser anterior a la entrada.")
+            }
+
+            // Enviar Check-In / Check-Out al backend propio (Spring Boot) o encolar en Room si no hay conexión
+            if (!esServicioLocal) {
+                val tipoMarcaje = if (nuevoEstado == EstadoServicio.EN_CURSO) "CHECK_IN" else "CHECK_OUT"
+                val validacionBackend = enviarMarcajeAlBackend(
+                    servicio = servicio,
+                    usuarioId = usuarioId,
+                    tipo = tipoMarcaje,
+                    latitud = latitud,
+                    longitud = longitud,
+                    instanteMillis = instante
+                )
+                if (validacionBackend.isFailure) {
+                    return Result.failure(validacionBackend.exceptionOrNull()!!)
+                }
+            }
+
+            Marcaje(instante, latitud, longitud)
+        } else null
+
+        val actualizado = participante.copy(
+            estado = nuevoEstado,
+            motivoRechazo = if (nuevoEstado == EstadoServicio.RECHAZADO) motivo.trim() else participante.motivoRechazo,
+            checkIn = if (nuevoEstado == EstadoServicio.EN_CURSO) marcaje else participante.checkIn,
+            checkOut = if (nuevoEstado == EstadoServicio.FINALIZADO) marcaje else participante.checkOut
         )
+        val participantes = servicio.participaciones.map {
+            if (it.usuarioId == usuarioId) actualizado else it
+        }
+        val resultado = servicio.copy(
+            participaciones = participantes,
+            estado = calcularEstadoGeneral(participantes)
+        )
+
+        dao.guardarServicio(resultado)
+        return Result.success(resultado)
+    }
+
+    private suspend fun enviarMarcajeAlBackend(
+        servicio: Servicio,
+        usuarioId: String,
+        tipo: String,
+        latitud: Double,
+        longitud: Double,
+        instanteMillis: Long
+    ): Result<Boolean> { // true = encolado offline, false = sincronizado online
+        val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT)
+        val timestampIso = isoFormat.format(Date(instanteMillis))
+        val horaProgramadaIso = if (servicio.fecha.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) &&
+            servicio.hora.matches(Regex("\\d{2}:\\d{2}"))
+        ) {
+            "${servicio.fecha}T${servicio.hora}:00"
+        } else null
+
+        val request = MarcajeRequestDto(
+            servicioId = servicio.id,
+            tipo = tipo,
+            latitud = latitud,
+            longitud = longitud,
+            timestamp = timestampIso
+        )
+
+        suspend fun encolarEnRoom(motivoOffline: String): Result<Boolean> {
+            hitoPendienteDao?.insertarOActualizar(
+                HitoPendienteEntity(
+                    claveIdempotencia = "${servicio.id}_${usuarioId}_${tipo}",
+                    servicioId = servicio.id,
+                    usuarioId = usuarioId,
+                    tipo = tipo,
+                    latitud = latitud,
+                    longitud = longitud,
+                    timestampIso = timestampIso,
+                    pickup = servicio.pickup,
+                    oficina = servicio.oficina.name,
+                    horaPickupIso = horaProgramadaIso,
+                    ultimoError = motivoOffline
+                )
+            )
+            return Result.success(true)
+        }
+
+        return try {
+            val response = backendApi.registrarMarcaje(
+                request = request,
+                pickup = servicio.pickup,
+                oficina = servicio.oficina.name,
+                horaPickup = horaProgramadaIso
+            )
+            when {
+                response.isSuccessful -> Result.success(false)
+                response.code() == 400 -> {
+                    val mensajeGeocerca = extraerMensajeErrorBackend(response.errorBody()?.string())
+                        ?: "Marcaje rechazado: fuera de geocerca (150m) o fuera de ventana horaria."
+                    Log.w("API_BACKEND", "HTTP 400 en marcaje: $mensajeGeocerca")
+                    Result.failure(IllegalArgumentException(mensajeGeocerca))
+                }
+                response.code() == 401 || response.code() == 403 -> {
+                    Result.failure(IllegalStateException("Sesión expirada o sin permisos en el servidor (HTTP ${response.code()})."))
+                }
+                else -> {
+                    Log.e("API_BACKEND", "Error HTTP ${response.code()} en marcaje, encolando offline")
+                    encolarEnRoom("Error servidor HTTP ${response.code()}. Pendiente de reintento.")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("API_BACKEND", "Backend no alcanzable, encolando marcaje en Room", e)
+            encolarEnRoom("Sin conexión. Se enviará automáticamente al volver internet.")
+        }
+    }
+
+    private suspend fun enviarConfirmacionAlBackend(
+        servicioId: String,
+        estado: String,
+        motivo: String?
+    ): Result<Unit> {
+        return try {
+            val response = backendApi.registrarConfirmacion(
+                ConfirmacionRequestDto(servicioId, estado, motivo)
+            )
+            when {
+                response.isSuccessful -> Result.success(Unit)
+                response.code() == 400 -> {
+                    val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                        ?: "No se pudo registrar la confirmación (HTTP 400)."
+                    Result.failure(IllegalArgumentException(msg))
+                }
+                response.code() == 401 || response.code() == 403 -> {
+                    Result.failure(IllegalStateException("Sesión expirada o sin permisos (HTTP ${response.code()})."))
+                }
+                else -> Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Log.w("API_BACKEND", "Backend no alcanzable, guardando confirmación en Room", e)
+            Result.success(Unit)
+        }
+    }
+
+    suspend fun bloquearFecha(fechaIso: String, motivo: String): Result<BloqueoCalendarioDto> {
+        return try {
+            val response = backendApi.bloquearFecha(BloqueoRequestDto(fechaIso, motivo))
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "No se pudo bloquear la fecha (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("Sin conexión con el servidor para bloquear la fecha."))
+        }
+    }
+
+    suspend fun obtenerMisBloqueos(): Result<List<BloqueoCalendarioDto>> {
+        return try {
+            val response = backendApi.obtenerMisBloqueos()
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "No se pudieron cargar los bloqueos (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Log.w("API_BACKEND", "Sin conexión para obtener bloqueos", e)
+            Result.failure(IllegalStateException("Sin conexión con el servidor para cargar bloqueos."))
+        }
+    }
+
+    suspend fun desbloquearFecha(fechaIso: String): Result<Unit> {
+        return try {
+            val response = backendApi.desbloquearFecha(fechaIso)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "No se pudo desbloquear la fecha (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("Sin conexión con el servidor para desbloquear la fecha."))
+        }
+    }
+
+    suspend fun registrarIncidencia(servicioId: String, motivo: String, detalle: String? = null): Result<IncidenciaDto> {
+        return try {
+            val response = backendApi.registrarIncidencia(
+                IncidenciaRequestDto(servicioId, motivo, detalle)
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val msg = extraerMensajeErrorBackend(response.errorBody()?.string())
+                    ?: "No se pudo registrar la incidencia (HTTP ${response.code()})."
+                Result.failure(IllegalArgumentException(msg))
+            }
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("Sin conexión con el servidor para registrar la incidencia."))
+        }
+    }
+
+    suspend fun obtenerGeocercas(): Result<List<GeocercaDto>> = try {
+        val resp = backendApi.obtenerGeocercas()
+        if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
+        else Result.failure(IllegalStateException("HTTP ${resp.code()} en /geocercas"))
+    } catch (e: Exception) { Result.failure(e) }
+
+    suspend fun obtenerTodosLosHitos(): Result<List<HitoDto>> = try {
+        val resp = backendApi.obtenerTodosLosHitos()
+        if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
+        else Result.failure(IllegalStateException("HTTP ${resp.code()} en /hitos"))
+    } catch (e: Exception) { Result.failure(e) }
+
+    suspend fun obtenerTodasLasIncidencias(): Result<List<IncidenciaDto>> = try {
+        val resp = backendApi.obtenerTodasLasIncidencias()
+        if (resp.isSuccessful) Result.success(resp.body() ?: emptyList())
+        else Result.failure(IllegalStateException("HTTP ${resp.code()} en /incidencias"))
+    } catch (e: Exception) { Result.failure(e) }
+
+    suspend fun reasignarServicio(servicioId: String): Result<Servicio> {
+        val servicio = dao.obtenerServicioPorId(servicioId) ?: return error("El servicio no existe.")
+        val participantesReiniciados = servicio.participaciones.map {
+            it.copy(estado = EstadoServicio.CONFIRMADO, motivoRechazo = null)
+        }
+        val actualizado = servicio.copy(
+            estado = EstadoServicio.CONFIRMADO,
+            participaciones = participantesReiniciados
+        )
+        dao.guardarServicio(actualizado)
+        return Result.success(actualizado)
+    }
+
+    private fun extraerMensajeErrorBackend(rawJson: String?): String? {
+        if (rawJson.isNullOrBlank()) return null
+        return try {
+            gson.fromJson(rawJson, BackendErrorResponseDto::class.java)?.message
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun error(mensaje: String): Result<Servicio> =
+        Result.failure(IllegalArgumentException(mensaje))
+
+    private fun calcularEstadoGeneral(participantes: List<ParticipacionServicio>): EstadoServicio {
+        val estados = participantes.map { it.estado }
+        return when {
+            estados.all { it == EstadoServicio.FINALIZADO } -> EstadoServicio.FINALIZADO
+            estados.any { it == EstadoServicio.EN_CURSO || it == EstadoServicio.FINALIZADO } -> EstadoServicio.EN_CURSO
+            estados.any { it == EstadoServicio.RECHAZADO } -> EstadoServicio.RECHAZADO
+            estados.all { it == EstadoServicio.CONFIRMADO } -> EstadoServicio.CONFIRMADO
+            else -> EstadoServicio.PENDIENTE
+        }
     }
 }
