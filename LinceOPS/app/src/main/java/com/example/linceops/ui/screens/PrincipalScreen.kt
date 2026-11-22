@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -47,14 +48,14 @@ fun PrincipalScreen(
                                 destino.icon?.let {
                                     Icon(
                                         imageVector = it,
-                                        contentDescription = destino.title
+                                        contentDescription = destino.titleRes?.let { recurso -> stringResource(recurso) }
                                     )
                                 }
                             },
                             label = {
-                                destino.title?.let {
+                                destino.titleRes?.let { recurso ->
                                     Text(
-                                        text = it,
+                                        text = stringResource(recurso),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = if (seleccionado) FontWeight.Bold else FontWeight.Normal
                                     )

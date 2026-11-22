@@ -101,9 +101,10 @@ class ServiceViewModel(
     fun cargarServicios() {
         val usuario = _uiState.value.usuarioLogueado
         if (usuario == null) {
-            _uiState.value = _uiState.value.copy(servicios = emptyList())
+            _uiState.value = _uiState.value.copy(servicios = emptyList(), isLoading = false)
             return
         }
+        _uiState.value = _uiState.value.copy(isLoading = _uiState.value.serviciosTotales.isEmpty())
         viewModelScope.launch {
             val fechaIso = _uiState.value.filtroFecha?.let { convertirAFechaIso(it) }
 
@@ -125,6 +126,7 @@ class ServiceViewModel(
             _uiState.value = _uiState.value.copy(
                 servicios = filtrados,
                 serviciosTotales = lista,
+                isLoading = false,
                 error = if (esOffline) "Sin conexión con el servidor. Trabajando en Modo Offline." else null,
                 mensaje = null
             )

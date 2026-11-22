@@ -12,10 +12,9 @@ import com.example.linceops.network.dto.TransportistaDto
 
 data class ServiceUiState(
     val usuarioLogueado: Usuario? = null,
-    // Lista filtrada que consume la pantalla de Servicios.
     val servicios: List<Servicio> = emptyList(),
-    // Lista completa del usuario. La usa Inicio para no heredar los filtros.
     val serviciosTotales: List<Servicio> = emptyList(),
+    val isLoading: Boolean = false,
     val errorLogin: String? = null,
     val filtroEstado: EstadoServicio? = null,
     val filtroFecha: String? = null,
@@ -30,7 +29,6 @@ data class ServiceUiState(
     val geocercas: List<GeocercaDto> = emptyList(),
     val hitosCoordinacion: List<HitoDto> = emptyList(),
     val incidenciasCoordinacion: List<IncidenciaDto> = emptyList(),
-
     val hitosPendientesSync: Int = 0,
     val sincronizandoOffline: Boolean = false,
     val errorSyncOffline: String? = null

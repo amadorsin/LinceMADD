@@ -3,10 +3,14 @@ package com.example.linceops.ui.screens
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,29 +26,54 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.linceops.R
 import com.example.linceops.model.EstadoServicio
 import com.example.linceops.model.RolUsuario
 import com.example.linceops.model.Servicio
 import com.example.linceops.model.Usuario
+import com.example.linceops.ui.components.LinceButton
+import com.example.linceops.ui.components.LinceButtonVariant
+import com.example.linceops.ui.components.LinceDivider
+import com.example.linceops.ui.components.LinceSectionHeader
+import com.example.linceops.ui.components.LinceStatusBadge
+import com.example.linceops.ui.components.LinceStatusTone
+import com.example.linceops.ui.components.LinceSurfaceCard
+import com.example.linceops.ui.components.LinceSurfaceCardVariant
+import com.example.linceops.ui.components.LinceUserAvatar
+import com.example.linceops.ui.components.PerfilSkeleton
 import com.example.linceops.ui.theme.*
+import com.example.linceops.utils.LanguagePreferences
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.cos
+import kotlin.math.sin
 
 private const val PREFS_PERFIL = "linceops_perfil"
 
@@ -54,18 +83,27 @@ fun PerfilScreen(
     usuario: Usuario? = null,
     servicios: List<Servicio> = emptyList(),
     diasBloqueadosRemotos: List<String> = emptyList(),
+    isLoading: Boolean = false,
     onBloquearFecha: ((String) -> Unit)? = null,
     onDesbloquearFecha: ((String) -> Unit)? = null,
     onCerrarSesion: () -> Unit = {},
     onScrollBarra: (Boolean) -> Unit = {}
 ){
+    if (isLoading && usuario == null) {
+        PerfilSkeleton(modifier = modifier)
+        return
+    }
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val idUsuario = usuario?.id ?: "invitado"
     val prefs = remember(idUsuario) {
         context.getSharedPreferences(PREFS_PERFIL, Context.MODE_PRIVATE)
     }
-    val base = remember(usuario?.id, usuario?.rol) { perfilBase(usuario) }
+    val base = remember(usuario?.id, usuario?.rol) { perfilBase(usuario, context) }
+    val idiomaActual by LanguagePreferences.observarIdioma(context).collectAsState(initial = "es")
+    val modoOscuro by LanguagePreferences.observarModoOscuro(context)
+        .collectAsState(initial = LinceTheme.colors.isDark)
+    val alcanceCorrutina = rememberCoroutineScope()
 
     LaunchedEffect(scrollState) {
         var posicionAnterior = 0
@@ -137,13 +175,13 @@ fun PerfilScreen(
 
         Column(modifier = Modifier.padding(top = 4.dp)) {
             Text(
-                text = "Cuenta Operativa",
+                text = stringResource(R.string.perfil_cuenta),
                 style = MaterialTheme.typography.labelLarge,
                 color = LinceTextSecondary
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Mi Perfil",
+                text = stringResource(R.string.perfil_titulo),
                 style = MaterialTheme.typography.headlineMedium,
                 color = LinceGreenPrimary,
                 fontWeight = FontWeight.Bold
@@ -152,132 +190,83 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.medium
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        modifier = Modifier.size(60.dp),
-                        shape = CircleShape,
-                        color = LinceGreenSageLight,
-                        border = BorderStroke(2.dp, LinceGreenPrimary)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = iniciales,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
+                    LinceUserAvatar(initials = iniciales, size = 64.dp)
+                    Spacer(modifier = Modifier.width(LinceSpacing.small))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = nombre,
                             style = MaterialTheme.typography.titleLarge,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
+                            color = LinceTheme.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = base.subtitulo,
                             style = MaterialTheme.typography.bodySmall,
-                            color = LinceTextSecondary
+                            color = LinceTheme.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = usuario?.correo ?: "Sesión de demostración",
+                            text = usuario?.correo ?: stringResource(R.string.perfil_sesion_demo),
                             style = MaterialTheme.typography.labelSmall,
-                            color = LinceTextSecondary
+                            color = LinceTheme.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        LinceStatusBadge(
+                            text = when (usuario?.rol) {
+                                RolUsuario.ADMINISTRADOR -> stringResource(R.string.rol_administrador)
+                                RolUsuario.CONDUCTOR -> stringResource(R.string.rol_conductor)
+                                RolUsuario.GUIA -> stringResource(R.string.rol_guia)
+                                null -> stringResource(R.string.rol_participante)
+                            },
+                            tone = LinceStatusTone.Success
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    OutlinedButton(
+                    Spacer(modifier = Modifier.width(LinceSpacing.xSmall))
+                    LinceButton(
+                        text = stringResource(R.string.accion_editar),
                         onClick = { mostrarEditor = true },
-                        modifier = Modifier.height(36.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, LinceGreenBorder),
-                        contentPadding = PaddingValues(horizontal = 10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceGreenDark)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Editar",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                        variant = LinceButtonVariant.Outline,
+                        icon = Icons.Default.Edit
+                    )
                 }
 
-                HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
+                LinceDivider()
 
                 DatoPerfil(
                     icono = Icons.Default.Call,
-                    etiqueta = "TELÉFONO",
+                    etiqueta = stringResource(R.string.perfil_telefono),
                     valor = telefono
                 )
                 DatoPerfil(
                     icono = Icons.Default.Face,
-                    etiqueta = "IDIOMAS",
+                    etiqueta = stringResource(R.string.perfil_idiomas),
                     valor = idiomas
                 )
 
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = LinceGreenSageLight.copy(alpha = 0.65f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, LinceGreenBorder)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Build,
-                                contentDescription = null,
-                                tint = LinceGreenDark,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "UNIDAD / CERTIFICACIÓN",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LinceGreenDark,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = unidad,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
+                LinceDivider()
+                DatoPerfil(
+                    icono = Icons.Default.Build,
+                    etiqueta = stringResource(R.string.perfil_unidad),
+                    valor = unidad
+                )
 
                 mensajePerfil?.let {
                     BannerMensaje(texto = it, esError = perfilError)
@@ -287,25 +276,121 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
+        LinceSurfaceCard(variant = LinceSurfaceCardVariant.Default) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+            ) {
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_idioma_titulo),
+                    subtitle = stringResource(R.string.perfil_idioma_subtitulo),
+                    action = {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = LinceTheme.colors.greenPrimary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                )
+                LinceDivider()
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SelectorIdiomaChip(
+                        texto = stringResource(R.string.perfil_idioma_es),
+                        seleccionado = idiomaActual == "es",
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            alcanceCorrutina.launch {
+                                LanguagePreferences.guardarIdioma(context.applicationContext, "es")
+                            }
+                        }
+                    )
+                    SelectorIdiomaChip(
+                        texto = stringResource(R.string.perfil_idioma_en),
+                        seleccionado = idiomaActual == "en",
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            alcanceCorrutina.launch {
+                                LanguagePreferences.guardarIdioma(context.applicationContext, "en")
+                            }
+                        }
+                    )
+                }
+
+                LinceDivider()
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_apariencia_titulo),
+                    subtitle = if (modoOscuro) {
+                        stringResource(R.string.perfil_modo_oscuro)
+                    } else {
+                        stringResource(R.string.perfil_modo_claro)
+                    },
+                    action = {
+                        ThemeModeSwitch(
+                            modoOscuro = modoOscuro,
+                            onToggle = {
+                                alcanceCorrutina.launch {
+                                    LanguagePreferences.guardarModoOscuro(
+                                        context.applicationContext,
+                                        !modoOscuro
+                                    )
+                                }
+                            }
+                        )
+                    }
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = LinceSpacing.xSmall),
+                    horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+                ) {
+                    Text(
+                        text = stringResource(R.string.perfil_modo_claro),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (!modoOscuro) LinceTheme.colors.greenPrimary else LinceTheme.colors.textSecondary,
+                        fontWeight = if (!modoOscuro) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = stringResource(R.string.perfil_modo_oscuro),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (modoOscuro) LinceTheme.colors.greenPrimary else LinceTheme.colors.textSecondary,
+                        fontWeight = if (modoOscuro) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.End
+                    )
+                }
+            }
+        }
+
+        if (usuario != null && usuario.rol != RolUsuario.ADMINISTRADOR) {
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.medium
         ) {
             Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
             ) {
-                EncabezadoTarjeta(
-                    icono = Icons.Default.DateRange,
-                    titulo = "Disponibilidad y Días Bloqueados"
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_disponibilidad),
+                    action = {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = LinceTheme.colors.greenPrimary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
                 )
-                HorizontalDivider(color = LinceOutlineVariant.copy(alpha = 0.5f))
+                LinceDivider()
 
                 Text(
-                    text = "FECHAS CON SERVICIO ASIGNADO",
+                    text = stringResource(R.string.perfil_fechas_asignadas),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -313,7 +398,7 @@ fun PerfilScreen(
                 )
                 if (fechasServicio.isEmpty()) {
                     Text(
-                        text = "Sin servicios activos asignados.",
+                        text = stringResource(R.string.perfil_sin_servicios_activos),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary
                     )
@@ -335,7 +420,7 @@ fun PerfilScreen(
                 }
 
                 Text(
-                    text = "DÍAS BLOQUEADOS",
+                    text = stringResource(R.string.perfil_dias_bloqueados),
                     style = MaterialTheme.typography.labelSmall,
                     color = LinceTextSecondary,
                     fontWeight = FontWeight.Bold,
@@ -343,7 +428,7 @@ fun PerfilScreen(
                 )
                 if (diasBloqueadosOrdenados.isEmpty()) {
                     Text(
-                        text = "No tienes días bloqueados.",
+                        text = stringResource(R.string.perfil_sin_bloqueados),
                         style = MaterialTheme.typography.bodySmall,
                         color = LinceTextSecondary
                     )
@@ -366,7 +451,7 @@ fun PerfilScreen(
                                         val actualizados = diasBloqueados - fecha
                                         diasBloqueados = actualizados
                                         guardarDiasBloqueados(prefs, idUsuario, actualizados)
-                                        mensajeDisponibilidad = "Fecha $fecha desbloqueada."
+                                        mensajeDisponibilidad = context.getString(R.string.perfil_fecha_desbloqueada, fecha)
                                         disponibilidadError = false
                                     }
                                 }
@@ -375,7 +460,8 @@ fun PerfilScreen(
                     }
                 }
 
-                Button(
+                LinceButton(
+                    text = stringResource(R.string.perfil_bloquear_fecha),
                     onClick = {
                         val calendario = Calendar.getInstance()
                         DatePickerDialog(
@@ -392,18 +478,18 @@ fun PerfilScreen(
                                 when {
                                     anticipacion == null || anticipacion < 7L -> {
                                         mensajeDisponibilidad =
-                                            "Solo puedes bloquear con al menos 7 días de anticipación."
+                                            context.getString(R.string.perfil_error_anticipacion)
                                         disponibilidadError = true
                                     }
 
                                     fecha in fechasServicio -> {
                                         mensajeDisponibilidad =
-                                            "No puedes bloquear el $fecha porque tienes un servicio asignado."
+                                            context.getString(R.string.perfil_error_servicio, fecha)
                                         disponibilidadError = true
                                     }
 
                                     fecha in diasBloqueados -> {
-                                        mensajeDisponibilidad = "La fecha $fecha ya está bloqueada."
+                                        mensajeDisponibilidad = context.getString(R.string.perfil_error_ya_bloqueada, fecha)
                                         disponibilidadError = true
                                     }
 
@@ -416,7 +502,7 @@ fun PerfilScreen(
                                             val actualizados = diasBloqueados + fecha
                                             diasBloqueados = actualizados
                                             guardarDiasBloqueados(prefs, idUsuario, actualizados)
-                                            mensajeDisponibilidad = "Fecha $fecha bloqueada correctamente."
+                                            mensajeDisponibilidad = context.getString(R.string.perfil_fecha_bloqueada, fecha)
                                             disponibilidadError = false
                                         }
                                     }
@@ -429,25 +515,10 @@ fun PerfilScreen(
                             datePicker.minDate = System.currentTimeMillis() - 1000L
                         }.show()
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        tint = LinceCardSurface,
-                        modifier = Modifier.size(17.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Bloquear Fecha",
-                        color = LinceCardSurface,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                    icon = Icons.Default.DateRange,
+                    variant = LinceButtonVariant.Primary,
+                    fullWidth = true
+                )
 
                 mensajeDisponibilidad?.let {
                     BannerMensaje(texto = it, esError = disponibilidadError)
@@ -457,130 +528,60 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = LinceCardSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, LinceGreenBorder.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp)
+        LinceSurfaceCard(
+            variant = LinceSurfaceCardVariant.Default,
+            contentPadding = LinceSpacing.medium
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = StatusPendingBg,
-                        border = BorderStroke(1.dp, StatusPendingText.copy(alpha = 0.2f))
-                    ) {
+            Column(verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)) {
+                LinceSectionHeader(
+                    title = stringResource(R.string.perfil_no_asistir),
+                    action = {
                         Icon(
                             imageVector = Icons.Default.Warning,
                             contentDescription = null,
-                            tint = StatusPendingText,
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .size(20.dp)
+                            tint = LinceTheme.colors.warning,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "¿No puedes asistir a un servicio asignado?",
-                        fontWeight = FontWeight.Bold,
-                        color = LinceTextPrimary,
-                        style = MaterialTheme.typography.titleMedium
+                )
+                LinceDivider()
+                Text(
+                    text = stringResource(R.string.perfil_no_asistir_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LinceTheme.colors.textSecondary
+                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
+                ) {
+                    LinceButton(
+                        text = stringResource(R.string.perfil_llamar_manager),
+                        onClick = { },
+                        variant = LinceButtonVariant.Primary,
+                        icon = Icons.Default.Call,
+                        fullWidth = true
+                    )
+                    LinceButton(
+                        text = stringResource(R.string.perfil_whatsapp),
+                        onClick = { },
+                        variant = LinceButtonVariant.Outline,
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        fullWidth = true
                     )
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Si tienes un imprevisto médico o de fuerza mayor para un turno ya calendarizado, comunícate de inmediato con tu Manager para reasignar tu ruta.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LinceTextSecondary
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Button(
-                        onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = null,
-                            tint = LinceCardSurface,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Llamar al Manager",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = LinceCardSurface,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.5.dp, LinceGreenPrimary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceGreenPrimary),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = null,
-                            tint = LinceGreenPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "WhatsApp Directo",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = LinceGreenPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
             }
+        }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
+        LinceButton(
+            text = stringResource(R.string.perfil_cerrar_sesion),
             onClick = onCerrarSesion,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = LinceDangerRed)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                contentDescription = null,
-                tint = LinceCardSurface,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Cerrar Sesión",
-                style = MaterialTheme.typography.titleMedium,
-                color = LinceCardSurface,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+            icon = Icons.AutoMirrored.Filled.ExitToApp,
+            variant = LinceButtonVariant.Destructive,
+            fullWidth = true
+        )
 
         Spacer(modifier = Modifier.height(104.dp))
     }
@@ -605,7 +606,7 @@ fun PerfilScreen(
                 idiomas = nuevosIdiomas
                 unidad = nuevaUnidad
                 mostrarEditor = false
-                mensajePerfil = "Perfil actualizado correctamente."
+                mensajePerfil = context.getString(R.string.perfil_actualizado)
                 perfilError = false
             }
         )
@@ -617,29 +618,17 @@ private fun EncabezadoTarjeta(
     icono: ImageVector,
     titulo: String
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            modifier = Modifier.size(30.dp),
-            shape = RoundedCornerShape(9.dp),
-            color = LinceGreenSageLight
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icono,
-                    contentDescription = null,
-                    tint = LinceGreenDark,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
+    LinceSectionHeader(
+        title = titulo,
+        action = {
+            Icon(
+                imageVector = icono,
+                contentDescription = null,
+                tint = LinceTheme.colors.greenPrimary,
+                modifier = Modifier.size(19.dp)
+            )
         }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = titulo,
-            style = MaterialTheme.typography.titleMedium,
-            color = LinceGreenDark,
-            fontWeight = FontWeight.Bold
-        )
-    }
+    )
 }
 
 @Composable
@@ -650,35 +639,26 @@ private fun DatoPerfil(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(LinceSpacing.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(30.dp),
-            shape = RoundedCornerShape(9.dp),
-            color = LinceSurfaceContainerLow
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icono,
-                    contentDescription = null,
-                    tint = LinceGreenPrimary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(10.dp))
+        Icon(
+            imageVector = icono,
+            contentDescription = null,
+            tint = LinceTheme.colors.greenPrimary,
+            modifier = Modifier.size(18.dp)
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = etiqueta,
                 style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                color = LinceTheme.colors.textSecondary,
+                fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = valor,
                 style = MaterialTheme.typography.bodyMedium,
-                color = LinceTextPrimary,
+                color = LinceTheme.colors.textPrimary,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -716,7 +696,7 @@ private fun ChipFecha(
                 Spacer(modifier = Modifier.width(6.dp))
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Desbloquear $fecha",
+                    contentDescription = stringResource(R.string.perfil_desbloquear, fecha),
                     tint = colorTexto,
                     modifier = Modifier
                         .size(15.dp)
@@ -725,6 +705,149 @@ private fun ChipFecha(
             }
         }
     }
+}
+
+@Composable
+private fun ThemeModeSwitch(
+    modoOscuro: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val descripcion = stringResource(R.string.dashboard_cambiar_tema)
+    val thumbOffset by animateDpAsState(
+        targetValue = if (modoOscuro) 28.dp else 3.dp,
+        animationSpec = tween(durationMillis = 220),
+        label = "themeThumbOffset"
+    )
+    val colores = LinceTheme.colors
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Surface(
+        modifier = modifier
+            .width(56.dp)
+            .height(30.dp)
+            .clip(RoundedCornerShape(50))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onToggle
+            )
+            .semantics { contentDescription = descripcion },
+        shape = RoundedCornerShape(50),
+        color = LinceSurfaceContainerHigh,
+        border = BorderStroke(1.dp, LinceGreenBorder)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            IconoSolLuna(
+                esLuna = false,
+                color = if (!modoOscuro) colores.onPrimary else colores.textSecondary.copy(alpha = 0.55f),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 8.dp)
+                    .size(14.dp)
+            )
+            IconoSolLuna(
+                esLuna = true,
+                color = if (modoOscuro) colores.onPrimary else colores.textSecondary.copy(alpha = 0.55f),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 8.dp)
+                    .size(14.dp)
+            )
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = thumbOffset)
+                    .size(24.dp),
+                shape = CircleShape,
+                color = LinceGreenPrimary,
+                shadowElevation = 2.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    IconoSolLuna(
+                        esLuna = modoOscuro,
+                        color = colores.onPrimary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconoSolLuna(
+    esLuna: Boolean,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val r = size.minDimension / 2f
+        if (esLuna) {
+            val circuloPrincipal = Path().apply {
+                addOval(
+                    androidx.compose.ui.geometry.Rect(
+                        cx - r * 0.78f,
+                        cy - r * 0.78f,
+                        cx + r * 0.78f,
+                        cy + r * 0.78f
+                    )
+                )
+            }
+            val circuloRecorte = Path().apply {
+                addOval(
+                    androidx.compose.ui.geometry.Rect(
+                        cx - r * 0.35f,
+                        cy - r * 1.02f,
+                        cx + r * 1.05f,
+                        cy + r * 0.38f
+                    )
+                )
+            }
+            val lunaPath = Path().apply {
+                op(circuloPrincipal, circuloRecorte, PathOperation.Difference)
+            }
+            drawPath(path = lunaPath, color = color)
+        } else {
+            drawCircle(
+                color = color,
+                radius = r * 0.42f,
+                center = Offset(cx, cy)
+            )
+            val rayoInicio = r * 0.62f
+            val rayoFin = r * 0.92f
+            for (i in 0 until 8) {
+                val angulo = Math.toRadians((i * 45).toDouble())
+                val cosA = cos(angulo).toFloat()
+                val sinA = sin(angulo).toFloat()
+                drawLine(
+                    color = color,
+                    start = Offset(cx + cosA * rayoInicio, cy + sinA * rayoInicio),
+                    end = Offset(cx + cosA * rayoFin, cy + sinA * rayoFin),
+                    strokeWidth = 1.5.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectorIdiomaChip(
+    texto: String,
+    seleccionado: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    LinceButton(
+        text = texto,
+        onClick = onClick,
+        modifier = modifier,
+        variant = if (seleccionado) LinceButtonVariant.Primary else LinceButtonVariant.Outline,
+        fullWidth = true
+    )
 }
 
 @Composable
@@ -742,7 +865,12 @@ private fun BannerMensaje(
         border = BorderStroke(1.dp, colorTexto.copy(alpha = 0.22f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(
+                start = 12.dp,
+                end = 12.dp,
+                top = 10.dp,
+                bottom = 10.dp
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -776,6 +904,7 @@ private fun EditarPerfilDialog(
     var idiomas by remember { mutableStateOf(idiomasInicial) }
     var unidad by remember { mutableStateOf(unidadInicial) }
     var error by remember { mutableStateOf<String?>(null) }
+    val mensajeCamposObligatorios = stringResource(R.string.perfil_campos_obligatorios)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -792,13 +921,13 @@ private fun EditarPerfilDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Editar perfil",
+                    text = stringResource(R.string.perfil_editar_titulo),
                     style = MaterialTheme.typography.titleLarge,
                     color = LinceGreenPrimary,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Todos los campos son obligatorios.",
+                    text = mensajeCamposObligatorios,
                     style = MaterialTheme.typography.bodySmall,
                     color = LinceTextSecondary
                 )
@@ -809,7 +938,7 @@ private fun EditarPerfilDialog(
                         nombre = it
                         error = null
                     },
-                    label = { Text("Nombre") },
+                    label = { Text(stringResource(R.string.perfil_nombre)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -819,7 +948,7 @@ private fun EditarPerfilDialog(
                         telefono = it
                         error = null
                     },
-                    label = { Text("Teléfono") },
+                    label = { Text(stringResource(R.string.perfil_telefono_label)) },
                     placeholder = { Text("+56 9 8412 3901") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -830,8 +959,8 @@ private fun EditarPerfilDialog(
                         idiomas = it
                         error = null
                     },
-                    label = { Text("Idiomas") },
-                    placeholder = { Text("Español, Inglés, Alemán") },
+                    label = { Text(stringResource(R.string.perfil_idiomas_label)) },
+                    placeholder = { Text(stringResource(R.string.perfil_idiomas_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -841,7 +970,7 @@ private fun EditarPerfilDialog(
                         unidad = it
                         error = null
                     },
-                    label = { Text("Unidad o certificación") },
+                    label = { Text(stringResource(R.string.perfil_unidad_label)) },
                     placeholder = { Text("Van Mercedes Sprinter 4x4") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -869,7 +998,7 @@ private fun EditarPerfilDialog(
                         border = BorderStroke(1.dp, LinceOutlineVariant),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = LinceTextSecondary)
                     ) {
-                        Text("Cancelar", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.accion_cancelar), fontWeight = FontWeight.SemiBold)
                     }
                     Button(
                         onClick = {
@@ -885,7 +1014,7 @@ private fun EditarPerfilDialog(
                                     unidadLimpia
                                 ).any { it.isBlank() }
                             ) {
-                                error = "Todos los campos son obligatorios."
+                                error = mensajeCamposObligatorios
                             } else {
                                 onGuardar(
                                     nombreLimpio,
@@ -902,8 +1031,8 @@ private fun EditarPerfilDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = LinceGreenPrimary)
                     ) {
                         Text(
-                            text = "Guardar",
-                            color = LinceCardSurface,
+                            text = stringResource(R.string.perfil_guardar),
+                            color = LinceOnPrimary,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -921,39 +1050,39 @@ private data class PerfilBase(
     val subtitulo: String
 )
 
-private fun perfilBase(usuario: Usuario?): PerfilBase {
+private fun perfilBase(usuario: Usuario?, context: Context): PerfilBase {
     val nombreUsuario = usuario?.nombre?.takeIf { it.isNotBlank() }
     return when (usuario?.rol) {
         RolUsuario.CONDUCTOR -> PerfilBase(
             nombre = nombreUsuario ?: "Carlos Conductor",
             telefono = "+56 9 8412 3901",
-            idiomas = "Español, Inglés",
+            idiomas = context.getString(R.string.perfil_idiomas_conductor),
             unidad = "Van Mercedes Sprinter 4x4",
-            subtitulo = "Conductor Profesional Clase A2"
+            subtitulo = context.getString(R.string.perfil_sub_conductor)
         )
 
         RolUsuario.GUIA -> PerfilBase(
             nombre = nombreUsuario ?: "Gabriela Guía",
             telefono = "+56 9 7654 3210",
-            idiomas = "Español, Inglés, Alemán",
-            unidad = "Registro SERNATUR #4821",
-            subtitulo = "Guía Turístico Bilingüe"
+            idiomas = context.getString(R.string.perfil_idiomas_guia),
+            unidad = context.getString(R.string.perfil_unidad_guia),
+            subtitulo = context.getString(R.string.perfil_sub_guia)
         )
 
         RolUsuario.ADMINISTRADOR -> PerfilBase(
             nombre = nombreUsuario ?: "Ana Administradora",
             telefono = "+56 9 6123 4567",
-            idiomas = "Español",
-            unidad = "Coordinación de Operaciones",
-            subtitulo = "Coordinador de Operaciones"
+            idiomas = context.getString(R.string.perfil_idiomas_admin),
+            unidad = context.getString(R.string.perfil_unidad_admin),
+            subtitulo = context.getString(R.string.perfil_sub_admin)
         )
 
         null -> PerfilBase(
             nombre = nombreUsuario ?: "Operador LinceOPS",
             telefono = "+56 9 0000 0000",
-            idiomas = "Español",
-            unidad = "Unidad por asignar",
-            subtitulo = "Operador"
+            idiomas = context.getString(R.string.perfil_idiomas_admin),
+            unidad = context.getString(R.string.perfil_unidad_operador),
+            subtitulo = context.getString(R.string.perfil_sub_operador)
         )
     }
 }

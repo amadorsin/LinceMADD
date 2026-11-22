@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,8 +41,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,6 +72,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import com.example.linceops.R
 import com.example.linceops.ui.theme.LinceCardSurface
 import com.example.linceops.ui.theme.LinceCreamBackground
 import com.example.linceops.ui.theme.LinceGreenBorder
@@ -94,11 +95,15 @@ import com.example.linceops.ui.theme.LinceMapRoad
 import com.example.linceops.ui.theme.LinceMapRoadEdge
 import com.example.linceops.ui.theme.LinceMapWater
 import com.example.linceops.ui.theme.LinceOutlineVariant
+import com.example.linceops.ui.theme.LinceOnPrimary
+import com.example.linceops.ui.theme.LinceRadius
+import com.example.linceops.ui.theme.LinceSpacing
 import com.example.linceops.ui.theme.LinceSurfaceContainerLow
 import com.example.linceops.ui.theme.LinceSurfaceVariant
 import com.example.linceops.ui.theme.LinceTertiary
 import com.example.linceops.ui.theme.LinceTextPrimary
 import com.example.linceops.ui.theme.LinceTextSecondary
+import com.example.linceops.ui.theme.LinceTheme
 import com.example.linceops.utils.isInternetAvailable
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -304,12 +309,10 @@ private suspend fun geocodificarDireccion(
     val limpio = texto.trim()
     if (limpio.isBlank()) return@withContext null
 
-    // 1. Pre-carga y geocodifica con Nominatim si hay internet
     if (isInternetAvailable(context)) {
         buscarDirecciones(limpio, limite = 1).firstOrNull()?.punto?.let { return@withContext it }
     }
 
-    // 2. Respaldo con Geocoder nativo dentro de los límites de Chile
     val desdeGeocoder = runCatching {
         val geocoder = Geocoder(context, Locale("es", "CL"))
         @Suppress("DEPRECATION")
@@ -325,7 +328,6 @@ private suspend fun geocodificarDireccion(
 
     if (desdeGeocoder != null) return@withContext desdeGeocoder
 
-    // 3. Respaldo Offline en la lista local LUGARES_SUGERIDOS
     LUGARES_SUGERIDOS.firstOrNull {
         it.nombre.contains(limpio, ignoreCase = true) || limpio.contains(it.nombre, ignoreCase = true)
     }?.punto
@@ -368,11 +370,25 @@ fun SelectorUbicacionDialog(
     var busquedaRealizada by remember { mutableStateOf(false) }
 
     val clienteUbicacion = remember { LocationServices.getFusedLocationProviderClient(context) }
-    val etiquetaPunto = if (titulo.equals("origen", ignoreCase = true)) {
-        "Punto de recogida"
-    } else {
-        "Punto de destino"
+    val esOrigen = titulo.equals("origen", ignoreCase = true)
+    val esParada = titulo.startsWith("parada", ignoreCase = true)
+    val indiceParada = remember(titulo) {
+        titulo.substringAfter(" ", "").toIntOrNull() ?: 1
     }
+    val etiquetaPunto = when {
+        esOrigen -> stringResource(R.string.mapa_punto_recogida)
+        esParada -> stringResource(R.string.mapa_punto_parada)
+        else -> stringResource(R.string.mapa_punto_destino)
+    }
+    val nombrePunto = when {
+        esOrigen -> stringResource(R.string.crear_origen)
+        esParada -> stringResource(R.string.crear_parada, indiceParada)
+        else -> stringResource(R.string.crear_destino)
+    }
+    val tituloDialogo = stringResource(
+        R.string.mapa_elegir_generico,
+        nombrePunto.lowercase(Locale.getDefault())
+    )
 
     val lanzadorPermiso = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -382,7 +398,6 @@ fun SelectorUbicacionDialog(
         if (concedido) disparadorGps++
     }
 
-    // Geocodifica automáticamente la dirección en texto proveniente de la API al abrir el mapa
     LaunchedEffect(direccionInicial, puntoInicial) {
         val textoApi = direccionInicial?.trim().orEmpty()
         if (puntoInicial == null && textoApi.isNotBlank()) {
@@ -490,7 +505,7 @@ fun SelectorUbicacionDialog(
                 if (confirmarAlEncontrar) onConfirmar(punto, limpio)
             } else {
                 errorDireccion =
-                    "No encontramos \"$limpio\". Prueba con calle y comuna, o mueve el mapa."
+                    context.getString(R.string.mapa_error_no_encontrado, limpio)
             }
             geocodificando = false
         }
@@ -603,14 +618,14 @@ fun SelectorUbicacionDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "UBICACI\u00D3N DEL SERVICIO",
+                            text = stringResource(R.string.mapa_ubicacion_servicio),
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp
                         )
                         Text(
-                            text = "Elegir $titulo",
+                            text = tituloDialogo,
                             style = MaterialTheme.typography.headlineSmall,
                             color = LinceGreenPrimary,
                             fontWeight = FontWeight.Bold
@@ -619,7 +634,7 @@ fun SelectorUbicacionDialog(
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Cerrar",
+                            contentDescription = stringResource(R.string.mapa_cerrar),
                             tint = LinceTextSecondary
                         )
                     }
@@ -630,7 +645,7 @@ fun SelectorUbicacionDialog(
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .clip(RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(LinceRadius.xLarge))
                 ) {
                     MapaMovil(
                         centro = centro,
@@ -678,7 +693,12 @@ fun SelectorUbicacionDialog(
                             shadowElevation = 3.dp
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                modifier = Modifier.padding(
+                                    start = LinceSpacing.small,
+                                    end = LinceSpacing.small,
+                                    top = LinceSpacing.xSmall,
+                                    bottom = LinceSpacing.xSmall
+                                ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
@@ -689,9 +709,9 @@ fun SelectorUbicacionDialog(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = if (errorTeselas) {
-                                        "Teselas no disponibles \u00B7 toca para reintentar"
+                                        stringResource(R.string.mapa_teselas_error)
                                     } else {
-                                        "Sin conexi\u00F3n \u00B7 mapa vectorial"
+                                        stringResource(R.string.mapa_sin_conexion)
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = LinceGreenDark,
@@ -704,28 +724,29 @@ fun SelectorUbicacionDialog(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(10.dp)
-                            .size(46.dp)
+                            .padding(LinceSpacing.small)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .clickable(enabled = !usandoGps && !geocodificando) {
                                 solicitarUbicacion()
                             },
                         shape = CircleShape,
-                        color = LinceCardSurface.copy(alpha = 0.96f),
-                        shadowElevation = 5.dp
+                        color = LinceTheme.colors.cardSurface,
+                        border = BorderStroke(1.dp, LinceTheme.colors.outlineVariant),
+                        shadowElevation = 2.dp
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             if (usandoGps) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp,
-                                    color = LinceGreenPrimary
+                                    color = LinceTheme.colors.greenPrimary
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
-                                    contentDescription = "Centrar en mi ubicaci\u00F3n",
-                                    tint = LinceGreenPrimary,
+                                    contentDescription = stringResource(R.string.mapa_centrar_ubicacion),
+                                    tint = LinceTheme.colors.greenPrimary,
                                     modifier = Modifier.size(25.dp)
                                 )
                             }
@@ -741,12 +762,17 @@ fun SelectorUbicacionDialog(
                         modifier = Modifier
                             .align(Alignment.Center)
                             .offset(y = (-112).dp + elevacionPin),
-                        shape = RoundedCornerShape(14.dp),
-                        color = LinceGreenDark,
-                        shadowElevation = 6.dp
+                        shape = RoundedCornerShape(LinceRadius.medium),
+                        color = LinceTheme.colors.greenPrimary,
+                        shadowElevation = 3.dp
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(
+                                start = LinceSpacing.mediumSmall,
+                                end = LinceSpacing.mediumSmall,
+                                top = LinceSpacing.small,
+                                bottom = LinceSpacing.small
+                            ),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             if (moviendoMapa || buscandoDireccion) {
@@ -754,13 +780,13 @@ fun SelectorUbicacionDialog(
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(14.dp),
                                         strokeWidth = 2.dp,
-                                        color = LinceCardSurface
+                                        color = LinceOnPrimary
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Buscando direcci\u00F3n...",
+                                        text = stringResource(R.string.mapa_buscando_direccion),
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = LinceCardSurface,
+                                        color = LinceOnPrimary,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -768,22 +794,24 @@ fun SelectorUbicacionDialog(
                                 Text(
                                     text = etiquetaPunto.uppercase(Locale.ROOT),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = LinceGreenSageLight,
+                                    color = LinceOnPrimary.copy(alpha = 0.85f),
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp
                                 )
                                 Text(
                                     text = direccion.ifBlank { textoCoordenadas(centro) },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = LinceCardSurface,
+                                    color = LinceOnPrimary,
                                     fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    softWrap = true,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Clip
                                 )
                             }
                         }
                     }
 
+                    val colorPin = LinceTheme.colors.greenPrimary
                     Column(
                         modifier = Modifier
                             .align(Alignment.Center)
@@ -793,15 +821,15 @@ fun SelectorUbicacionDialog(
                         Surface(
                             modifier = Modifier.size(46.dp),
                             shape = CircleShape,
-                            color = LinceGreenPrimary,
-                            border = BorderStroke(3.dp, LinceCardSurface),
+                            color = LinceTheme.colors.greenPrimary,
+                            border = BorderStroke(3.dp, LinceTheme.colors.onPrimary),
                             shadowElevation = 6.dp
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
-                                    contentDescription = "Punto seleccionado",
-                                    tint = LinceCardSurface,
+                                    contentDescription = stringResource(R.string.mapa_punto_seleccionado),
+                                    tint = LinceTheme.colors.onPrimary,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
@@ -813,7 +841,7 @@ fun SelectorUbicacionDialog(
                                 lineTo(size.width, 0f)
                                 close()
                             }
-                            drawPath(aguja, LinceGreenPrimary)
+                            drawPath(aguja, colorPin)
                         }
                     }
 
@@ -821,7 +849,7 @@ fun SelectorUbicacionDialog(
                         modifier = Modifier
                             .align(Alignment.Center)
                             .size(width = 14.dp, height = 5.dp)
-                            .background(LinceGreenDark.copy(alpha = 0.28f), CircleShape)
+                            .background(LinceTheme.colors.greenDark.copy(alpha = 0.28f), CircleShape)
                     )
 
                     Column(
@@ -849,7 +877,12 @@ fun SelectorUbicacionDialog(
                             text = "\u00A9 MapTiler \u2022 \u00A9 OpenStreetMap contributors",
                             style = MaterialTheme.typography.labelSmall,
                             color = LinceTextSecondary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(
+                                start = LinceSpacing.xSmall + 2.dp,
+                                end = LinceSpacing.xSmall + 2.dp,
+                                top = 2.dp,
+                                bottom = 2.dp
+                            )
                         )
                     }
                 }
@@ -857,36 +890,52 @@ fun SelectorUbicacionDialog(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp),
-                    shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
-                    color = LinceCardSurface,
-                    shadowElevation = 18.dp
+                        .padding(top = LinceSpacing.small),
+                    shape = RoundedCornerShape(
+                        topStart = LinceRadius.xLarge,
+                        topEnd = LinceRadius.xLarge
+                    ),
+                    color = LinceTheme.colors.cardSurface,
+                    border = BorderStroke(1.dp, LinceTheme.colors.outlineVariant),
+                    shadowElevation = 8.dp
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 14.dp)
+                            .padding(
+                                start = LinceSpacing.medium,
+                                end = LinceSpacing.medium,
+                                top = LinceSpacing.small,
+                                bottom = LinceSpacing.medium
+                            )
                     ) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.CenterHorizontally)
                                 .size(width = 40.dp, height = 4.dp)
-                                .background(LinceOutlineVariant, RoundedCornerShape(50))
+                                .background(LinceTheme.colors.outlineVariant, RoundedCornerShape(50))
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(LinceSpacing.small))
                         Text(
-                            text = "Fija el punto de ${titulo.lowercase(Locale.ROOT)}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = LinceTextPrimary,
-                            fontWeight = FontWeight.Bold
+                            text = stringResource(
+                                R.string.mapa_fija_punto,
+                                nombrePunto.lowercase(Locale.getDefault())
+                            ),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = LinceTheme.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            softWrap = true,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip
                         )
                         Text(
-                            text = "Arrastra el mapa para mover el marcador",
+                            text = stringResource(R.string.mapa_arrastra),
                             style = MaterialTheme.typography.bodySmall,
-                            color = LinceTextSecondary
+                            color = LinceTheme.colors.textSecondary,
+                            softWrap = true
                         )
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(LinceSpacing.small))
 
                         if (editandoDireccion) {
                             OutlinedTextField(
@@ -899,10 +948,10 @@ fun SelectorUbicacionDialog(
                                     .fillMaxWidth()
                                     .focusRequester(focusBuscador),
                                 singleLine = true,
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(LinceRadius.medium),
                                 placeholder = {
                                     Text(
-                                        text = "Busca calle, lugar o comuna",
+                                        text = stringResource(R.string.mapa_busca_placeholder),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = LinceTextSecondary
                                     )
@@ -935,7 +984,7 @@ fun SelectorUbicacionDialog(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
-                                                contentDescription = "Cerrar buscador",
+                                                contentDescription = stringResource(R.string.mapa_cerrar_buscador),
                                                 tint = LinceTextSecondary,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -958,20 +1007,22 @@ fun SelectorUbicacionDialog(
                                     }
                                 ),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = LinceCreamBackground.copy(alpha = 0.45f),
-                                    unfocusedContainerColor = LinceCreamBackground.copy(alpha = 0.45f),
-                                    focusedBorderColor = LinceGreenPrimary,
-                                    unfocusedBorderColor = LinceGreenBorder,
-                                    cursorColor = LinceGreenPrimary
+                                    focusedContainerColor = LinceTheme.colors.surfaceVariant,
+                                    unfocusedContainerColor = LinceTheme.colors.surfaceVariant,
+                                    focusedBorderColor = LinceTheme.colors.greenPrimary,
+                                    unfocusedBorderColor = LinceTheme.colors.outlineVariant,
+                                    focusedTextColor = LinceTheme.colors.textPrimary,
+                                    unfocusedTextColor = LinceTheme.colors.textPrimary,
+                                    cursorColor = LinceTheme.colors.greenPrimary
                                 )
                             )
 
                             if (resultados.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(LinceSpacing.xSmall))
                                 Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = LinceCreamBackground.copy(alpha = 0.6f),
-                                    border = BorderStroke(1.dp, LinceGreenBorder)
+                                    shape = RoundedCornerShape(LinceRadius.medium),
+                                    color = LinceTheme.colors.surfaceVariant,
+                                    border = BorderStroke(1.dp, LinceTheme.colors.outlineVariant)
                                 ) {
                                     LazyColumn(modifier = Modifier.heightIn(max = 190.dp)) {
                                         items(resultados) { resultado ->
@@ -979,29 +1030,35 @@ fun SelectorUbicacionDialog(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clickable { elegirResultado(resultado) }
-                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                    .padding(
+                                                        start = LinceSpacing.small,
+                                                        end = LinceSpacing.small,
+                                                        top = LinceSpacing.small,
+                                                        bottom = LinceSpacing.small
+                                                    ),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.LocationOn,
                                                     contentDescription = null,
-                                                    tint = LinceGreenPrimary,
+                                                     tint = LinceTheme.colors.greenPrimary,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
                                                     text = resultado.nombre,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = LinceTextPrimary,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
+                                                     color = LinceTheme.colors.textPrimary,
+                                                     softWrap = true,
+                                                     maxLines = 3,
+                                                     overflow = TextOverflow.Clip,
                                                     modifier = Modifier.weight(1f)
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
                                                     text = textoDistancia(centro, resultado.punto),
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = LinceGreenDark,
+                                                     color = LinceTheme.colors.greenDark,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
@@ -1009,30 +1066,35 @@ fun SelectorUbicacionDialog(
                                     }
                                 }
                             } else if (busquedaRealizada && consulta.trim().length >= 3) {
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(LinceSpacing.xSmall))
                                 Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = LinceCreamBackground.copy(alpha = 0.6f),
-                                    border = BorderStroke(1.dp, LinceGreenBorder)
+                                    shape = RoundedCornerShape(LinceRadius.small),
+                                    color = LinceTheme.colors.surfaceVariant,
+                                    border = BorderStroke(1.dp, LinceTheme.colors.outlineVariant)
                                 ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable { centrarEnDireccion(consulta.trim()) }
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            .padding(
+                                                start = LinceSpacing.small,
+                                                end = LinceSpacing.small,
+                                                top = LinceSpacing.small,
+                                                bottom = LinceSpacing.small
+                                            ),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Edit,
                                             contentDescription = null,
-                                            tint = LinceGreenPrimary,
+                                            tint = LinceTheme.colors.greenPrimary,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Buscar y usar: \"${consulta.trim()}\"",
+                                            text = stringResource(R.string.mapa_buscar_usar, consulta.trim()),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = LinceGreenDark,
+                                            color = LinceTheme.colors.greenDark,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
@@ -1047,47 +1109,55 @@ fun SelectorUbicacionDialog(
                                         consulta = if (direccion == textoCoordenadas(centro)) "" else direccion
                                         editandoDireccion = true
                                     },
-                                shape = RoundedCornerShape(14.dp),
-                                color = LinceCreamBackground.copy(alpha = 0.45f),
-                                border = BorderStroke(1.dp, LinceGreenBorder)
+                                shape = RoundedCornerShape(LinceRadius.medium),
+                                color = LinceTheme.colors.surfaceVariant,
+                                border = BorderStroke(1.dp, LinceTheme.colors.outlineVariant)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    modifier = Modifier.padding(
+                                        start = LinceSpacing.mediumSmall,
+                                        end = LinceSpacing.mediumSmall,
+                                        top = LinceSpacing.small,
+                                        bottom = LinceSpacing.small
+                                    ),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Search,
                                         contentDescription = null,
-                                        tint = LinceGreenPrimary,
+                                        tint = LinceTheme.colors.greenPrimary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "DIRECCI\u00D3N DEL MARCADOR",
+                                            text = stringResource(R.string.mapa_direccion_marcador),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = LinceTextSecondary,
+                                            color = LinceTheme.colors.textSecondary,
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 0.6.sp
                                         )
                                         Text(
                                             text = if (buscandoDireccion) {
-                                                "Ubicaci\u00F3n del marcador..."
+                                                stringResource(R.string.mapa_ubicacion_marcador)
                                             } else {
-                                                direccion.ifBlank { "Ubicaci\u00F3n del marcador..." }
+                                                direccion.ifBlank {
+                                                    stringResource(R.string.mapa_ubicacion_marcador)
+                                                }
                                             },
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = LinceTextPrimary,
+                                            color = LinceTheme.colors.textPrimary,
+                                            softWrap = true,
                                             fontWeight = FontWeight.SemiBold,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Clip
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Icon(
                                         imageVector = Icons.Default.Edit,
-                                        contentDescription = "Editar direcci\u00F3n",
-                                        tint = LinceGreenPrimary,
+                                        contentDescription = stringResource(R.string.mapa_editar_direccion),
+                                        tint = LinceTheme.colors.greenPrimary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -1095,39 +1165,46 @@ fun SelectorUbicacionDialog(
                         }
 
                         errorDireccion?.let { mensaje ->
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(LinceSpacing.xSmall))
                             Text(
                                 text = mensaje,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = LinceTertiary
+                                color = LinceTheme.colors.error,
+                                softWrap = true
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(LinceSpacing.small))
 
-                        Button(
-                            onClick = { confirmarSeleccion() },
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            enabled = !geocodificando,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = LinceGreenPrimary,
-                                disabledContainerColor = LinceGreenPrimary.copy(alpha = 0.45f)
-                            )
+                                .defaultMinSize(minHeight = 48.dp),
+                            contentAlignment = Alignment.Center
                         ) {
+                            LinceButton(
+                                text = if (geocodificando) {
+                                    stringResource(R.string.mapa_buscando_direccion)
+                                } else {
+                                    stringResource(
+                                        R.string.mapa_confirmar_punto,
+                                        nombrePunto.lowercase(Locale.getDefault())
+                                    )
+                                },
+                                onClick = { confirmarSeleccion() },
+                                modifier = Modifier.fillMaxWidth(),
+                                variant = LinceButtonVariant.Primary,
+                                enabled = !geocodificando,
+                                fullWidth = true
+                            )
                             if (geocodificando) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .padding(start = LinceSpacing.medium)
+                                        .size(18.dp),
                                     strokeWidth = 2.dp,
-                                    color = LinceCardSurface
-                                )
-                            } else {
-                                Text(
-                                    text = "Confirmar punto de ${titulo.lowercase(Locale.ROOT)}",
-                                    color = LinceCardSurface,
-                                    fontWeight = FontWeight.SemiBold
+                                    color = LinceTheme.colors.onPrimary
                                 )
                             }
                         }
@@ -1142,18 +1219,19 @@ fun SelectorUbicacionDialog(
 private fun BotonMapa(texto: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
-            .size(38.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
         shape = CircleShape,
-        color = LinceCardSurface.copy(alpha = 0.94f),
-        shadowElevation = 3.dp
+        color = LinceTheme.colors.cardSurface,
+        border = BorderStroke(1.dp, LinceTheme.colors.outlineVariant),
+        shadowElevation = 2.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = texto,
                 style = MaterialTheme.typography.titleMedium,
-                color = LinceGreenDark,
+                color = LinceTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -1198,6 +1276,7 @@ private fun MapaMovil(
         Modifier
     }
 
+    val coloresMapa = LinceTheme.colors
     Canvas(
         modifier = modifier
             .background(LinceMapLand)
@@ -1213,7 +1292,7 @@ private fun MapaMovil(
         fun y(lat: Double): Float =
             (alto / 2f - ((lat - centro.latitud) * METROS_POR_GRADO / metrosPorPixel).toFloat())
 
-        drawRect(color = LinceMapLand)
+        drawRect(color = coloresMapa.mapLand)
 
         val pasoLat = 0.0038
         val pasoLon = 0.0046
@@ -1241,7 +1320,7 @@ private fun MapaMovil(
                 val altoPx = altoCeldaPx * (0.46f + (semilla % 3) * 0.08f)
 
                 drawRoundRect(
-                    color = LinceMapBlock,
+                    color = coloresMapa.mapBlock,
                     topLeft = Offset(x(lon) - anchoPx / 2f, y(lat) - altoPx / 2f),
                     size = Size(anchoPx, altoPx),
                     cornerRadius = CornerRadius(2.5.dp.toPx())
@@ -1249,7 +1328,7 @@ private fun MapaMovil(
 
                 if (semilla % 4 == 0) {
                     drawRoundRect(
-                        color = LinceMapLand.copy(alpha = 0.55f),
+                        color = coloresMapa.mapLand.copy(alpha = 0.55f),
                         topLeft = Offset(
                             x(lon) - anchoPx * 0.28f,
                             y(lat) - altoPx * 0.26f
@@ -1267,7 +1346,7 @@ private fun MapaMovil(
             PuntoMapa(-41.4758, -72.9460)
         ).forEach { parque ->
             drawRoundRect(
-                color = LinceMapPark,
+                color = coloresMapa.mapPark,
                 topLeft = Offset(x(parque.longitud) - 26.dp.toPx(), y(parque.latitud) - 18.dp.toPx()),
                 size = Size(52.dp.toPx(), 36.dp.toPx()),
                 cornerRadius = CornerRadius(10.dp.toPx())
@@ -1279,14 +1358,14 @@ private fun MapaMovil(
             if (yy < -20f || yy > alto + 20f) continue
             val avenida = i % 4 == 0
             drawLine(
-                color = LinceMapRoadEdge,
+                color = coloresMapa.mapRoadEdge,
                 start = Offset(0f, yy),
                 end = Offset(ancho, yy),
                 strokeWidth = if (avenida) 9.dp.toPx() else 5.dp.toPx(),
                 cap = StrokeCap.Round
             )
             drawLine(
-                color = LinceMapRoad,
+                color = coloresMapa.mapRoad,
                 start = Offset(0f, yy),
                 end = Offset(ancho, yy),
                 strokeWidth = if (avenida) 7.dp.toPx() else 3.dp.toPx(),
@@ -1298,14 +1377,14 @@ private fun MapaMovil(
             if (xx < -20f || xx > ancho + 20f) continue
             val avenida = j % 5 == 0
             drawLine(
-                color = LinceMapRoadEdge,
+                color = coloresMapa.mapRoadEdge,
                 start = Offset(xx, 0f),
                 end = Offset(xx, alto),
                 strokeWidth = if (avenida) 9.dp.toPx() else 5.dp.toPx(),
                 cap = StrokeCap.Round
             )
             drawLine(
-                color = LinceMapRoad,
+                color = coloresMapa.mapRoad,
                 start = Offset(xx, 0f),
                 end = Offset(xx, alto),
                 strokeWidth = if (avenida) 7.dp.toPx() else 3.dp.toPx(),
@@ -1323,7 +1402,7 @@ private fun MapaMovil(
         }
         drawPath(
             camino,
-            LinceMapRoadEdge,
+            coloresMapa.mapRoadEdge,
             style = androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 11.dp.toPx(),
                 cap = StrokeCap.Round
@@ -1331,7 +1410,7 @@ private fun MapaMovil(
         )
         drawPath(
             camino,
-            LinceMapRoad,
+            coloresMapa.mapRoad,
             style = androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 8.dp.toPx(),
                 cap = StrokeCap.Round
@@ -1351,7 +1430,7 @@ private fun MapaMovil(
             }
             costa.lineTo(0f, alto + 10f)
             costa.close()
-            drawPath(costa, LinceMapWater)
+            drawPath(costa, coloresMapa.mapWater)
 
             val borde = Path()
             borde.moveTo(x(costaBase + 0.0016 * sin(0.6)), 0f)
@@ -1363,7 +1442,7 @@ private fun MapaMovil(
             }
             drawPath(
                 borde,
-                LinceMapWater.copy(alpha = 0.85f),
+                coloresMapa.mapWater.copy(alpha = 0.85f),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
             )
         }
@@ -1373,12 +1452,12 @@ private fun MapaMovil(
             val yg = y(gps.latitud)
             if (xg in -24f..ancho + 24f && yg in -24f..alto + 24f) {
                 drawCircle(
-                    color = Color.White,
+                    color = coloresMapa.mapGpsHalo,
                     radius = 12.dp.toPx(),
                     center = Offset(xg, yg)
                 )
                 drawCircle(
-                    color = Color(0xFF1E88E5),
+                    color = coloresMapa.mapGpsBlue,
                     radius = 8.dp.toPx(),
                     center = Offset(xg, yg)
                 )

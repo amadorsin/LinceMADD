@@ -2,6 +2,7 @@ package com.example.linceops.ui.components
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
@@ -77,6 +78,22 @@ private fun fuenteCartografica(): OnlineTileSourceBase {
     return if (clave.isEmpty()) FUENTE_ESRI else MapTilerStreetsSource(clave)
 }
 
+internal fun configurarFuenteCartografica(contexto: Context): OnlineTileSourceBase {
+    val fuente = fuenteCartografica()
+    Configuration.getInstance().apply {
+        @Suppress("DEPRECATION")
+        load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
+        userAgentValue = if (fuente is MapTilerStreetsSource) {
+            USER_AGENT_MAPTILER
+        } else {
+            USER_AGENT_OSM
+        }
+        osmdroidBasePath = File(contexto.cacheDir, "osmdroid").apply { mkdirs() }
+        osmdroidTileCache = File(contexto.cacheDir, "osmdroid/tiles").apply { mkdirs() }
+    }
+    return fuente
+}
+
 private class EstadoMapaOsm {
     var mapa: MapView? = null
     var marcadorGps: Marker? = null
@@ -111,18 +128,7 @@ fun MapaOsm(
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { contexto ->
-            val fuente = fuenteCartografica()
-            Configuration.getInstance().apply {
-                @Suppress("DEPRECATION")
-                load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
-                userAgentValue = if (fuente is MapTilerStreetsSource) {
-                    USER_AGENT_MAPTILER
-                } else {
-                    USER_AGENT_OSM
-                }
-                osmdroidBasePath = File(contexto.cacheDir, "osmdroid").apply { mkdirs() }
-                osmdroidTileCache = File(contexto.cacheDir, "osmdroid/tiles").apply { mkdirs() }
-            }
+            val fuente = configurarFuenteCartografica(contexto)
 
             val handlerUi = Handler(Looper.getMainLooper())
             estado.handlerUi = handlerUi
