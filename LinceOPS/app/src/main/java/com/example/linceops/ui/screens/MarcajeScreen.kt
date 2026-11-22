@@ -645,38 +645,24 @@ fun MarcajeScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
         ) {
+            val enCurso = servicio.estado == EstadoServicio.EN_CURSO
+
             LinceButton(
-                text = if (esVistaCheckOut) {
-                    stringResource(R.string.marcaje_checkout)
-                } else {
-                    stringResource(R.string.marcaje_registrar_checkin)
-                },
+                text = stringResource(R.string.marcaje_registrar_checkin),
                 onClick = {
-                    if (esVistaCheckOut) {
-                        obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) }
-                    } else {
-                        obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) }
-                    }
+                    obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) }
                 },
-                icon = if (esVistaCheckOut) Icons.Default.CheckCircle else Icons.Default.LocationOn,
-                variant = LinceButtonVariant.Primary,
+                icon = Icons.Default.LocationOn,
+                variant = if (enCurso) LinceButtonVariant.Outline else LinceButtonVariant.Primary,
                 fullWidth = true
             )
             LinceButton(
-                text = if (esVistaCheckOut) {
-                    stringResource(R.string.marcaje_registrar_checkin)
-                } else {
-                    stringResource(R.string.marcaje_checkout)
-                },
+                text = stringResource(R.string.marcaje_checkout),
                 onClick = {
-                    if (esVistaCheckOut) {
-                        obtenerUbicacion(esCheckIn = true) { lat, lon -> onCheckIn(lat, lon) }
-                    } else {
-                        obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) }
-                    }
+                    obtenerUbicacion(esCheckIn = false) { lat, lon -> onCheckOut(lat, lon) }
                 },
-                icon = if (esVistaCheckOut) Icons.Default.LocationOn else Icons.Default.CheckCircle,
-                variant = LinceButtonVariant.Outline,
+                icon = Icons.Default.CheckCircle,
+                variant = if (enCurso) LinceButtonVariant.Primary else LinceButtonVariant.Outline,
                 fullWidth = true
             )
             Text(

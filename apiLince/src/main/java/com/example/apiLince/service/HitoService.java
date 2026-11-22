@@ -66,7 +66,13 @@ public class HitoService {
                 }
             }
         }
-
+        if ("CHECK_OUT".equalsIgnoreCase(request.getTipo())) {
+            boolean tieneCheckIn = hitoRepository.existsByServicioIdAndUsuarioIdAndTipo(
+                    request.getServicioId(), usuarioId, "CHECK_IN");
+            if (!tieneCheckIn) {
+                throw new IllegalArgumentException("No puedes registrar Check-Out sin un Check-In válido previo.");
+            }
+        }
         // 3. Guardar Hito
         Hito hito = new Hito();
         hito.setServicioId(request.getServicioId());

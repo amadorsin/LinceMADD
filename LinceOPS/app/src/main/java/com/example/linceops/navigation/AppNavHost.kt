@@ -36,6 +36,7 @@ import com.example.linceops.viewmodel.ServiceViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.layout.statusBarsPadding
 
 @Composable
 fun AppNavHost(
@@ -85,7 +86,7 @@ fun AppNavHost(
 
     LaunchedEffect(avisoId) {
         if (avisoId > 0) {
-            delay(2500)
+            delay(4500)
             avisoVisible = false
         }
     }
@@ -257,11 +258,31 @@ fun AppNavHost(
                         LaunchedEffect(servicioId) {
                             serviceViewModel.refrescarDetalleServicio(servicioId)
                         }
+                        val nombresPorId = remember(
+                            uiState.guiasSouthbound,
+                            uiState.transportistasSouthbound,
+                            uiState.usuarioLogueado
+                        ) {
+                            buildMap {
+                                uiState.guiasSouthbound.forEach { g ->
+                                    val id = g.id?.toString()
+                                    val nombre = g.nombre
+                                    if (!id.isNullOrBlank() && !nombre.isNullOrBlank()) put(id, nombre)
+                                }
+                                uiState.transportistasSouthbound.forEach { t ->
+                                    val id = t.id?.toString()
+                                    val nombre = t.nombre
+                                    if (!id.isNullOrBlank() && !nombre.isNullOrBlank()) put(id, nombre)
+                                }
+                                uiState.usuarioLogueado?.let { put(it.id, it.nombre) }
+                            }
+                        }
                         if (servicio != null) {
                             DetalleScreen(
                                 servicio = servicio,
                                 rolUsuario = rolActual,
                                 usuarioId = uiState.usuarioLogueado?.id,
+                                nombresPorId = nombresPorId,
                                 onAceptar = {
                                     val hayRed = isInternetAvailable(context)
 
@@ -375,6 +396,7 @@ fun AppNavHost(
             exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 2 }),
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .statusBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
             NotificacionFlotante(texto = avisoTexto, esError = avisoError)

@@ -27,7 +27,9 @@ class SincronizarHitosWorker(
 
     override suspend fun doWork(): Result {
         BackendRetrofitClient.cargarTokenPersistido(applicationContext)
-        val dao = LinceOpsDatabase.getDatabase(applicationContext).hitoPendienteDao()
+        val db = LinceOpsDatabase.getDatabase(applicationContext)
+        val dao = db.hitoPendienteDao()
+        val servicioDao = db.servicioDao()
         val pendientes = dao.obtenerPendientesParaEnviar()
 
         if (pendientes.isEmpty()) {
@@ -83,7 +85,8 @@ class SincronizarHitosWorker(
                                 intentos = hito.intentos + 1,
                                 error = msg
                             )
-                            Log.w("SYNC_WORKER", "Hito rechazado por negocio: $msg")
+                            revertirMarcajeLocal(servicioDao, hito.servicioId, hito.usuarioId, hito.tipo)
+                            Log.w("SYNC_WORKER", "Hito rechazado por negocio y revertido en Room: $msg")
                         }
                     }
                     response.code() == 401 || response.code() == 403 -> {
@@ -128,7 +131,43 @@ class SincronizarHitosWorker(
             null
         }
     }
-
+    private suspend fun revertirMarcajeLocal(
+        servicioDao: com.example.linceops.data.local.ServicioDao,
+        servicioId: String,
+        usuarioId: String,
+        tipo: String
+    ) {
+        val servicio = servicioDao.obtenerServicioPorId(servicioId) ?: return
+        val participantes = servicio.participaciones.map { p ->
+            if (p.usuarioId != usuarioId) {
+                p
+            } else if (tipo.equals("CHECK_IN", ignoreCase = true)) {
+                p.copy(
+                    estado = com.example.linceops.model.EstadoServicio.CONFIRMADO,
+                    checkIn = null,
+                    checkOut = null
+                )
+            } else {
+                p.copy(
+                    estado = if (p.checkIn != null) {
+                        com.example.linceops.model.EstadoServicio.EN_CURSO
+                    } else {
+                        com.example.linceops.model.EstadoServicio.CONFIRMADO
+                    },
+                    checkOut = null
+                )
+            }
+        }
+        val estados = participantes.map { it.estado }
+        val estadoGeneral = when {
+            estados.all { it == com.example.linceops.model.EstadoServicio.FINALIZADO } -> com.example.linceops.model.EstadoServicio.FINALIZADO
+            estados.any { it == com.example.linceops.model.EstadoServicio.EN_CURSO || it == com.example.linceops.model.EstadoServicio.FINALIZADO } -> com.example.linceops.model.EstadoServicio.EN_CURSO
+            estados.any { it == com.example.linceops.model.EstadoServicio.RECHAZADO } -> com.example.linceops.model.EstadoServicio.RECHAZADO
+            estados.all { it == com.example.linceops.model.EstadoServicio.CONFIRMADO } -> com.example.linceops.model.EstadoServicio.CONFIRMADO
+            else -> com.example.linceops.model.EstadoServicio.PENDIENTE
+        }
+        servicioDao.guardarServicio(servicio.copy(participaciones = participantes, estado = estadoGeneral))
+    }
     companion object {
         private const val WORK_NAME = "linceops_sync_hitos_offline"
 

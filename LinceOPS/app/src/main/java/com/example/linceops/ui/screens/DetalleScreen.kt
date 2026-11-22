@@ -61,7 +61,8 @@ fun DetalleScreen(
     onRechazar: () -> Unit,
     onReasignar: () -> Unit,
     onIrAMarcaje: () -> Unit,
-    usuarioId: String? = null
+    usuarioId: String? = null,
+    nombresPorId: Map<String, String> = emptyMap()
 ) {
 
     val context = LocalContext.current
@@ -255,13 +256,15 @@ fun DetalleScreen(
                     ) {
                         RecursoDetalle(
                             titulo = stringResource(R.string.detalle_conductor),
-                            valor = servicio.conductorId ?: stringResource(R.string.detalle_sin_conductor),
+                            valor = resolverNombreTrabajador(servicio.conductorId, nombresPorId)
+                                ?: stringResource(R.string.detalle_sin_conductor),
                             guia = false,
                             modifier = Modifier.weight(1f),
                         )
                         RecursoDetalle(
                             titulo = stringResource(R.string.detalle_guia),
-                            valor = servicio.guiaId ?: stringResource(R.string.detalle_sin_guia),
+                            valor = resolverNombreTrabajador(servicio.guiaId, nombresPorId)
+                                ?: stringResource(R.string.detalle_sin_guia),
                             guia = true,
                             modifier = Modifier.weight(1f),
                         )
@@ -431,7 +434,7 @@ fun DetalleScreen(
                                 verticalArrangement = Arrangement.spacedBy(LinceSpacing.small)
                             ) {
                                 LinceSectionHeader(
-                                    title = etiquetaParticipante(context, servicio, participacion.usuarioId)
+                                    title = etiquetaParticipante(context, servicio, participacion.usuarioId, nombresPorId)
                                 )
                                 participacion.checkIn?.let { marcaje ->
                                     MarcajeFila(
@@ -570,7 +573,7 @@ fun MarcajeFila(
             Text(
                 text = formatearFechaHora(marcaje.fechaHoraMillis),
                 style = MaterialTheme.typography.bodySmall,
-                color = LinceTextPrimary,
+                color = LinceTheme.colors.textPrimary,
                 fontWeight = FontWeight.Medium
             )
             Text(
@@ -580,7 +583,7 @@ fun MarcajeFila(
                     formatearCoordenada(marcaje.longitud)
                 ),
                 style = MaterialTheme.typography.labelSmall,
-                color = LinceTextSecondary
+                color = LinceTheme.colors.textSecondary
             )
         }
     }
@@ -791,15 +794,35 @@ fun ParadasRuta(
     }
 }
 
-fun etiquetaParticipante(context: Context, servicio: Servicio, usuarioId: String): String {
+fun resolverNombreTrabajador(
+    id: String?,
+    nombresPorId: Map<String, String> = emptyMap()
+): String? {
+    if (id.isNullOrBlank()) return null
+    val respaldoBase = mapOf(
+        "20" to "Matías Soto Herrera",
+        "12" to "Camila Rojas Fuentes",
+        "A301" to "Ana Administradora"
+    )
+    return nombresPorId[id]?.takeIf { it.isNotBlank() }
+        ?: respaldoBase[id]
+        ?: "ID #$id"
+}
+
+fun etiquetaParticipante(
+    context: Context,
+    servicio: Servicio,
+    usuarioId: String,
+    nombresPorId: Map<String, String> = emptyMap()
+): String {
     val rol = when (usuarioId) {
         servicio.conductorId -> context.getString(R.string.rol_conductor)
         servicio.guiaId -> context.getString(R.string.rol_guia)
         else -> context.getString(R.string.rol_participante)
     }
-    return "$rol \u00B7 $usuarioId"
+    val nombre = resolverNombreTrabajador(usuarioId, nombresPorId) ?: usuarioId
+    return "$rol \u00B7 $nombre"
 }
-
 fun formatearFechaHora(millis: Long): String =
     SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(millis))
 
