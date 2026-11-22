@@ -78,7 +78,6 @@ import com.example.linceops.ui.theme.LinceSpacing
 import com.example.linceops.ui.theme.LinceTheme
 import com.example.linceops.ui.theme.*
 import com.example.linceops.viewmodel.ServiceUiState
-import java.util.Locale
 
 @Composable
 fun DashboardScreen(
@@ -559,18 +558,9 @@ private fun DashboardManagerView(
                     val titulosPorServicio = remember(uiState.serviciosTotales) {
                         uiState.serviciosTotales.associate { it.id to it.titulo }
                     }
-                    val hitos = uiState.hitosCoordinacion
-                        .sortedWith(
-                            compareByDescending<com.example.linceops.network.dto.HitoDto> { it.timestampRegistro ?: "" }
-                                .thenByDescending { it.id ?: 0L }
-                        )
-                        .take(2)
-                    val incidencias = uiState.incidenciasCoordinacion
-                        .sortedWith(
-                            compareByDescending<com.example.linceops.network.dto.IncidenciaDto> { it.fechaHora ?: "" }
-                                .thenByDescending { it.id ?: 0L }
-                        )
-                        .take(2)
+                    val hitos = ordenarHitosPorFechaDescendente(uiState.hitosCoordinacion).take(2)
+                    val incidencias =
+                        ordenarIncidenciasPorFechaDescendente(uiState.incidenciasCoordinacion).take(2)
 
                     hitos.forEachIndexed { index, hito ->
                         if (index > 0) LinceDivider()
@@ -1036,11 +1026,4 @@ fun InicioScreenPreview() {
             onCrearServicio = {}
         )
     }
-}
-private fun formatearFechaIsoCorta(iso: String?): String {
-    if (iso.isNullOrBlank()) return "Sin fecha"
-    val match = Regex("""(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})""").find(iso)
-        ?: return iso
-    val (anio, mes, dia, hora, min) = match.destructured
-    return "$dia/$mes/$anio $hora:$min"
 }

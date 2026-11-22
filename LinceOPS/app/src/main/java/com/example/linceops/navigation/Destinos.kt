@@ -1,9 +1,9 @@
 package com.example.linceops.navigation
 
 import androidx.annotation.StringRes
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.linceops.R
@@ -19,7 +19,7 @@ sealed class Destino(
         fun createRoute(rol: String) = "dashboard/$rol"
     }
 
-    object Feed : Destino("feed", Icons.Filled.List, R.string.nav_servicios)
+    object Feed : Destino("feed", Icons.AutoMirrored.Filled.List, R.string.nav_servicios)
     object Perfil : Destino("perfil", Icons.Filled.Person, R.string.nav_perfil)
 
     object Detalle : Destino("detalle/{servicioId}") {

@@ -7,7 +7,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
-import android.preference.PreferenceManager
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -88,8 +87,13 @@ private fun atribucionFuente(fuente: OnlineTileSourceBase): String =
 internal fun configurarFuenteCartografica(contexto: Context): OnlineTileSourceBase {
     val fuente = fuenteCartografica()
     Configuration.getInstance().apply {
-        @Suppress("DEPRECATION")
-        load(contexto, PreferenceManager.getDefaultSharedPreferences(contexto))
+        load(
+            contexto,
+            contexto.getSharedPreferences(
+                "${contexto.packageName}_preferences",
+                Context.MODE_PRIVATE
+            )
+        )
         userAgentValue = if (fuente is MapTilerStreetsSource) {
             USER_AGENT_MAPTILER
         } else {

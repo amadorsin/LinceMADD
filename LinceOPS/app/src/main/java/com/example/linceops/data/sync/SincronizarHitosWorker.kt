@@ -11,19 +11,171 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.linceops.data.local.EstadoSyncHito
+import com.example.linceops.data.local.HitoPendienteDao
+import com.example.linceops.data.local.HitoPendienteEntity
 import com.example.linceops.data.local.LinceOpsDatabase
+import com.example.linceops.data.local.ServicioDao
+import com.example.linceops.model.EstadoServicio
 import com.example.linceops.network.BackendRetrofitClient
 import com.example.linceops.network.dto.BackendErrorResponseDto
 import com.example.linceops.network.dto.MarcajeRequestDto
+import com.example.linceops.network.dto.MensajeResponseDto
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import retrofit2.Response
 import java.util.concurrent.TimeUnit
+
+internal enum class ResultadoSyncHitos {
+    SUCCESS,
+    RETRY
+}
+
+internal suspend fun sincronizarHitosPendientes(
+    pendientes: List<HitoPendienteEntity>,
+    dao: HitoPendienteDao,
+    servicioDao: ServicioDao,
+    enviarMarcaje: suspend (HitoPendienteEntity) -> Response<MensajeResponseDto>
+): ResultadoSyncHitos {
+    var requiereReintento = false
+    val gson = Gson()
+
+    for (hito in pendientes) {
+        dao.actualizarEstado(
+            clave = hito.claveIdempotencia,
+            estado = EstadoSyncHito.SINCRONIZANDO,
+            intentos = hito.intentos + 1,
+            error = null
+        )
+
+        try {
+            val response = enviarMarcaje(hito)
+            Log.i(
+                "SYNC_WORKER",
+                "HTTP ${response.code()} recibido para hito ${hito.claveIdempotencia}"
+            )
+            when {
+                response.isSuccessful -> {
+                    dao.eliminar(hito.claveIdempotencia)
+                    Log.i(
+                        "SYNC_WORKER",
+                        "Hito sincronizado HTTP ${response.code()}: ${hito.claveIdempotencia}"
+                    )
+                }
+
+                response.code() == 400 -> {
+                    val mensaje = extraerMensajeError(gson, response.errorBody()?.string())
+                        ?: "Marcaje rechazado por validación del servidor."
+                    if (mensaje.contains("ya fue registrado", ignoreCase = true)) {
+                        dao.eliminar(hito.claveIdempotencia)
+                        Log.i(
+                            "SYNC_WORKER",
+                            "Hito ya existía HTTP 400; eliminado por idempotencia: ${hito.claveIdempotencia}"
+                        )
+                    } else {
+                        dao.actualizarEstado(
+                            clave = hito.claveIdempotencia,
+                            estado = EstadoSyncHito.ERROR_VALIDACION,
+                            intentos = hito.intentos + 1,
+                            error = mensaje
+                        )
+                        revertirMarcajeLocal(servicioDao, hito.servicioId, hito.usuarioId, hito.tipo)
+                        Log.w(
+                            "SYNC_WORKER",
+                            "Hito HTTP 400 marcado ERROR_VALIDACION y revertido en Room: ${hito.claveIdempotencia}"
+                        )
+                    }
+                }
+
+                response.code() == 401 || response.code() == 403 -> {
+                    dao.actualizarEstado(
+                        clave = hito.claveIdempotencia,
+                        estado = EstadoSyncHito.PENDIENTE,
+                        intentos = hito.intentos + 1,
+                        error = "Sesión expirada. Inicia sesión para sincronizar."
+                    )
+                    requiereReintento = true
+                }
+
+                else -> {
+                    dao.actualizarEstado(
+                        clave = hito.claveIdempotencia,
+                        estado = EstadoSyncHito.PENDIENTE,
+                        intentos = hito.intentos + 1,
+                        error = "Error servidor HTTP ${response.code()}"
+                    )
+                    requiereReintento = true
+                }
+            }
+        } catch (error: Exception) {
+            Log.w(
+                "SYNC_WORKER",
+                "Sin respuesta HTTP al sincronizar ${hito.claveIdempotencia} (${error.javaClass.simpleName})"
+            )
+            dao.actualizarEstado(
+                clave = hito.claveIdempotencia,
+                estado = EstadoSyncHito.PENDIENTE,
+                intentos = hito.intentos + 1,
+                error = "Esperando conexión con el servidor..."
+            )
+            requiereReintento = true
+        }
+    }
+
+    return if (requiereReintento) ResultadoSyncHitos.RETRY else ResultadoSyncHitos.SUCCESS
+}
+
+private fun extraerMensajeError(gson: Gson, rawJson: String?): String? {
+    if (rawJson.isNullOrBlank()) return null
+    return try {
+        gson.fromJson(rawJson, BackendErrorResponseDto::class.java)?.message
+    } catch (_: Exception) {
+        null
+    }
+}
+
+internal suspend fun revertirMarcajeLocal(
+    servicioDao: ServicioDao,
+    servicioId: String,
+    usuarioId: String,
+    tipo: String
+) {
+    val servicio = servicioDao.obtenerServicioPorId(servicioId) ?: return
+    val participantes = servicio.participaciones.map { participacion ->
+        if (participacion.usuarioId != usuarioId) {
+            participacion
+        } else if (tipo.equals("CHECK_IN", ignoreCase = true)) {
+            participacion.copy(
+                estado = EstadoServicio.CONFIRMADO,
+                checkIn = null,
+                checkOut = null
+            )
+        } else {
+            participacion.copy(
+                estado = if (participacion.checkIn != null) {
+                    EstadoServicio.EN_CURSO
+                } else {
+                    EstadoServicio.CONFIRMADO
+                },
+                checkOut = null
+            )
+        }
+    }
+    val estados = participantes.map { it.estado }
+    val estadoGeneral = when {
+        estados.all { it == EstadoServicio.FINALIZADO } -> EstadoServicio.FINALIZADO
+        estados.any { it == EstadoServicio.EN_CURSO || it == EstadoServicio.FINALIZADO } -> EstadoServicio.EN_CURSO
+        estados.any { it == EstadoServicio.RECHAZADO } -> EstadoServicio.RECHAZADO
+        estados.all { it == EstadoServicio.CONFIRMADO } -> EstadoServicio.CONFIRMADO
+        else -> EstadoServicio.PENDIENTE
+    }
+    servicioDao.guardarServicio(servicio.copy(participaciones = participantes, estado = estadoGeneral))
+}
 
 class SincronizarHitosWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
-
-    private val gson = Gson()
 
     override suspend fun doWork(): Result {
         BackendRetrofitClient.cargarTokenPersistido(applicationContext)
@@ -41,18 +193,13 @@ class SincronizarHitosWorker(
             return Result.retry()
         }
 
-        var requiereReintento = false
-
-        for (hito in pendientes) {
-            dao.actualizarEstado(
-                clave = hito.claveIdempotencia,
-                estado = EstadoSyncHito.SINCRONIZANDO,
-                intentos = hito.intentos + 1,
-                error = null
-            )
-
-            try {
-                val response = BackendRetrofitClient.api.registrarMarcaje(
+        val resultado = withContext(Dispatchers.IO) {
+            sincronizarHitosPendientes(
+                pendientes = pendientes,
+                dao = dao,
+                servicioDao = servicioDao
+            ) { hito ->
+                BackendRetrofitClient.api.registrarMarcaje(
                     request = MarcajeRequestDto(
                         servicioId = hito.servicioId,
                         tipo = hito.tipo,
@@ -64,109 +211,13 @@ class SincronizarHitosWorker(
                     oficina = hito.oficina,
                     horaPickup = hito.horaPickupIso
                 )
-
-                when {
-                    response.isSuccessful -> {
-                        dao.eliminar(hito.claveIdempotencia)
-                        Log.i("SYNC_WORKER", "Hito sincronizado: ${hito.claveIdempotencia}")
-                    }
-                    response.code() == 400 -> {
-                        val msg = extraerMensaje(response.errorBody()?.string())
-                            ?: "Marcaje rechazado por validación del servidor."
-                        // Idempotencia: si Spring Boot indica que ya existe, se considera sincronizado
-                        if (msg.contains("ya fue registrado", ignoreCase = true)) {
-                            dao.eliminar(hito.claveIdempotencia)
-                            Log.i("SYNC_WORKER", "Idempotencia: hito ya existía en backend (${hito.claveIdempotencia})")
-                        } else {
-                            // Error de negocio definitivo (geocerca 150m o atraso 15 min): no reintentar
-                            dao.actualizarEstado(
-                                clave = hito.claveIdempotencia,
-                                estado = EstadoSyncHito.ERROR_VALIDACION,
-                                intentos = hito.intentos + 1,
-                                error = msg
-                            )
-                            revertirMarcajeLocal(servicioDao, hito.servicioId, hito.usuarioId, hito.tipo)
-                            Log.w("SYNC_WORKER", "Hito rechazado por negocio y revertido en Room: $msg")
-                        }
-                    }
-                    response.code() == 401 || response.code() == 403 -> {
-                        dao.actualizarEstado(
-                            clave = hito.claveIdempotencia,
-                            estado = EstadoSyncHito.PENDIENTE,
-                            intentos = hito.intentos + 1,
-                            error = "Sesión expirada. Inicia sesión para sincronizar."
-                        )
-                        requiereReintento = true
-                    }
-                    else -> {
-                        dao.actualizarEstado(
-                            clave = hito.claveIdempotencia,
-                            estado = EstadoSyncHito.PENDIENTE,
-                            intentos = hito.intentos + 1,
-                            error = "Error servidor HTTP ${response.code()}"
-                        )
-                        requiereReintento = true
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w("SYNC_WORKER", "Fallo de red al sincronizar ${hito.claveIdempotencia}", e)
-                dao.actualizarEstado(
-                    clave = hito.claveIdempotencia,
-                    estado = EstadoSyncHito.PENDIENTE,
-                    intentos = hito.intentos + 1,
-                    error = "Esperando conexión con el servidor..."
-                )
-                requiereReintento = true
             }
         }
 
-        return if (requiereReintento) Result.retry() else Result.success()
-    }
-
-    private fun extraerMensaje(rawJson: String?): String? {
-        if (rawJson.isNullOrBlank()) return null
-        return try {
-            gson.fromJson(rawJson, BackendErrorResponseDto::class.java)?.message
-        } catch (_: Exception) {
-            null
+        return when (resultado) {
+            ResultadoSyncHitos.SUCCESS -> Result.success()
+            ResultadoSyncHitos.RETRY -> Result.retry()
         }
-    }
-    private suspend fun revertirMarcajeLocal(
-        servicioDao: com.example.linceops.data.local.ServicioDao,
-        servicioId: String,
-        usuarioId: String,
-        tipo: String
-    ) {
-        val servicio = servicioDao.obtenerServicioPorId(servicioId) ?: return
-        val participantes = servicio.participaciones.map { p ->
-            if (p.usuarioId != usuarioId) {
-                p
-            } else if (tipo.equals("CHECK_IN", ignoreCase = true)) {
-                p.copy(
-                    estado = com.example.linceops.model.EstadoServicio.CONFIRMADO,
-                    checkIn = null,
-                    checkOut = null
-                )
-            } else {
-                p.copy(
-                    estado = if (p.checkIn != null) {
-                        com.example.linceops.model.EstadoServicio.EN_CURSO
-                    } else {
-                        com.example.linceops.model.EstadoServicio.CONFIRMADO
-                    },
-                    checkOut = null
-                )
-            }
-        }
-        val estados = participantes.map { it.estado }
-        val estadoGeneral = when {
-            estados.all { it == com.example.linceops.model.EstadoServicio.FINALIZADO } -> com.example.linceops.model.EstadoServicio.FINALIZADO
-            estados.any { it == com.example.linceops.model.EstadoServicio.EN_CURSO || it == com.example.linceops.model.EstadoServicio.FINALIZADO } -> com.example.linceops.model.EstadoServicio.EN_CURSO
-            estados.any { it == com.example.linceops.model.EstadoServicio.RECHAZADO } -> com.example.linceops.model.EstadoServicio.RECHAZADO
-            estados.all { it == com.example.linceops.model.EstadoServicio.CONFIRMADO } -> com.example.linceops.model.EstadoServicio.CONFIRMADO
-            else -> com.example.linceops.model.EstadoServicio.PENDIENTE
-        }
-        servicioDao.guardarServicio(servicio.copy(participaciones = participantes, estado = estadoGeneral))
     }
     companion object {
         private const val WORK_NAME = "linceops_sync_hitos_offline"

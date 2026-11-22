@@ -1,5 +1,6 @@
 package com.example.linceops.network
 
+import com.example.linceops.BuildConfig
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -13,7 +14,7 @@ object RetrofitClient {
     var apiKey: String = ""
 
     private val clienteHttp: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
             .readTimeout(8, TimeUnit.SECONDS)
             .writeTimeout(8, TimeUnit.SECONDS)
@@ -26,7 +27,10 @@ object RetrofitClient {
                 }
                 cadena.proceed(solicitud.build())
             }
-            .build()
+        if (BuildConfig.DEBUG) {
+            builder.addInterceptor(ApiHttpLoggingInterceptor())
+        }
+        builder.build()
     }
 
     val api: SouthboundApi by lazy {

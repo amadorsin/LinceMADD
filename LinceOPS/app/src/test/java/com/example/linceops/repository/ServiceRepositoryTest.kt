@@ -547,12 +547,17 @@ class ServiceRepositoryTest {
 
     @Test
     fun checkInYCheckOutOnlineNoEncolanHitos() = runBlocking {
+        backend.respuestaRegistrarMarcaje = { _, _, _, _ ->
+            retrofit2.Response.success(201, com.example.linceops.network.dto.MensajeResponseDto("Marcaje registrado"))
+        }
         dao.guardarServicio(servicio(estado = EstadoServicio.CONFIRMADO))
         val entrada = repository.cambiarEstadoServicio(
             "100", "20", EstadoServicio.EN_CURSO, latitud = -41.47, longitud = -72.94
         )
         assertTrue(entrada.isSuccess)
         assertEquals("CHECK_IN", backend.llamadasMarcaje.last().tipo)
+        assertEquals(-41.47, backend.llamadasMarcaje.last().latitud, 0.0)
+        assertEquals(-72.94, backend.llamadasMarcaje.last().longitud, 0.0)
         assertTrue(hitoDao.estado.value.isEmpty())
 
         ahoraMillis = 3_000L
@@ -562,6 +567,22 @@ class ServiceRepositoryTest {
         assertTrue(salida.isSuccess)
         assertEquals("CHECK_OUT", backend.llamadasMarcaje.last().tipo)
         assertTrue(hitoDao.estado.value.isEmpty())
+    }
+
+    @Test
+    fun checkIn401Y403NoEncolanNiCambianEstadoLocal() = runBlocking {
+        listOf(401, 403).forEach { codigo ->
+            dao.guardarServicio(servicio(estado = EstadoServicio.CONFIRMADO))
+            backend.respuestaRegistrarMarcaje = { _, _, _, _ -> respuestaError(codigo) }
+
+            val resultado = repository.cambiarEstadoServicio(
+                "100", "20", EstadoServicio.EN_CURSO, latitud = -41.47, longitud = -72.94
+            )
+
+            assertTrue("HTTP $codigo debe fallar", resultado.isFailure)
+            assertTrue("HTTP $codigo no debe encolar", hitoDao.estado.value.isEmpty())
+            assertEquals(EstadoServicio.CONFIRMADO, dao.snapshot().single().participaciones.single().estado)
+        }
     }
 
     @Test
