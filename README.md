@@ -86,6 +86,8 @@ El diseño emplea una paleta sobria inspirada en entornos naturales de turismo r
   * **Texto (`#222728`):** tipografía principal de alta legibilidad.
   * **Acento (`#F8E0A8`):** indicadores de tiempo y estados de preparación para marcaje.
 * **Diagrama de Flujo UML:** disponible en `docs/diseno/flujo-usuario-uml.png`.
+
+![Diagrama de Flujo UML - LinceOPS](docs/Diseno/flujo-usuario-uml.png)
 * **Prototipos de Pantallas (HTML interactivos):**
   * **Acceso / Validación:** `docs/evidencias/Diseno/Interfaces/InicioSesion`
   * **Dashboard por Rol:** `docs/evidencias/Diseno/Interfaces/Manager/DashBoard`, `.../Driver/DashBoard` y `.../Guia/DashBoard`
